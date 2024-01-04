@@ -18,27 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include QMK_KEYBOARD_H
 
 #include <stdio.h>
-#include <qp.h>
-
-// painter_device_t qp_st7789_make_spi_device(uint16_t panel_width, uint16_t panel_height, pin_t chip_select_pin, pin_t dc_pin, pin_t reset_pin, uint16_t spi_divisor, int spi_mode);
-static painter_device_t display;
-
-void keyboard_post_init_kb(void) {
-    display = qp_st7789_make_spi_device(135, 240, GP5, GP1, GP0, 15, 0);     // Create the display
-    setPinOutput(GP4);
-    writePinLow(GP4);
-    qp_init(display, QP_ROTATION_0);   // Initialise the display
-    qp_power(display, true);
-
-    // Draw r=4 filled circles down the left side of the display
-    for (int i = 0; i < 239; i+=8) {
-        qp_circle(display, 4, 4+i, 4, i, 255, 255, true);
-    }
-
-    qp_rect(display, 0, 0, 134, 239, 255, 255, 255, true);
-    //qp_flush(display);
-}
-
 
 // Tap Dance declarations
 enum {
@@ -180,6 +159,15 @@ enum layer_names {
     _MAC_NUM
 };
 
+#if defined(ENCODER_MAP_ENABLE)
+const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][2] = {
+    [_MAC_COLEMAK_DH] =   { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_MPRV, KC_MNXT) },
+    [_MAC_CODE] =  { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_MPRV, KC_MNXT) },
+    [_MAC_NAV] =  { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_MPRV, KC_MNXT) },
+    [_MAC_NUM] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU), ENCODER_CCW_CW(KC_MPRV, KC_MNXT) },
+};
+#endif
+
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_MAC_CODE] = LAYOUT_ortho_3x10_6(
         KC_UNDS, KC_LT,   KC_GT,   KC_LCBR, KC_RCBR,        KC_PIPE,  KC_AT,   KC_BSLS, KC_GRAVE, KC_ENT,
@@ -309,42 +297,3 @@ void osl_code_reset(qk_tap_dance_state_t *state, void *user_data) {
         layer_clear();
     }
 }
-
-// OLED
-//#ifdef OLED_ENABLE
-// Draw to OLED
-//bool oled_task_user() {
-//
-//    // Layer text
-//    oled_set_cursor(0, 1);
-//    switch (get_highest_layer(layer_state)) {
-//        case _MAC_CODE :
-//            oled_write_P(PSTR("MAC"), false);
-//            oled_set_cursor(0, 2);
-//            oled_write_P(PSTR("SYM"), false);
-//            break;
-//        case _MAC_NUM :
-//            oled_write_P(PSTR("MAC"), false);
-//            oled_set_cursor(0, 2);
-//            oled_write_P(PSTR("NUM"), false);
-//            break;
-//        case _MAC_NAV :
-//            oled_write_P(PSTR("MAC"), false);
-//            oled_set_cursor(0, 2);
-//            oled_write_P(PSTR("NAV"), false);
-//            break;
-//        case _MAC_COLEMAK_DH :
-//            oled_write_P(PSTR("MAC"), false);
-//            oled_set_cursor(0, 2);
-//            oled_write_P(PSTR("COLE"), false);
-//            break;
-//    }
-//
-//    // Caps lock text
-//    led_t led_state = host_keyboard_led_state();
-//    oled_set_cursor(0, 3);
-//    oled_write_P(led_state.caps_lock ? PSTR("CAPS") : PSTR(""), false);
-//
-//    return false;
-//}
-//#endif
