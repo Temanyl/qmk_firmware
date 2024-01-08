@@ -18,9 +18,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 
 // Define options
-#define IGNORE_MOD_TAP_INTERRUP
+#define IGNORE_MOD_TAP_INTERRUPT
 #define TAPPING_TERM 250
 #define PERMISSIVE_HOLD
 #define TAPPING_TERM_PER_KEY
-#define ENCODERS_PAD_A { GP5, GP10 }
-#define ENCODERS_PAD_B { GP6, GP11 }
+#define ONESHOT_TIMEOUT 2000
+#define ENCODERS_PAD_A { GP15, GP10 }
+#define ENCODERS_PAD_B { GP12, GP7 }
+#define ENCODER_DIRECTION_FLIP
