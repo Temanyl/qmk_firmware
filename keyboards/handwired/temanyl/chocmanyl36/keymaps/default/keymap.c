@@ -24,6 +24,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // Display configuration
 painter_device_t display;
 static uint8_t current_display_layer = 255; // Track currently displayed layer
+static uint8_t backlight_brightness = 26;   // Current brightness level (10% default)
+
+// Custom keycodes
+enum custom_keycodes {
+    DISP_UP = SAFE_RANGE,  // Display brightness up
+    DISP_DN,               // Display brightness down
+};
 
 // Layer Names
 enum layer_names {
@@ -70,6 +77,13 @@ void update_display_for_layer(void) {
     set_layer_background(get_highest_layer(layer_state));
 }
 
+// Set backlight brightness via PWM
+void set_backlight_brightness(uint8_t brightness) {
+    backlight_brightness = brightness;
+    // Update PWM duty cycle (channel A compare value)
+    *(volatile uint32_t*)(0x40050028 + 0x0C) = brightness;
+}
+
 // Initialize the ST7789 display
 static void init_display(void) {
     // CRITICAL: Enable display power on GP22 (LILYGO board power enable)
@@ -111,10 +125,19 @@ static void init_display(void) {
     // Set GPIO4 to PWM function
     *(volatile uint32_t*)(0x40014024) = 4;
 
+    /*
+      - 26 = 10%
+      - 51 = 20%
+      - 77 = 30%
+      - 102 = 40%
+      - 128 = 50%
+      - 191 = 75%
+      - 255 = 100%
+    */
     // Configure PWM slice 2 (GP4 = PWM2_A)
     *(volatile uint32_t*)(0x40050028 + 0x04) = 16 << 4;  // DIV: no division
     *(volatile uint32_t*)(0x40050028 + 0x10) = 255;      // TOP: wrap at 255
-    *(volatile uint32_t*)(0x40050028 + 0x0C) = 26;      // CC: channel A = 128 (50%)
+    *(volatile uint32_t*)(0x40050028 + 0x0C) = 102;      // CC: channel A = 128 (50%)
     *(volatile uint32_t*)(0x40050028 + 0x00) = 0x01;     // CSR: enable
 
     // Fill screen with white background (135x240 portrait)
@@ -262,7 +285,26 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             // Let QMK process the KC_BSPC keycode as usual outside of shift
             return true;
         }
-
+        case DISP_UP:
+            if (record->event.pressed) {
+                // Increase brightness by ~10% (25 steps)
+                if (backlight_brightness < 230) {
+                    set_backlight_brightness(backlight_brightness + 25);
+                } else {
+                    set_backlight_brightness(255); // Max brightness
+                }
+            }
+            return false;
+        case DISP_DN:
+            if (record->event.pressed) {
+                // Decrease brightness by ~10% (25 steps)
+                if (backlight_brightness > 25) {
+                    set_backlight_brightness(backlight_brightness - 25);
+                } else {
+                    set_backlight_brightness(1); // Min brightness (not off)
+                }
+            }
+            return false;
     }
     return true;
 }
@@ -286,9 +328,9 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                           KC_TAB, TD(TD_LAYER_DEFAULT_SHIFT), KC_SPC,          KC_BSPC, KC_NO, TO(_MAC_CODE)
     ),
     [_MAC_NUM] = LAYOUT_ortho_3x10_6(
-         KC_F1,   KC_F2, KC_F3,   KC_F4,   KC_F5,          KC_DOT,   KC_7,   KC_8,  KC_9, KC_ENT,
-         KC_F6,   KC_F7, KC_F8,   KC_F9,   KC_F10,         KC_COMMA, KC_4,   KC_5,  KC_6, KC_NO,
-         KC_F11,  KC_F12,KC_LCTL, KC_LALT, KC_LGUI,        KC_0,     KC_1,   KC_2,  KC_3, KC_NO,
+         KC_F1,   KC_F2, KC_F3,   KC_F4,   KC_F5,          KC_DOT,   KC_7,   KC_8,  KC_9,   KC_ENT,
+         KC_F6,   KC_F7, KC_F8,   KC_F9,   KC_F10,         KC_COMMA, KC_4,   KC_5,  KC_6,   DISP_UP,
+         KC_F11,  KC_F12,KC_LCTL, KC_LALT, KC_LGUI,        KC_0,     KC_1,   KC_2,  KC_3,   DISP_DN,
                          KC_TAB, TD(TD_LAYER_DEFAULT_SHIFT), KC_SPC,           KC_BSPC, TO(_MAC_NAV), KC_NO
     ),
     [_MAC_COLEMAK_DH] = LAYOUT_ortho_3x10_6(
