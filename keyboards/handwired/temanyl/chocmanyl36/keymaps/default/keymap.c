@@ -24,19 +24,66 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 static painter_device_t display;
 
 void keyboard_post_init_kb(void) {
-    display = qp_st7789_make_spi_device(135, 240, GP5, GP1, GP0, 15, 0);     // Create the display
-    setPinOutput(GP4);
-    writePinLow(GP4);
-    qp_init(display, QP_ROTATION_0);   // Initialise the display
-    qp_power(display, true);
+    // CRITICAL: Enable display power on GP22 (LILYGO board power enable)
+    setPinOutput(GP22);
+    writePinHigh(GP22);
 
-    // Draw r=4 filled circles down the left side of the display
-    for (int i = 0; i < 239; i+=8) {
-        qp_circle(display, 4, 4+i, 4, i, 255, 255, true);
+    // Small delay to let power stabilize
+    wait_ms(50);
+
+    // Create display: 240x135 physical dimensions (landscape by default)
+    // Using SPI mode 3 and slower divisor (16) for reliable communication
+    display = qp_st7789_make_spi_device(240, 135, GP5, GP1, GP0, 16, 3);
+
+    // LILYGO T-Display RP2040: ST7789 240x135 display
+    // No offsets needed - display is properly aligned at (0, 0)
+    qp_set_viewport_offsets(display, 40, 53);
+
+    // Initialize with 180° rotation (flip display for proper orientation)
+    if (!qp_init(display, QP_ROTATION_90)) {
+        return;  // Initialization failed
     }
 
-    qp_rect(display, 0, 0, 134, 239, 255, 255, 255, true);
-    //qp_flush(display);
+    // Power on display
+    if (!qp_power(display, true)) {
+        return;  // Power on failed
+    }
+
+    // Wait for display to stabilize
+    wait_ms(50);
+
+    // Enable backlight on GP4 AFTER display is initialized
+    setPinOutput(GP4);
+    writePinHigh(GP4);
+
+    // Test full screen: fill with dark gray
+    qp_rect(display, 0, 0, 239, 134, 0, 0, 32, true);
+    wait_ms(100);
+
+    // Draw corner markers to verify full screen coverage
+    // Top-left corner (red)
+    qp_rect(display, 0, 0, 20, 20, 0, 255, 255, true);
+
+    // Top-right corner (green)
+    qp_rect(display, 219, 0, 239, 20, 85, 255, 255, true);
+
+    // Bottom-left corner (blue)
+    qp_rect(display, 0, 114, 20, 134, 170, 255, 255, true);
+
+    // Bottom-right corner (yellow)
+    qp_rect(display, 219, 114, 239, 134, 42, 255, 255, true);
+
+    // Center rectangle (white)
+    qp_rect(display, 100, 50, 140, 85, 0, 0, 255, true);
+
+    // Rainbow gradient across full width
+    for (int x = 0; x < 240; x++) {
+        uint8_t hue = (x * 255) / 240;
+        qp_rect(display, x, 60, x, 75, hue, 255, 255, true);
+    }
+
+    // Force flush to ensure everything is drawn
+    qp_flush(display);
 }
 
 
@@ -68,20 +115,20 @@ typedef struct {
 // Declare the functions to be used with your tap dance key(s)
 
 // Function associated with all tap dances
-td_state_t cur_dance(qk_tap_dance_state_t *state);
+td_state_t cur_dance(tap_dance_state_t *state);
 
 // Functions associated with individual tap dances
-void nav_num_finished(qk_tap_dance_state_t *state, void *user_data);
-void nav_num_reset(qk_tap_dance_state_t *state, void *user_data);
-void layer_default_shift_finished(qk_tap_dance_state_t *state, void *user_data);
-void layer_default_shift_reset(qk_tap_dance_state_t *state, void *user_data);
-void osl_code_finished(qk_tap_dance_state_t *state, void *user_data);
-void osl_code_reset(qk_tap_dance_state_t *state, void *user_data);
+void nav_num_finished(tap_dance_state_t *state, void *user_data);
+void nav_num_reset(tap_dance_state_t *state, void *user_data);
+void layer_default_shift_finished(tap_dance_state_t *state, void *user_data);
+void layer_default_shift_reset(tap_dance_state_t *state, void *user_data);
+void osl_code_finished(tap_dance_state_t *state, void *user_data);
+void osl_code_reset(tap_dance_state_t *state, void *user_data);
 
 
 // #############################################################
 
-void td_q_esc_emoji_reset (qk_tap_dance_state_t *state, void *user_data) {
+void td_q_esc_emoji_reset (tap_dance_state_t *state, void *user_data) {
     if (state->count == 1) {
         tap_code(KC_Q);
     } else if (state->count == 2) {
@@ -94,7 +141,7 @@ void td_q_esc_emoji_reset (qk_tap_dance_state_t *state, void *user_data) {
 }
 
  // Tap Dance definitions
-qk_tap_dance_action_t tap_dance_actions[] = {
+tap_dance_action_t tap_dance_actions[] = {
     [TD_Q_ESC_EMOJI_RESET]   = ACTION_TAP_DANCE_FN(td_q_esc_emoji_reset),
     [TD_LAYER_NAV_NUM]       = ACTION_TAP_DANCE_FN_ADVANCED(NULL, nav_num_finished, nav_num_reset),
     [TD_LAYER_DEFAULT_SHIFT] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, layer_default_shift_finished, layer_default_shift_reset),
@@ -188,9 +235,9 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                             KC_TAB, TD(TD_LAYER_DEFAULT_SHIFT), KC_SPC,        KC_BSPC,  TO(_MAC_NAV), KC_NO
     ),
     [_MAC_NAV] = LAYOUT_ortho_3x10_6(
-        KC_ESC,  KC_BTN1, KC_MS_U, KC_BTN2, KC_NO,          KC_VOLU, KC_PGUP, KC_UP,    KC_PGDN, KC_ENT,
+        KC_ESC,  MS_BTN1, MS_UP, MS_BTN2, KC_NO,          KC_VOLU, KC_PGUP, KC_UP,    KC_PGDN, KC_ENT,
         KC_NO,   KC_LCTL, KC_LALT, KC_LGUI, KC_MPLY,        KC_MUTE, KC_LEFT, KC_DOWN,  KC_RGHT, KC_NO,
-        KC_NO,   KC_MS_L, KC_MS_D, KC_MS_R, KC_NO,          KC_VOLD, KC_NO,   KC_NO,    KC_NO,   KC_NO,
+        KC_NO,   MS_LEFT, MS_DOWN, MS_RGHT, KC_NO,          KC_VOLD, KC_NO,   KC_NO,    KC_NO,   KC_NO,
                           KC_TAB, TD(TD_LAYER_DEFAULT_SHIFT), KC_SPC,          KC_BSPC, KC_NO, TO(_MAC_CODE)
     ),
     [_MAC_NUM] = LAYOUT_ortho_3x10_6(
@@ -209,7 +256,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 // tap dances again
 // Determine the current tap dance state
-td_state_t cur_dance(qk_tap_dance_state_t *state) {
+td_state_t cur_dance(tap_dance_state_t *state) {
     if (state->count == 1) {
         if (!state->pressed) return TD_SINGLE_TAP;
         else return TD_SINGLE_HOLD;
@@ -224,7 +271,7 @@ static td_tap_t ql_tap_state = {
 };
 
 // Functions that control what our tap dance key does
-void nav_num_finished(qk_tap_dance_state_t *state, void *user_data) {
+void nav_num_finished(tap_dance_state_t *state, void *user_data) {
     ql_tap_state.state = cur_dance(state);
     switch (ql_tap_state.state) {
         case TD_SINGLE_TAP:
@@ -255,7 +302,7 @@ void nav_num_finished(qk_tap_dance_state_t *state, void *user_data) {
     }
 }
 
-void nav_num_reset(qk_tap_dance_state_t *state, void *user_data) {
+void nav_num_reset(tap_dance_state_t *state, void *user_data) {
     // If the key was held down and now is released then switch off the layer
     if (ql_tap_state.state != TD_DOUBLE_TAP) {
         layer_off(_MAC_NUM);
@@ -264,7 +311,7 @@ void nav_num_reset(qk_tap_dance_state_t *state, void *user_data) {
 }
 
 // Functions that control what our tap dance key does
-void layer_default_shift_finished(qk_tap_dance_state_t *state, void *user_data) {
+void layer_default_shift_finished(tap_dance_state_t *state, void *user_data) {
     ql_tap_state.state = cur_dance(state);
     switch (ql_tap_state.state) {
         case TD_SINGLE_TAP:
@@ -278,7 +325,7 @@ void layer_default_shift_finished(qk_tap_dance_state_t *state, void *user_data) 
     }
 }
 
-void layer_default_shift_reset(qk_tap_dance_state_t *state, void *user_data) {
+void layer_default_shift_reset(tap_dance_state_t *state, void *user_data) {
     // If the key was held down and now is released then switch off the layer
     if (ql_tap_state.state == TD_SINGLE_HOLD) {
          unregister_code(KC_LSFT);
@@ -286,7 +333,7 @@ void layer_default_shift_reset(qk_tap_dance_state_t *state, void *user_data) {
     ql_tap_state.state = TD_NONE;
 }
 
-void osl_code_finished(qk_tap_dance_state_t *state, void *user_data) {
+void osl_code_finished(tap_dance_state_t *state, void *user_data) {
     ql_tap_state.state = cur_dance(state);
     switch (ql_tap_state.state) {
         case TD_SINGLE_TAP:
@@ -300,7 +347,7 @@ void osl_code_finished(qk_tap_dance_state_t *state, void *user_data) {
     }
 }
 
-void osl_code_reset(qk_tap_dance_state_t *state, void *user_data) {
+void osl_code_reset(tap_dance_state_t *state, void *user_data) {
     ql_tap_state.state = cur_dance(state);
     // If the key was held down and now is released then switch off the layer
     if (ql_tap_state.state == TD_SINGLE_TAP) {
