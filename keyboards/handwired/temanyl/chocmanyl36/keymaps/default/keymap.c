@@ -19,11 +19,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <stdio.h>
 #include <qp.h>
+#include "draw_logo.h"
 
-// painter_device_t qp_st7789_make_spi_device(uint16_t panel_width, uint16_t panel_height, pin_t chip_select_pin, pin_t dc_pin, pin_t reset_pin, uint16_t spi_divisor, int spi_mode);
+// Display configuration
 static painter_device_t display;
 
-void keyboard_post_init_kb(void) {
+// Initialize the ST7789 display
+static void init_display(void) {
     // CRITICAL: Enable display power on GP22 (LILYGO board power enable)
     setPinOutput(GP22);
     writePinHigh(GP22);
@@ -31,22 +33,21 @@ void keyboard_post_init_kb(void) {
     // Small delay to let power stabilize
     wait_ms(50);
 
-    // Create display: 240x135 physical dimensions (landscape by default)
+    // Create display: 135x240 portrait mode (rotated 90°)
     // Using SPI mode 3 and slower divisor (16) for reliable communication
-    display = qp_st7789_make_spi_device(240, 135, GP5, GP1, GP0, 16, 3);
+    display = qp_st7789_make_spi_device(135, 240, GP5, GP1, GP0, 16, 3);
 
-    // LILYGO T-Display RP2040: ST7789 240x135 display
-    // No offsets needed - display is properly aligned at (0, 0)
-    qp_set_viewport_offsets(display, 40, 53);
+    // LILYGO T-Display RP2040: Portrait mode with proper offsets
+    qp_set_viewport_offsets(display, 52, 40);
 
-    // Initialize with 180° rotation (flip display for proper orientation)
-    if (!qp_init(display, QP_ROTATION_90)) {
+    // Initialize with 180° rotation (controller mounted upside down)
+    if (!qp_init(display, QP_ROTATION_180)) {
         return;  // Initialization failed
     }
 
     // Power on display
     if (!qp_power(display, true)) {
-        return;  // Power on failed
+        return;  // Power on failed4
     }
 
     // Wait for display to stabilize
@@ -56,34 +57,21 @@ void keyboard_post_init_kb(void) {
     setPinOutput(GP4);
     writePinHigh(GP4);
 
-    // Test full screen: fill with dark gray
-    qp_rect(display, 0, 0, 239, 134, 0, 0, 32, true);
-    wait_ms(100);
+    // Fill screen with white background (135x240 portrait)
+    qp_rect(display, 0, 0, 134, 239, 0, 0, 255, true);
+    wait_ms(50);
 
-    // Draw corner markers to verify full screen coverage
-    // Top-left corner (red)
-    qp_rect(display, 0, 0, 20, 20, 0, 255, 255, true);
-
-    // Top-right corner (green)
-    qp_rect(display, 219, 0, 239, 20, 85, 255, 255, true);
-
-    // Bottom-left corner (blue)
-    qp_rect(display, 0, 114, 20, 134, 170, 255, 255, true);
-
-    // Bottom-right corner (yellow)
-    qp_rect(display, 219, 114, 239, 134, 42, 255, 255, true);
-
-    // Center rectangle (white)
-    qp_rect(display, 100, 50, 140, 85, 0, 0, 255, true);
-
-    // Rainbow gradient across full width
-    for (int x = 0; x < 240; x++) {
-        uint8_t hue = (x * 255) / 240;
-        qp_rect(display, x, 60, x, 75, hue, 255, 255, true);
-    }
+    // Draw the Amboss logo in teal using line-by-line rendering
+    // Logo is 120x120, centered horizontally (135-120)/2 = 7.5, vertically centered at 60
+    draw_amboss_logo_teal(display, 7, 60);
 
     // Force flush to ensure everything is drawn
     qp_flush(display);
+}
+
+void keyboard_post_init_kb(void) {
+    // Initialize the display
+    init_display();
 }
 
 

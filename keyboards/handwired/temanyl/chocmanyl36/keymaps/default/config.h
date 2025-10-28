@@ -23,4 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define TAPPING_TERM_PER_KEY
 #define ONESHOT_TIMEOUT 2000
 
-#define OLED_DISPLAY_134_240
+// Quantum Painter display settings
+// Set to 0 to disable timeout and keep display always on
+// Default is 30000 (30 seconds)
+#define QUANTUM_PAINTER_DISPLAY_TIMEOUT 60000
