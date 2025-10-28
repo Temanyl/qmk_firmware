@@ -22,7 +22,53 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "draw_logo.h"
 
 // Display configuration
-static painter_device_t display;
+painter_device_t display;
+static uint8_t current_display_layer = 255; // Track currently displayed layer
+
+// Layer Names
+enum layer_names {
+    _MAC_COLEMAK_DH,
+    _MAC_CODE,
+    _MAC_NAV,
+    _MAC_NUM
+};
+
+// Function to set background color based on layer
+void set_layer_background(uint8_t layer) {
+    // Only update if the layer actually changed
+    if (layer == current_display_layer) {
+        return;
+    }
+    current_display_layer = layer;
+
+    switch (layer) {
+        case _MAC_COLEMAK_DH:
+            // White background for base layer (HSV: no hue, no saturation, full brightness)
+            qp_rect(display, 0, 0, 134, 239, 0, 0, 255, true);
+            break;
+        case _MAC_NAV:
+            // Pastel green for navigation layer (HSV: green hue ~85, low saturation for pastel)
+            qp_rect(display, 0, 0, 134, 239, 85, 150, 230, true);
+            break;
+        case _MAC_CODE:
+            // Pastel red for symbols layer (HSV: red hue 0, low saturation for pastel)
+            qp_rect(display, 0, 0, 134, 239, 0, 150, 255, true);
+            break;
+        case _MAC_NUM:
+            // Pastel blue for numbers layer (HSV: blue hue ~170, low saturation for pastel)
+            qp_rect(display, 0, 0, 134, 239, 170, 70, 255, true);
+            break;
+    }
+
+    // Redraw the logo after changing background
+    draw_amboss_logo_teal(display, 7, 60);
+    qp_flush(display);
+}
+
+// Update display based on current layer state
+void update_display_for_layer(void) {
+    set_layer_background(get_highest_layer(layer_state));
+}
 
 // Initialize the ST7789 display
 static void init_display(void) {
@@ -53,9 +99,23 @@ static void init_display(void) {
     // Wait for display to stabilize
     wait_ms(50);
 
-    // Enable backlight on GP4 AFTER display is initialized
-    setPinOutput(GP4);
-    writePinHigh(GP4);
+    // Dim backlight on GP4 using PWM (50% brightness)
+    // First unreset the PWM peripheral (RESETS_BASE=0x4000c000, bit 14 for PWM)
+    *(volatile uint32_t*)(0x4000c000) &= ~(1 << 14);  // Clear PWM reset bit
+
+    // Wait for PWM reset to complete
+    while (!(*(volatile uint32_t*)(0x4000c008) & (1 << 14))) {
+        wait_ms(1);
+    }
+
+    // Set GPIO4 to PWM function
+    *(volatile uint32_t*)(0x40014024) = 4;
+
+    // Configure PWM slice 2 (GP4 = PWM2_A)
+    *(volatile uint32_t*)(0x40050028 + 0x04) = 16 << 4;  // DIV: no division
+    *(volatile uint32_t*)(0x40050028 + 0x10) = 255;      // TOP: wrap at 255
+    *(volatile uint32_t*)(0x40050028 + 0x0C) = 26;      // CC: channel A = 128 (50%)
+    *(volatile uint32_t*)(0x40050028 + 0x00) = 0x01;     // CSR: enable
 
     // Fill screen with white background (135x240 portrait)
     qp_rect(display, 0, 0, 134, 239, 0, 0, 255, true);
@@ -207,13 +267,10 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
-// Layer Names
-enum layer_names {
-    _MAC_COLEMAK_DH,
-    _MAC_CODE,
-    _MAC_NAV,
-    _MAC_NUM
-};
+// Periodically check and update display based on active layer
+void housekeeping_task_user(void) {
+    update_display_for_layer();
+}
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_MAC_CODE] = LAYOUT_ortho_3x10_6(
