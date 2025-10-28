@@ -43,7 +43,7 @@ enum layer_names {
 // Forward declarations
 void draw_brightness_bar(void);
 
-// Function to set background color based on layer
+// Function to draw logo with color based on layer
 void set_layer_background(uint8_t layer) {
     // Only update if the layer actually changed
     if (layer == current_display_layer) {
@@ -51,27 +51,36 @@ void set_layer_background(uint8_t layer) {
     }
     current_display_layer = layer;
 
+    // Always draw white background
+    qp_rect(display, 0, 0, 134, 239, 0, 0, 255, true);
+
+    // Select logo color based on layer
+    uint8_t hue, sat, val;
     switch (layer) {
         case _MAC_COLEMAK_DH:
-            // White background for base layer (HSV: no hue, no saturation, full brightness)
-            qp_rect(display, 0, 0, 134, 239, 0, 0, 255, true);
+            // Teal logo for base layer (original color)
+            hue = 128; sat = 255; val = 255;
             break;
         case _MAC_NAV:
-            // Pastel green for navigation layer (HSV: green hue ~85, low saturation for pastel)
-            qp_rect(display, 0, 0, 134, 239, 85, 150, 230, true);
+            // Green logo for navigation layer
+            hue = 85; sat = 255; val = 255;
             break;
         case _MAC_CODE:
-            // Pastel red for symbols layer (HSV: red hue 0, low saturation for pastel)
-            qp_rect(display, 0, 0, 134, 239, 0, 150, 255, true);
+            // Red logo for symbols layer
+            hue = 0; sat = 255; val = 255;
             break;
         case _MAC_NUM:
-            // Pastel blue for numbers layer (HSV: blue hue ~170, low saturation for pastel)
-            qp_rect(display, 0, 0, 134, 239, 170, 150, 255, true);
+            // Yellow logo for numbers layer
+            hue = 43; sat = 255; val = 255;
+            break;
+        default:
+            // Default to teal
+            hue = 128; sat = 255; val = 255;
             break;
     }
 
-    // Redraw the logo after changing background
-    draw_amboss_logo_teal(display, 7, 60);
+    // Draw the logo with the selected color
+    draw_amboss_logo(display, 7, 60, hue, sat, val);
 
     // Redraw brightness bar
     draw_brightness_bar();
@@ -89,24 +98,8 @@ void draw_brightness_bar(void) {
     // Calculate bar width based on brightness (max width 120 pixels, leaving margins)
     uint16_t bar_width = (backlight_brightness * 120) / 255;
 
-    // Get current layer to know which background color to use
-    uint8_t layer = get_highest_layer(layer_state);
-
-    // Clear bottom area with background color
-    switch (layer) {
-        case _MAC_COLEMAK_DH:
-            qp_rect(display, 0, 225, 134, 239, 0, 0, 255, true);  // White
-            break;
-        case _MAC_NAV:
-            qp_rect(display, 0, 225, 134, 239, 85, 150, 230, true);  // Green
-            break;
-        case _MAC_CODE:
-            qp_rect(display, 0, 225, 134, 239, 0, 150, 255, true);  // Red
-            break;
-        case _MAC_NUM:
-            qp_rect(display, 0, 225, 134, 239, 170, 70, 255, true);  // Blue
-            break;
-    }
+    // Clear bottom area with white background (since we're using borders now)
+    qp_rect(display, 0, 225, 134, 239, 0, 0, 255, true);
 
     // Draw brightness bar outline (thin dark grey border)
     qp_rect(display, 5, 230, 127, 236, 0, 0, 80, false);
@@ -190,7 +183,7 @@ static void init_display(void) {
 
     // Draw the Amboss logo in teal using line-by-line rendering
     // Logo is 120x120, centered horizontally (135-120)/2 = 7.5, vertically centered at 60
-    draw_amboss_logo_teal(display, 7, 60);
+    draw_amboss_logo(display, 7, 60, 128, 255, 255);  // Teal color
 
     // Update brightness variable to match the PWM setting
     backlight_brightness = 102;
