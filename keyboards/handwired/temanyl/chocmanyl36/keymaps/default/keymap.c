@@ -41,7 +41,7 @@ enum layer_names {
 };
 
 // Forward declarations
-void draw_brightness_bar(void);
+void draw_brightness_bar(uint8_t hue, uint8_t sat, uint8_t val);
 
 // Function to draw logo with color based on layer
 void set_layer_background(uint8_t layer) {
@@ -82,8 +82,8 @@ void set_layer_background(uint8_t layer) {
     // Draw the logo with the selected color
     draw_amboss_logo(display, 7, 60, hue, sat, val);
 
-    // Redraw brightness bar
-    draw_brightness_bar();
+    // Redraw brightness bar with the same color
+    draw_brightness_bar(hue, sat, val);
 
     qp_flush(display);
 }
@@ -94,19 +94,19 @@ void update_display_for_layer(void) {
 }
 
 // Draw brightness bar at bottom of screen
-void draw_brightness_bar(void) {
+void draw_brightness_bar(uint8_t hue, uint8_t sat, uint8_t val) {
     // Calculate bar width based on brightness (max width 120 pixels, leaving margins)
     uint16_t bar_width = (backlight_brightness * 120) / 255;
 
-    // Clear bottom area with white background (since we're using borders now)
+    // Clear bottom area with white background
     qp_rect(display, 0, 225, 134, 239, 0, 0, 255, true);
 
     // Draw brightness bar outline (thin dark grey border)
     qp_rect(display, 5, 230, 127, 236, 0, 0, 80, false);
 
-    // Draw filled brightness bar (light grey)
+    // Draw filled brightness bar using the logo color
     if (bar_width > 0) {
-        qp_rect(display, 6, 231, 6 + bar_width, 235, 0, 15, 200, true);
+        qp_rect(display, 6, 231, 6 + bar_width, 235, hue, sat, val, true);
     }
 
     qp_flush(display);
@@ -117,8 +117,30 @@ void set_backlight_brightness(uint8_t brightness) {
     backlight_brightness = brightness;
     // Update PWM duty cycle (channel A compare value)
     *(volatile uint32_t*)(0x40050028 + 0x0C) = brightness;
-    // Update display
-    draw_brightness_bar();
+
+    // Get current layer color for the brightness bar
+    uint8_t layer = get_highest_layer(layer_state);
+    uint8_t hue, sat, val;
+    switch (layer) {
+        case _MAC_COLEMAK_DH:
+            hue = 128; sat = 255; val = 255;
+            break;
+        case _MAC_NAV:
+            hue = 85; sat = 255; val = 255;
+            break;
+        case _MAC_CODE:
+            hue = 0; sat = 255; val = 255;
+            break;
+        case _MAC_NUM:
+            hue = 43; sat = 255; val = 255;
+            break;
+        default:
+            hue = 128; sat = 255; val = 255;
+            break;
+    }
+
+    // Update display with current layer color
+    draw_brightness_bar(hue, sat, val);
 }
 
 // Initialize the ST7789 display
@@ -188,8 +210,8 @@ static void init_display(void) {
     // Update brightness variable to match the PWM setting
     backlight_brightness = 102;
 
-    // Draw initial brightness bar
-    draw_brightness_bar();
+    // Draw initial brightness bar with teal color (base layer)
+    draw_brightness_bar(128, 255, 255);
 
     // Force flush to ensure everything is drawn
     qp_flush(display);
