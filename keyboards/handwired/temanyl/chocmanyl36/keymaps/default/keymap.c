@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // Display configuration
 painter_device_t display;
 static uint8_t current_display_layer = 255; // Track currently displayed layer
-static uint8_t backlight_brightness = 26;   // Current brightness level (10% default)
+static uint8_t backlight_brightness = 102;  // Current brightness level (40% default)
 
 // Custom keycodes
 enum custom_keycodes {
@@ -39,6 +39,9 @@ enum layer_names {
     _MAC_NAV,
     _MAC_NUM
 };
+
+// Forward declarations
+void draw_brightness_bar(void);
 
 // Function to set background color based on layer
 void set_layer_background(uint8_t layer) {
@@ -63,12 +66,16 @@ void set_layer_background(uint8_t layer) {
             break;
         case _MAC_NUM:
             // Pastel blue for numbers layer (HSV: blue hue ~170, low saturation for pastel)
-            qp_rect(display, 0, 0, 134, 239, 170, 70, 255, true);
+            qp_rect(display, 0, 0, 134, 239, 170, 150, 255, true);
             break;
     }
 
     // Redraw the logo after changing background
     draw_amboss_logo_teal(display, 7, 60);
+
+    // Redraw brightness bar
+    draw_brightness_bar();
+
     qp_flush(display);
 }
 
@@ -77,11 +84,48 @@ void update_display_for_layer(void) {
     set_layer_background(get_highest_layer(layer_state));
 }
 
+// Draw brightness bar at bottom of screen
+void draw_brightness_bar(void) {
+    // Calculate bar width based on brightness (max width 120 pixels, leaving margins)
+    uint16_t bar_width = (backlight_brightness * 120) / 255;
+
+    // Get current layer to know which background color to use
+    uint8_t layer = get_highest_layer(layer_state);
+
+    // Clear bottom area with background color
+    switch (layer) {
+        case _MAC_COLEMAK_DH:
+            qp_rect(display, 0, 225, 134, 239, 0, 0, 255, true);  // White
+            break;
+        case _MAC_NAV:
+            qp_rect(display, 0, 225, 134, 239, 85, 150, 230, true);  // Green
+            break;
+        case _MAC_CODE:
+            qp_rect(display, 0, 225, 134, 239, 0, 150, 255, true);  // Red
+            break;
+        case _MAC_NUM:
+            qp_rect(display, 0, 225, 134, 239, 170, 70, 255, true);  // Blue
+            break;
+    }
+
+    // Draw brightness bar outline (thin dark grey border)
+    qp_rect(display, 5, 230, 127, 236, 0, 0, 80, false);
+
+    // Draw filled brightness bar (light grey)
+    if (bar_width > 0) {
+        qp_rect(display, 6, 231, 6 + bar_width, 235, 0, 15, 200, true);
+    }
+
+    qp_flush(display);
+}
+
 // Set backlight brightness via PWM
 void set_backlight_brightness(uint8_t brightness) {
     backlight_brightness = brightness;
     // Update PWM duty cycle (channel A compare value)
     *(volatile uint32_t*)(0x40050028 + 0x0C) = brightness;
+    // Update display
+    draw_brightness_bar();
 }
 
 // Initialize the ST7789 display
@@ -147,6 +191,12 @@ static void init_display(void) {
     // Draw the Amboss logo in teal using line-by-line rendering
     // Logo is 120x120, centered horizontally (135-120)/2 = 7.5, vertically centered at 60
     draw_amboss_logo_teal(display, 7, 60);
+
+    // Update brightness variable to match the PWM setting
+    backlight_brightness = 102;
+
+    // Draw initial brightness bar
+    draw_brightness_bar();
 
     // Force flush to ensure everything is drawn
     qp_flush(display);
