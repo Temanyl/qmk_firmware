@@ -104,29 +104,30 @@ void draw_uptime_timer(void) {
         default: hue = 128; sat = 255; val = 255; break;
     }
 
-    // Clear top area (white background) - always show day counter
-    qp_rect(display, 0, 0, 134, 50, 0, 0, 255, true);
+    // Clear timer area above brightness bar (white background)
+    qp_rect(display, 0, 165, 134, 225, 0, 0, 255, true);
 
     // Draw "Day" label and number centered (much larger, more readable)
     uint16_t day_x = (135 - 65) / 2;  // Center position for wider text
+    uint16_t day_y = 168;  // Start position above brightness bar
 
     // Draw "Day" text - much larger (~8x11 pixels per letter, 2px thick)
     // D
-    qp_rect(display, day_x, 3, day_x + 2, 13, hue, sat, val, true);      // left vertical (thick)
-    qp_rect(display, day_x + 2, 3, day_x + 7, 5, hue, sat, val, true);   // top horizontal (thick)
-    qp_rect(display, day_x + 6, 5, day_x + 8, 11, hue, sat, val, true);  // right vertical (thick)
-    qp_rect(display, day_x + 2, 11, day_x + 7, 13, hue, sat, val, true); // bottom horizontal (thick)
+    qp_rect(display, day_x, day_y, day_x + 2, day_y + 10, hue, sat, val, true);      // left vertical (thick)
+    qp_rect(display, day_x + 2, day_y, day_x + 7, day_y + 2, hue, sat, val, true);   // top horizontal (thick)
+    qp_rect(display, day_x + 6, day_y + 2, day_x + 8, day_y + 8, hue, sat, val, true);  // right vertical (thick)
+    qp_rect(display, day_x + 2, day_y + 8, day_x + 7, day_y + 10, hue, sat, val, true); // bottom horizontal (thick)
 
     // a
-    qp_rect(display, day_x + 11, 7, day_x + 16, 9, hue, sat, val, true);  // top (thick)
-    qp_rect(display, day_x + 15, 7, day_x + 17, 13, hue, sat, val, true); // right vertical (thick)
-    qp_rect(display, day_x + 11, 11, day_x + 16, 13, hue, sat, val, true); // bottom (thick)
-    qp_rect(display, day_x + 10, 9, day_x + 12, 13, hue, sat, val, true);  // left vertical short (thick)
+    qp_rect(display, day_x + 11, day_y + 4, day_x + 16, day_y + 6, hue, sat, val, true);  // top (thick)
+    qp_rect(display, day_x + 15, day_y + 4, day_x + 17, day_y + 10, hue, sat, val, true); // right vertical (thick)
+    qp_rect(display, day_x + 11, day_y + 8, day_x + 16, day_y + 10, hue, sat, val, true); // bottom (thick)
+    qp_rect(display, day_x + 10, day_y + 6, day_x + 12, day_y + 10, hue, sat, val, true);  // left vertical short (thick)
 
     // y
-    qp_rect(display, day_x + 21, 7, day_x + 23, 14, hue, sat, val, true);  // left with descender (thick)
-    qp_rect(display, day_x + 26, 7, day_x + 28, 12, hue, sat, val, true);  // right vertical (thick)
-    qp_rect(display, day_x + 23, 11, day_x + 26, 13, hue, sat, val, true); // bottom connection (thick)
+    qp_rect(display, day_x + 21, day_y + 4, day_x + 23, day_y + 11, hue, sat, val, true);  // left with descender (thick)
+    qp_rect(display, day_x + 26, day_y + 4, day_x + 28, day_y + 9, hue, sat, val, true);  // right vertical (thick)
+    qp_rect(display, day_x + 23, day_y + 8, day_x + 26, day_y + 10, hue, sat, val, true); // bottom connection (thick)
 
     // Space before number
     uint16_t num_x = day_x + 34;
@@ -135,14 +136,14 @@ void draw_uptime_timer(void) {
     if (days >= 10) {
         // Draw tens digit
         uint8_t tens = days / 10;
-        draw_digit(num_x, 2, tens, hue, sat, val);
+        draw_digit(num_x, day_y - 1, tens, hue, sat, val);
         num_x += 16;
     }
     // Draw ones digit
-    draw_digit(num_x, 2, days % 10, hue, sat, val);
+    draw_digit(num_x, day_y - 1, days % 10, hue, sat, val);
 
-    // Main timer position
-    uint16_t timer_y = 28;
+    // Main timer position (below day label)
+    uint16_t timer_y = 193;
 
     // Draw time in HH:MM:SS format centered
     // Each digit is ~14px wide, with spacing: total ~100px wide
@@ -207,14 +208,14 @@ void set_layer_background(uint8_t layer) {
             break;
     }
 
-    // Draw the logo with the selected color
-    draw_amboss_logo(display, 7, 60, hue, sat, val);
+    // Draw the logo at the top with the selected color
+    draw_amboss_logo(display, 7, 10, hue, sat, val);
 
-    // Redraw brightness bar with the same color
-    draw_brightness_bar(hue, sat, val);
-
-    // Redraw uptime timer with the same color
+    // Redraw uptime timer above brightness bar (will handle its own clearing)
     draw_uptime_timer();
+
+    // Redraw brightness bar with the same color at the bottom
+    draw_brightness_bar(hue, sat, val);
 
     qp_flush(display);
 }
@@ -334,18 +335,18 @@ static void init_display(void) {
     qp_rect(display, 0, 0, 134, 239, 0, 0, 255, true);
     wait_ms(50);
 
-    // Draw the Amboss logo in teal using line-by-line rendering
-    // Logo is 120x120, centered horizontally (135-120)/2 = 7.5, vertically centered at 60
-    draw_amboss_logo(display, 7, 60, 128, 255, 255);  // Teal color
+    // Draw the Amboss logo at the top in teal using line-by-line rendering
+    // Logo is 120x120, centered horizontally (135-120)/2 = 7.5, positioned at top (y=10)
+    draw_amboss_logo(display, 7, 10, 128, 255, 255);  // Teal color
 
     // Update brightness variable to match the PWM setting
     backlight_brightness = 102;
 
-    // Draw initial brightness bar with teal color (base layer)
-    draw_brightness_bar(128, 255, 255);
-
-    // Draw initial uptime timer
+    // Draw initial uptime timer above brightness bar
     draw_uptime_timer();
+
+    // Draw initial brightness bar with teal color (base layer) at bottom
+    draw_brightness_bar(128, 255, 255);
 
     // Force flush to ensure everything is drawn
     qp_flush(display);
