@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 painter_device_t display;
 static uint8_t current_display_layer = 255; // Track currently displayed layer
 static uint8_t backlight_brightness = 102;  // Current brightness level (40% default)
+static uint32_t last_uptime_update = 0;     // Track last uptime display update
 
 // Custom keycodes
 enum custom_keycodes {
@@ -42,6 +43,133 @@ enum layer_names {
 
 // Forward declarations
 void draw_brightness_bar(uint8_t hue, uint8_t sat, uint8_t val);
+void draw_uptime_timer(void);
+
+// Helper function to draw a single digit using 7-segment style
+void draw_digit(uint16_t x, uint16_t y, uint8_t digit, uint8_t hue, uint8_t sat, uint8_t val) {
+    // Each segment is a rectangle
+    // Segment positions (7-segment display):
+    //  AAA
+    // F   B
+    //  GGG
+    // E   C
+    //  DDD
+
+    bool seg_a = false, seg_b = false, seg_c = false, seg_d = false;
+    bool seg_e = false, seg_f = false, seg_g = false;
+
+    switch(digit) {
+        case 0: seg_a = seg_b = seg_c = seg_d = seg_e = seg_f = true; break;
+        case 1: seg_b = seg_c = true; break;
+        case 2: seg_a = seg_b = seg_d = seg_e = seg_g = true; break;
+        case 3: seg_a = seg_b = seg_c = seg_d = seg_g = true; break;
+        case 4: seg_b = seg_c = seg_f = seg_g = true; break;
+        case 5: seg_a = seg_c = seg_d = seg_f = seg_g = true; break;
+        case 6: seg_a = seg_c = seg_d = seg_e = seg_f = seg_g = true; break;
+        case 7: seg_a = seg_b = seg_c = true; break;
+        case 8: seg_a = seg_b = seg_c = seg_d = seg_e = seg_f = seg_g = true; break;
+        case 9: seg_a = seg_b = seg_c = seg_d = seg_f = seg_g = true; break;
+    }
+
+    // Draw segments (larger size, ~14x20 digit)
+    if (seg_a) qp_rect(display, x + 2, y, x + 11, y + 2, hue, sat, val, true);          // top
+    if (seg_b) qp_rect(display, x + 11, y + 2, x + 13, y + 9, hue, sat, val, true);     // top right
+    if (seg_c) qp_rect(display, x + 11, y + 11, x + 13, y + 18, hue, sat, val, true);   // bottom right
+    if (seg_d) qp_rect(display, x + 2, y + 18, x + 11, y + 20, hue, sat, val, true);    // bottom
+    if (seg_e) qp_rect(display, x, y + 11, x + 2, y + 18, hue, sat, val, true);         // bottom left
+    if (seg_f) qp_rect(display, x, y + 2, x + 2, y + 9, hue, sat, val, true);           // top left
+    if (seg_g) qp_rect(display, x + 2, y + 9, x + 11, y + 11, hue, sat, val, true);     // middle
+}
+
+// Draw uptime timer at top of display
+void draw_uptime_timer(void) {
+    // Get uptime in milliseconds
+    uint32_t uptime_ms = timer_read32();
+    uint32_t uptime_seconds = uptime_ms / 1000;
+
+    // Calculate days, hours, minutes, seconds
+    uint16_t days = uptime_seconds / 86400;
+    uint8_t hours = (uptime_seconds % 86400) / 3600;
+    uint8_t minutes = (uptime_seconds % 3600) / 60;
+    uint8_t seconds = uptime_seconds % 60;
+
+    // Get current layer color for the timer
+    uint8_t layer = get_highest_layer(layer_state);
+    uint8_t hue, sat, val;
+    switch (layer) {
+        case _MAC_COLEMAK_DH: hue = 128; sat = 255; val = 255; break;
+        case _MAC_NAV: hue = 85; sat = 255; val = 255; break;
+        case _MAC_CODE: hue = 0; sat = 255; val = 255; break;
+        case _MAC_NUM: hue = 43; sat = 255; val = 255; break;
+        default: hue = 128; sat = 255; val = 255; break;
+    }
+
+    // Clear top area (white background) - always show day counter
+    qp_rect(display, 0, 0, 134, 50, 0, 0, 255, true);
+
+    // Draw "Day" label and number centered (much larger, more readable)
+    uint16_t day_x = (135 - 65) / 2;  // Center position for wider text
+
+    // Draw "Day" text - much larger (~8x11 pixels per letter, 2px thick)
+    // D
+    qp_rect(display, day_x, 3, day_x + 2, 13, hue, sat, val, true);      // left vertical (thick)
+    qp_rect(display, day_x + 2, 3, day_x + 7, 5, hue, sat, val, true);   // top horizontal (thick)
+    qp_rect(display, day_x + 6, 5, day_x + 8, 11, hue, sat, val, true);  // right vertical (thick)
+    qp_rect(display, day_x + 2, 11, day_x + 7, 13, hue, sat, val, true); // bottom horizontal (thick)
+
+    // a
+    qp_rect(display, day_x + 11, 7, day_x + 16, 9, hue, sat, val, true);  // top (thick)
+    qp_rect(display, day_x + 15, 7, day_x + 17, 13, hue, sat, val, true); // right vertical (thick)
+    qp_rect(display, day_x + 11, 11, day_x + 16, 13, hue, sat, val, true); // bottom (thick)
+    qp_rect(display, day_x + 10, 9, day_x + 12, 13, hue, sat, val, true);  // left vertical short (thick)
+
+    // y
+    qp_rect(display, day_x + 21, 7, day_x + 23, 14, hue, sat, val, true);  // left with descender (thick)
+    qp_rect(display, day_x + 26, 7, day_x + 28, 12, hue, sat, val, true);  // right vertical (thick)
+    qp_rect(display, day_x + 23, 11, day_x + 26, 13, hue, sat, val, true); // bottom connection (thick)
+
+    // Space before number
+    uint16_t num_x = day_x + 34;
+
+    // Draw day number using same-size 7-segment digits
+    if (days >= 10) {
+        // Draw tens digit
+        uint8_t tens = days / 10;
+        draw_digit(num_x, 2, tens, hue, sat, val);
+        num_x += 16;
+    }
+    // Draw ones digit
+    draw_digit(num_x, 2, days % 10, hue, sat, val);
+
+    // Main timer position
+    uint16_t timer_y = 28;
+
+    // Draw time in HH:MM:SS format centered
+    // Each digit is ~14px wide, with spacing: total ~100px wide
+    uint16_t start_x = (135 - 100) / 2;
+
+    // Draw hours (2 digits)
+    draw_digit(start_x, timer_y, hours / 10, hue, sat, val);
+    draw_digit(start_x + 16, timer_y, hours % 10, hue, sat, val);
+
+    // Draw first colon
+    qp_rect(display, start_x + 32, timer_y + 5, start_x + 35, timer_y + 7, hue, sat, val, true);
+    qp_rect(display, start_x + 32, timer_y + 13, start_x + 35, timer_y + 15, hue, sat, val, true);
+
+    // Draw minutes (2 digits)
+    draw_digit(start_x + 38, timer_y, minutes / 10, hue, sat, val);
+    draw_digit(start_x + 54, timer_y, minutes % 10, hue, sat, val);
+
+    // Draw second colon
+    qp_rect(display, start_x + 70, timer_y + 5, start_x + 73, timer_y + 7, hue, sat, val, true);
+    qp_rect(display, start_x + 70, timer_y + 13, start_x + 73, timer_y + 15, hue, sat, val, true);
+
+    // Draw seconds (2 digits)
+    draw_digit(start_x + 76, timer_y, seconds / 10, hue, sat, val);
+    draw_digit(start_x + 92, timer_y, seconds % 10, hue, sat, val);
+
+    qp_flush(display);
+}
 
 // Function to draw logo with color based on layer
 void set_layer_background(uint8_t layer) {
@@ -84,6 +212,9 @@ void set_layer_background(uint8_t layer) {
 
     // Redraw brightness bar with the same color
     draw_brightness_bar(hue, sat, val);
+
+    // Redraw uptime timer with the same color
+    draw_uptime_timer();
 
     qp_flush(display);
 }
@@ -212,6 +343,9 @@ static void init_display(void) {
 
     // Draw initial brightness bar with teal color (base layer)
     draw_brightness_bar(128, 255, 255);
+
+    // Draw initial uptime timer
+    draw_uptime_timer();
 
     // Force flush to ensure everything is drawn
     qp_flush(display);
@@ -377,6 +511,13 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 // Periodically check and update display based on active layer
 void housekeeping_task_user(void) {
     update_display_for_layer();
+
+    // Update uptime timer once per second
+    uint32_t current_time = timer_read32();
+    if (current_time - last_uptime_update >= 1000) {
+        last_uptime_update = current_time;
+        draw_uptime_timer();
+    }
 }
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
