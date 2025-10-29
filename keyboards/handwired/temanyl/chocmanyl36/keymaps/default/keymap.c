@@ -290,11 +290,30 @@ void draw_tree(uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, ui
                 qp_circle(display, base_x + offset_x, base_y - trunk_height - 7 + offset_y, 2, 85, 255, 180, true); // Green leaf (smaller)
             }
         }
-    } else if (season == 2) { // Summer - full green foliage
+    } else if (season == 2) { // Summer - cherry tree with cherries
         // Dense green canopy
         qp_circle(display, base_x, base_y - trunk_height - 7, 16, 85, 255, 200, true);       // Center
         qp_circle(display, base_x - 9, base_y - trunk_height - 4, 11, 85, 255, 180, true);  // Left
         qp_circle(display, base_x + 9, base_y - trunk_height - 4, 11, 85, 255, 180, true);  // Right
+
+        // Add red cherries scattered throughout the entire canopy
+        // Cherry positions relative to canopy center at (base_x, base_y - trunk_height - 7)
+        // Canopy extends from y=-16 (top) to y=+14 (bottom on sides)
+        int8_t cherry_offsets[][2] = {
+            // Top area (y: -16 to -9)
+            {-4, -14}, {2, -13}, {-9, -11}, {6, -12}, {-1, -10},
+            // Middle area (y: -8 to -1)
+            {-12, -5}, {-6, -3}, {0, -4}, {8, -2}, {13, -6},
+            // Lower area (y: 0 to +12)
+            {-14, 3}, {-8, 8}, {-2, 10}, {4, 9}, {10, 6}, {15, 4}
+        };
+
+        for (uint8_t i = 0; i < 16; i++) {
+            // Draw cherries (bright red, small circles)
+            qp_circle(display, base_x + cherry_offsets[i][0],
+                     base_y - trunk_height - 7 + cherry_offsets[i][1],
+                     2, 0, 255, 220, true);
+        }
     } else { // Fall - orange/red/yellow leaves
         // Tree shape with autumn colors
         qp_circle(display, base_x, base_y - trunk_height - 7, 15, 20, 255, 200, true);      // Orange
@@ -489,13 +508,46 @@ void draw_seasonal_animation(void) {
             // Flower center (yellow, size varies with flower)
             qp_circle(display, flower_x[i], ground_y - stem_heights[i] - 2, flower_sizes[i] / 3, 42, 255, 255, true);
         }
-    } else if (season == 2) { // Summer - birds or clouds
-        // Simple cloud shapes
-        uint16_t cloud_x[] = {20, 90};
-        for (uint8_t i = 0; i < 2; i++) {
-            qp_circle(display, cloud_x[i], 35, 8, 0, 0, 180, true);
-            qp_circle(display, cloud_x[i] + 10, 35, 6, 0, 0, 180, true);
-            qp_circle(display, cloud_x[i] - 8, 35, 6, 0, 0, 180, true);
+    } else if (season == 2) { // Summer - sunflowers and airplane
+        // Draw airplane in top left (more realistic side view)
+        uint16_t plane_x = 15;
+        uint16_t plane_y = 25;
+
+        // Main fuselage (body) - tapered at nose
+        qp_rect(display, plane_x + 3, plane_y + 1, plane_x + 25, plane_y + 4, 0, 0, 180, true);
+
+        // Nose (pointed front)
+        qp_rect(display, plane_x + 1, plane_y + 2, plane_x + 3, plane_y + 3, 0, 0, 180, true);
+
+        // Cockpit windows (series of light windows)
+        qp_rect(display, plane_x + 20, plane_y + 2, plane_x + 22, plane_y + 3, 170, 80, 240, true);
+        qp_rect(display, plane_x + 17, plane_y + 2, plane_x + 19, plane_y + 3, 170, 80, 240, true);
+
+        // Main wings (swept back)
+        qp_rect(display, plane_x + 10, plane_y - 3, plane_x + 18, plane_y + 1, 0, 0, 180, true);
+        qp_rect(display, plane_x + 10, plane_y + 4, plane_x + 18, plane_y + 8, 0, 0, 180, true);
+
+        // Tail section
+        // Vertical stabilizer (tail fin)
+        qp_rect(display, plane_x + 3, plane_y - 3, plane_x + 6, plane_y + 1, 0, 0, 180, true);
+        // Horizontal stabilizer
+        qp_rect(display, plane_x + 3, plane_y + 4, plane_x + 8, plane_y + 6, 0, 0, 180, true);
+
+        // Engine under wing (optional detail)
+        qp_circle(display, plane_x + 13, plane_y + 7, 2, 0, 0, 160, true);
+
+        // Draw sunflowers on the ground (tall with large yellow heads)
+        uint16_t sunflower_x[] = {22, 52, 78, 102, 122};
+        uint8_t stem_heights[] = {13, 15, 14, 12, 14}; // Tall stems
+        for (uint8_t i = 0; i < 5; i++) {
+            // Sunflower stem (green)
+            qp_rect(display, sunflower_x[i], ground_y - stem_heights[i], sunflower_x[i] + 2, ground_y, 85, 200, 150, true);
+
+            // Large sunflower head (bright yellow)
+            qp_circle(display, sunflower_x[i] + 1, ground_y - stem_heights[i] - 3, 5, 42, 255, 255, true);
+
+            // Dark center (brown)
+            qp_circle(display, sunflower_x[i] + 1, ground_y - stem_heights[i] - 3, 2, 20, 200, 100, true);
         }
     } else { // Fall - rain and clouds
         // Draw rain clouds (darker gray clouds)
