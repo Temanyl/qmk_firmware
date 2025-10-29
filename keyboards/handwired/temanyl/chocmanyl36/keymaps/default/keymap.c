@@ -385,9 +385,14 @@ void draw_seasonal_animation(void) {
     if (is_night) {
         // Draw moon (pale yellow/white)
         qp_circle(display, celestial_x, celestial_y, 8, 42, 100, 255, true);
-        // Add some stars
-        uint16_t star_positions[][2] = {{20, 15}, {50, 25}, {90, 18}, {110, 30}, {35, 40}};
-        for (uint8_t i = 0; i < 5; i++) {
+        // Add stars scattered across the night sky
+        uint16_t star_positions[][2] = {
+            {20, 15}, {50, 25}, {90, 18}, {110, 30},            // Row 1
+            {65, 12}, {100, 22}, {80, 30},                      // Row 2
+            {120, 15}, {10, 25}, {28, 20},                      // Row 3
+            {85, 8}, {70, 25}, {60, 15}                         // Row 4
+        };
+        for (uint8_t i = 0; i < 13; i++) {
             qp_rect(display, star_positions[i][0], star_positions[i][1],
                     star_positions[i][0] + 2, star_positions[i][1] + 2, 42, 50, 255, true);
         }
