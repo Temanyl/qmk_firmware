@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Volume Monitor for QMK Keyboards with Raw HID
-Monitors system volume and sends updates to keyboard display via Raw HID.
+Keyboard Monitor for QMK Keyboards with Raw HID
+Monitors system volume and media playback, sending updates to keyboard display via Raw HID.
 
 Requirements:
     - macOS: osascript (built-in)
@@ -54,9 +54,11 @@ HID_PACKET_SIZE = 32
 
 # Command IDs for the protocol
 CMD_VOLUME_UPDATE = 0x01
+CMD_MEDIA_UPDATE = 0x02
 
 # Poll interval in seconds
 POLL_INTERVAL = 0.1
+MEDIA_POLL_INTERVAL = 1.0  # Check media every second
 
 
 def get_volume_macos():
@@ -151,6 +153,84 @@ def get_system_volume():
         return None
 
 
+def get_media_macos():
+    """Get currently playing media on macOS."""
+    try:
+        # Try Apple Music first
+        result = subprocess.run(
+            ['osascript', '-e', '''
+                tell application "Music"
+                    if player state is playing then
+                        return name of current track & " - " & artist of current track
+                    end if
+                end tell
+            '''],
+            capture_output=True,
+            text=True,
+            timeout=0.5
+        )
+        if result.stdout.strip():
+            return result.stdout.strip()
+
+        # Try Spotify if Music didn't return anything
+        result = subprocess.run(
+            ['osascript', '-e', '''
+                tell application "Spotify"
+                    if player state is playing then
+                        return name of current track & " - " & artist of current track
+                    end if
+                end tell
+            '''],
+            capture_output=True,
+            text=True,
+            timeout=0.5
+        )
+        if result.stdout.strip():
+            return result.stdout.strip()
+
+        return None
+    except Exception:
+        return None
+
+
+def get_media_windows():
+    """Get currently playing media on Windows."""
+    # Windows Media API is complex, return None for now
+    # Can be implemented using Windows.Media.Control
+    return None
+
+
+def get_media_linux():
+    """Get currently playing media on Linux via MPRIS."""
+    try:
+        # Use playerctl if available
+        result = subprocess.run(
+            ['playerctl', 'metadata', '--format', '{{ title }} - {{ artist }}'],
+            capture_output=True,
+            text=True,
+            timeout=0.5
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.strip()
+        return None
+    except Exception:
+        return None
+
+
+def get_current_media():
+    """Get currently playing media based on platform."""
+    system = platform.system()
+
+    if system == "Darwin":  # macOS
+        return get_media_macos()
+    elif system == "Windows":
+        return get_media_windows()
+    elif system == "Linux":
+        return get_media_linux()
+    else:
+        return None
+
+
 def find_keyboard_device(silent=False):
     """Find the keyboard HID device. Set silent=True to suppress output."""
     if not silent:
@@ -195,6 +275,35 @@ def send_volume_update(device, volume):
         return False
 
 
+def send_media_update(device, media_text):
+    """Send media text update to keyboard via Raw HID."""
+    # Create HID packet (32 bytes)
+    packet = bytearray(HID_PACKET_SIZE)
+    packet[0] = CMD_MEDIA_UPDATE  # Command ID
+
+    # Encode media text (max 30 chars + null terminator)
+    if media_text:
+        media_bytes = media_text.encode('utf-8')[:30]  # Limit to 30 chars
+        packet[1:1+len(media_bytes)] = media_bytes
+        packet[1+len(media_bytes)] = 0  # Null terminator
+    else:
+        packet[1] = 0  # Empty string
+
+    try:
+        # Send the packet
+        bytes_written = device.write([0] + list(packet))
+
+        # Check if write was successful
+        if bytes_written <= 0:
+            print(f"✗ Media write failed: {bytes_written} bytes written")
+            return False
+
+        return True
+    except Exception as e:
+        print(f"✗ Error sending media packet: {e}")
+        return False
+
+
 def is_keyboard_connected():
     """Check if keyboard is still in HID device list."""
     devices = hid.enumerate()
@@ -224,18 +333,20 @@ def connect_to_keyboard(silent=False):
 
 
 def main():
-    """Main loop: monitor volume and send updates to keyboard."""
-    print("QMK Volume Monitor")
+    """Main loop: monitor volume and media, sending updates to keyboard."""
+    print("QMK Keyboard Monitor")
     print("=" * 50)
     print("Waiting for keyboard... (Press Ctrl+C to quit)\n")
 
     device = None
     last_volume = None
+    last_media = None
     reconnect_delay = 2.0  # Wait 2 seconds between reconnection attempts
     last_connect_attempt = 0
     first_connection = True  # Track if this is the first connection
     connection_check_interval = 1.0  # Check connection every second
     last_connection_check = 0
+    last_media_check = 0  # Last time we checked media
 
     try:
         while True:
@@ -276,10 +387,20 @@ def main():
                                     pass
                                 device = None
                                 last_volume = None
+                                last_media = None
                                 continue
                         else:
                             # Reset last_volume to force update on next successful read
                             last_volume = None
+
+                        # Immediately send current media on (re)connect
+                        current_media = get_current_media()
+                        if current_media:
+                            print(f"Syncing media: {current_media}")
+                            send_media_update(device, current_media)
+                            last_media = current_media
+                        else:
+                            last_media = None
 
                 # Wait before next iteration
                 time.sleep(0.5)
@@ -319,6 +440,34 @@ def main():
                                 pass
                             device = None
                             last_volume = None
+                            last_media = None
+                            continue
+
+                # Check media info periodically (every MEDIA_POLL_INTERVAL)
+                if current_time - last_media_check >= MEDIA_POLL_INTERVAL:
+                    last_media_check = current_time
+                    current_media = get_current_media()
+
+                    # Send media update if it changed
+                    if current_media != last_media:
+                        if current_media:
+                            print(f"♪ Now playing: {current_media}")
+                        else:
+                            print("♪ Playback stopped")
+
+                        if send_media_update(device, current_media if current_media else ""):
+                            last_media = current_media
+                        else:
+                            # Send failed, likely disconnected
+                            print("✗ Media send failed, keyboard may be disconnected")
+                            print("Waiting for keyboard to reconnect...\n")
+                            try:
+                                device.close()
+                            except:
+                                pass
+                            device = None
+                            last_volume = None
+                            last_media = None
                             continue
 
                 # Wait before next poll
@@ -334,9 +483,10 @@ def main():
                     pass
                 device = None
                 last_volume = None
+                last_media = None
 
     except KeyboardInterrupt:
-        print("\n\nStopping volume monitor...")
+        print("\n\nStopping keyboard monitor...")
     finally:
         if device is not None:
             try:

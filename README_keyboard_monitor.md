@@ -1,8 +1,8 @@
-# QMK Volume Monitor - Reconnection Guide
+# QMK Keyboard Monitor - Usage Guide
 
 ## What This Script Does
 
-The `volume_monitor.py` script monitors your system volume and displays it on your QMK keyboard's display via Raw HID communication.
+The `keyboard_monitor.py` script monitors your system volume and currently playing media, displaying both on your QMK keyboard's display via Raw HID communication.
 
 ## Features
 
@@ -25,19 +25,19 @@ If you unplug and replug your keyboard (or it disconnects for any reason), the s
 
 ### Basic Usage
 ```bash
-python3 volume_monitor.py
+python3 keyboard_monitor.py
 ```
 
 ### Running in Background (macOS)
 ```bash
 # Start in background
-python3 volume_monitor.py > /tmp/volume_monitor.log 2>&1 &
+python3 keyboard_monitor.py > /tmp/keyboard_monitor.log 2>&1 &
 
 # Check if running
-ps aux | grep volume_monitor
+ps aux | grep keyboard_monitor
 
 # Stop
-pkill -f volume_monitor.py
+pkill -f keyboard_monitor.py
 ```
 
 ### Autostart on Login (macOS)
@@ -47,7 +47,7 @@ Use the LaunchAgent instructions from the main documentation.
 
 ### On First Start (Keyboard Already Connected)
 ```
-QMK Volume Monitor
+QMK Keyboard Monitor
 ==================================================
 Waiting for keyboard... (Press Ctrl+C to quit)
 
@@ -61,7 +61,7 @@ Syncing volume: 44%
 
 ### On First Start (Keyboard NOT Connected)
 ```
-QMK Volume Monitor
+QMK Keyboard Monitor
 ==================================================
 Waiting for keyboard... (Press Ctrl+C to quit)
 
