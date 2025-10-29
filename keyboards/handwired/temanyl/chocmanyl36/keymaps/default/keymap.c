@@ -197,41 +197,41 @@ void draw_date_time(void) {
     // Note: No qp_flush() here - let the caller decide when to flush
 }
 
-// Helper function to draw a simple tree
+// Helper function to draw a simple tree (adjusted size 6x22)
 void draw_tree(uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, uint8_t sat, uint8_t val) {
     // Tree structure: trunk + canopy
     // Trunk (brown)
-    uint8_t trunk_width = 4;
-    uint8_t trunk_height = 15;
+    uint8_t trunk_width = 6;
+    uint8_t trunk_height = 22;
     qp_rect(display, base_x - trunk_width/2, base_y - trunk_height,
             base_x + trunk_width/2, base_y, 20, 200, 100, true);
 
     // Canopy changes by season
     if (season == 0) { // Winter - bare branches
         // Draw simple branch lines
-        for (int8_t i = -2; i <= 2; i++) {
-            qp_rect(display, base_x - 8 + i * 4, base_y - trunk_height - 3 - abs(i) * 2,
-                    base_x - 5 + i * 4, base_y - trunk_height - 2 - abs(i) * 2, 20, 150, 80, true);
+        for (int8_t i = -3; i <= 3; i++) {
+            qp_rect(display, base_x - 12 + i * 5, base_y - trunk_height - 4 - abs(i) * 2,
+                    base_x - 9 + i * 5, base_y - trunk_height - 2 - abs(i) * 2, 20, 150, 80, true);
         }
     } else if (season == 1) { // Spring - pink blossoms
         // Tree shape with pink/white blossoms
-        qp_circle(display, base_x, base_y - trunk_height - 5, 10, 234, 180, 255, true); // Pink
+        qp_circle(display, base_x, base_y - trunk_height - 7, 15, 234, 180, 255, true); // Pink
         // Add blossom dots
-        for (uint8_t i = 0; i < 6; i++) {
-            int8_t offset_x = (i % 3 - 1) * 5;
-            int8_t offset_y = (i / 3) * 5;
-            qp_circle(display, base_x + offset_x, base_y - trunk_height - 5 + offset_y, 2, 0, 0, 255, true); // White
+        for (uint8_t i = 0; i < 9; i++) {
+            int8_t offset_x = (i % 3 - 1) * 7;
+            int8_t offset_y = (i / 3 - 1) * 7;
+            qp_circle(display, base_x + offset_x, base_y - trunk_height - 7 + offset_y, 3, 0, 0, 255, true); // White
         }
     } else if (season == 2) { // Summer - full green foliage
         // Dense green canopy
-        qp_circle(display, base_x, base_y - trunk_height - 5, 11, 85, 255, 200, true);
-        qp_circle(display, base_x - 6, base_y - trunk_height - 3, 8, 85, 255, 180, true);
-        qp_circle(display, base_x + 6, base_y - trunk_height - 3, 8, 85, 255, 180, true);
+        qp_circle(display, base_x, base_y - trunk_height - 7, 16, 85, 255, 200, true);       // Center
+        qp_circle(display, base_x - 9, base_y - trunk_height - 4, 11, 85, 255, 180, true);  // Left
+        qp_circle(display, base_x + 9, base_y - trunk_height - 4, 11, 85, 255, 180, true);  // Right
     } else { // Fall - orange/red/yellow leaves
         // Tree shape with autumn colors
-        qp_circle(display, base_x, base_y - trunk_height - 5, 10, 20, 255, 200, true); // Orange
-        qp_circle(display, base_x - 5, base_y - trunk_height - 3, 7, 10, 255, 220, true); // Red-orange
-        qp_circle(display, base_x + 5, base_y - trunk_height - 3, 7, 30, 255, 200, true); // Yellow-orange
+        qp_circle(display, base_x, base_y - trunk_height - 7, 15, 20, 255, 200, true);      // Orange
+        qp_circle(display, base_x - 8, base_y - trunk_height - 4, 10, 10, 255, 220, true);  // Red-orange
+        qp_circle(display, base_x + 8, base_y - trunk_height - 4, 10, 30, 255, 200, true);  // Yellow-orange
     }
 }
 
