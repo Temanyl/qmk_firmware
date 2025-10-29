@@ -27,11 +27,14 @@ static uint8_t current_display_layer = 255; // Track currently displayed layer
 static uint8_t backlight_brightness = 102;  // Current brightness level (40% default)
 static uint32_t last_uptime_update = 0;     // Track last uptime display update
 
-// Volume indicator state
+// Volume indicator state (permanent bar at bottom)
 static uint8_t current_volume = 0;          // Current volume level (0-100)
-static uint32_t volume_display_timer = 0;   // Timer for volume display timeout
-static bool volume_display_active = false;  // Whether volume indicator is shown
-#define VOLUME_DISPLAY_TIMEOUT 3000         // Show volume for 3 seconds
+
+// Brightness indicator state (temporary overlay)
+static uint8_t last_brightness_value = 102; // Track last brightness for change detection
+static uint32_t brightness_display_timer = 0; // Timer for brightness display timeout
+static bool brightness_display_active = false; // Whether brightness indicator is shown
+#define BRIGHTNESS_DISPLAY_TIMEOUT 3000      // Show brightness for 3 seconds
 
 // Custom keycodes
 enum custom_keycodes {
@@ -48,10 +51,10 @@ enum layer_names {
 };
 
 // Forward declarations
-void draw_brightness_bar(uint8_t hue, uint8_t sat, uint8_t val);
+void draw_volume_bar(uint8_t hue, uint8_t sat, uint8_t val);
 void draw_uptime_timer(void);
 void get_layer_color(uint8_t layer, uint8_t *hue, uint8_t *sat, uint8_t *val);
-void draw_volume_indicator(void);
+void draw_brightness_indicator(void);
 
 // Helper function to draw a single digit using 7-segment style
 void draw_digit(uint16_t x, uint16_t y, uint8_t digit, uint8_t hue, uint8_t sat, uint8_t val) {
@@ -213,11 +216,11 @@ void set_layer_background(uint8_t layer) {
     // Draw the logo at the top with the selected color
     draw_amboss_logo(display, 7, 10, hue, sat, val);
 
-    // Redraw uptime timer above brightness bar (will handle its own clearing)
+    // Redraw uptime timer above volume bar (will handle its own clearing)
     draw_uptime_timer();
 
-    // Redraw brightness bar with the same color at the bottom
-    draw_brightness_bar(hue, sat, val);
+    // Redraw volume bar with the same color at the bottom
+    draw_volume_bar(hue, sat, val);
 
     qp_flush(display);
 }
@@ -227,18 +230,18 @@ void update_display_for_layer(void) {
     set_layer_background(get_highest_layer(layer_state));
 }
 
-// Draw brightness bar at bottom of screen
-void draw_brightness_bar(uint8_t hue, uint8_t sat, uint8_t val) {
-    // Calculate bar width based on brightness (max width 120 pixels, leaving margins)
-    uint16_t bar_width = (backlight_brightness * 120) / 255;
+// Draw volume bar at bottom of screen (permanent)
+void draw_volume_bar(uint8_t hue, uint8_t sat, uint8_t val) {
+    // Calculate bar width based on volume (max width 120 pixels, leaving margins)
+    uint16_t bar_width = (current_volume * 120) / 100;
 
     // Clear bottom area with white background
     qp_rect(display, 0, 225, 134, 239, 0, 0, 255, true);
 
-    // Draw brightness bar outline (thin dark grey border)
+    // Draw volume bar outline (thin dark grey border)
     qp_rect(display, 5, 230, 127, 236, 0, 0, 80, false);
 
-    // Draw filled brightness bar using the logo color
+    // Draw filled volume bar using the logo color
     if (bar_width > 0) {
         qp_rect(display, 6, 231, 6 + bar_width, 235, hue, sat, val, true);
     }
@@ -246,50 +249,61 @@ void draw_brightness_bar(uint8_t hue, uint8_t sat, uint8_t val) {
     qp_flush(display);
 }
 
-// Draw volume indicator overlay
-void draw_volume_indicator(void) {
-    // Volume indicator appears as an overlay in the center of the screen
-    // Box dimensions: 100x50 centered
+// Draw brightness indicator overlay (temporary, appears when brightness changes)
+void draw_brightness_indicator(void) {
+    // Brightness indicator appears as an overlay at the top of the screen
+    // Box dimensions: 100x40 at top center
     uint16_t box_x = 17;   // (135 - 100) / 2
-    uint16_t box_y = 95;   // Center vertically
+    uint16_t box_y = 10;   // Top of screen
     uint16_t box_w = 100;
-    uint16_t box_h = 50;
+    uint16_t box_h = 40;
 
     // Draw semi-transparent background (light grey box with border)
     qp_rect(display, box_x, box_y, box_x + box_w, box_y + box_h, 0, 0, 220, true);
     qp_rect(display, box_x, box_y, box_x + box_w, box_y + box_h, 0, 0, 100, false);
 
-    // Draw "VOL" text using simple rectangles at top of box
-    uint16_t text_y = box_y + 8;
-    uint16_t text_x = box_x + 10;
+    // Draw "BRI" text using simple rectangles at top of box
+    uint16_t text_y = box_y + 6;
+    uint16_t text_x = box_x + 8;
 
-    // V
-    qp_rect(display, text_x, text_y, text_x + 1, text_y + 8, 0, 0, 0, true);
-    qp_rect(display, text_x + 6, text_y, text_x + 7, text_y + 8, 0, 0, 0, true);
-    qp_rect(display, text_x + 2, text_y + 8, text_x + 5, text_y + 9, 0, 0, 0, true);
-
-    // O
-    text_x += 12;
-    qp_rect(display, text_x, text_y, text_x + 7, text_y + 9, 0, 0, 0, false);
-
-    // L
-    text_x += 12;
+    // B
     qp_rect(display, text_x, text_y, text_x + 1, text_y + 9, 0, 0, 0, true);
+    qp_rect(display, text_x, text_y, text_x + 6, text_y + 1, 0, 0, 0, true);
+    qp_rect(display, text_x, text_y + 4, text_x + 5, text_y + 5, 0, 0, 0, true);
     qp_rect(display, text_x, text_y + 9, text_x + 6, text_y + 10, 0, 0, 0, true);
+    qp_rect(display, text_x + 5, text_y + 1, text_x + 7, text_y + 4, 0, 0, 0, true);
+    qp_rect(display, text_x + 5, text_y + 5, text_x + 7, text_y + 9, 0, 0, 0, true);
+
+    // R
+    text_x += 10;
+    qp_rect(display, text_x, text_y, text_x + 1, text_y + 9, 0, 0, 0, true);
+    qp_rect(display, text_x, text_y, text_x + 6, text_y + 1, 0, 0, 0, true);
+    qp_rect(display, text_x, text_y + 4, text_x + 5, text_y + 5, 0, 0, 0, true);
+    qp_rect(display, text_x + 5, text_y + 1, text_x + 7, text_y + 4, 0, 0, 0, true);
+    qp_rect(display, text_x + 4, text_y + 5, text_x + 7, text_y + 9, 0, 0, 0, true);
+
+    // I
+    text_x += 10;
+    qp_rect(display, text_x, text_y, text_x + 5, text_y + 1, 0, 0, 0, true);
+    qp_rect(display, text_x + 2, text_y + 1, text_x + 3, text_y + 9, 0, 0, 0, true);
+    qp_rect(display, text_x, text_y + 9, text_x + 5, text_y + 10, 0, 0, 0, true);
 
     // Draw percentage using 7-segment digits
-    uint16_t digit_x = box_x + 30;
-    uint16_t digit_y = box_y + 23;
+    uint16_t digit_x = box_x + 36;
+    uint16_t digit_y = box_y + 18;
 
     // Get current layer color for digits
     uint8_t layer = get_highest_layer(layer_state);
     uint8_t hue, sat, val;
     get_layer_color(layer, &hue, &sat, &val);
 
-    // Draw volume percentage (3 digits max: 0-100)
-    uint8_t hundreds = current_volume / 100;
-    uint8_t tens = (current_volume % 100) / 10;
-    uint8_t ones = current_volume % 10;
+    // Calculate brightness percentage (backlight_brightness is 0-255, convert to 0-100)
+    uint8_t brightness_percent = (backlight_brightness * 100) / 255;
+
+    // Draw brightness percentage (3 digits max: 0-100)
+    uint8_t hundreds = brightness_percent / 100;
+    uint8_t tens = (brightness_percent % 100) / 10;
+    uint8_t ones = brightness_percent % 10;
 
     if (hundreds > 0) {
         draw_digit(digit_x, digit_y, hundreds, hue, sat, val);
@@ -320,13 +334,13 @@ void set_backlight_brightness(uint8_t brightness) {
     // Update PWM duty cycle (channel A compare value)
     *(volatile uint32_t*)(0x40050028 + 0x0C) = brightness;
 
-    // Get current layer color for the brightness bar
-    uint8_t layer = get_highest_layer(layer_state);
-    uint8_t hue, sat, val;
-    get_layer_color(layer, &hue, &sat, &val);
+    // Show brightness indicator overlay and reset timer
+    brightness_display_active = true;
+    brightness_display_timer = timer_read32();
+    last_brightness_value = brightness;
 
-    // Update display with current layer color
-    draw_brightness_bar(hue, sat, val);
+    // Draw the brightness indicator overlay
+    draw_brightness_indicator();
 }
 
 // Initialize the ST7789 display
@@ -395,12 +409,13 @@ static void init_display(void) {
 
     // Update brightness variable to match the PWM setting
     backlight_brightness = 102;
+    last_brightness_value = 102;
 
-    // Draw initial uptime timer above brightness bar
+    // Draw initial uptime timer above volume bar
     draw_uptime_timer();
 
-    // Draw initial brightness bar with teal color (base layer) at bottom
-    draw_brightness_bar(128, 255, 255);
+    // Draw initial volume bar with teal color (base layer) at bottom
+    draw_volume_bar(128, 255, 255);
 
     // Force flush to ensure everything is drawn
     qp_flush(display);
@@ -430,12 +445,11 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
                 current_volume = 100;
             }
 
-            // Show volume indicator and reset timer
-            volume_display_active = true;
-            volume_display_timer = timer_read32();
-
-            // Draw the volume indicator
-            draw_volume_indicator();
+            // Update the permanent volume bar
+            uint8_t layer = get_highest_layer(layer_state);
+            uint8_t hue, sat, val;
+            get_layer_color(layer, &hue, &sat, &val);
+            draw_volume_bar(hue, sat, val);
             break;
 
         default:
@@ -608,11 +622,11 @@ void housekeeping_task_user(void) {
         draw_uptime_timer();
     }
 
-    // Handle volume display timeout
-    if (volume_display_active) {
-        if (current_time - volume_display_timer >= VOLUME_DISPLAY_TIMEOUT) {
-            // Timeout expired, hide volume indicator
-            volume_display_active = false;
+    // Handle brightness display timeout
+    if (brightness_display_active) {
+        if (current_time - brightness_display_timer >= BRIGHTNESS_DISPLAY_TIMEOUT) {
+            // Timeout expired, hide brightness indicator
+            brightness_display_active = false;
             // Force a full redraw by invalidating the current layer
             current_display_layer = 255;
             update_display_for_layer();
