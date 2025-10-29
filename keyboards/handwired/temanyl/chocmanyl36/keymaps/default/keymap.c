@@ -216,27 +216,31 @@ void draw_tree(uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, ui
 
     // Canopy changes by season
     if (season == 0) { // Winter - bare branches with more detail
-        // Draw main branches (larger, more visible)
-        // Left main branch
-        qp_rect(display, base_x - 15, base_y - trunk_height - 2, base_x - 13, base_y - trunk_height + 4, 20, 150, 80, true);
-        qp_rect(display, base_x - 15, base_y - trunk_height - 2, base_x - 10, base_y - trunk_height, 20, 150, 80, true);
-        // Right main branch
-        qp_rect(display, base_x + 13, base_y - trunk_height - 2, base_x + 15, base_y - trunk_height + 4, 20, 150, 80, true);
-        qp_rect(display, base_x + 10, base_y - trunk_height - 2, base_x + 15, base_y - trunk_height, 20, 150, 80, true);
+        // Draw main upward-reaching branches
+        // Left upward branch
+        qp_rect(display, base_x - 8, base_y - trunk_height - 10, base_x - 6, base_y - trunk_height - 2, 20, 150, 80, true);
+        qp_rect(display, base_x - 12, base_y - trunk_height - 8, base_x - 8, base_y - trunk_height - 6, 20, 150, 80, true);
+        // Right upward branch
+        qp_rect(display, base_x + 6, base_y - trunk_height - 10, base_x + 8, base_y - trunk_height - 2, 20, 150, 80, true);
+        qp_rect(display, base_x + 8, base_y - trunk_height - 8, base_x + 12, base_y - trunk_height - 6, 20, 150, 80, true);
 
-        // Upper branches
-        qp_rect(display, base_x - 10, base_y - trunk_height - 6, base_x - 8, base_y - trunk_height - 1, 20, 150, 80, true);
-        qp_rect(display, base_x + 8, base_y - trunk_height - 6, base_x + 10, base_y - trunk_height - 1, 20, 150, 80, true);
+        // Middle upward branches (from mid-trunk)
+        qp_rect(display, base_x - 6, base_y - trunk_height - 6, base_x - 4, base_y - trunk_height + 2, 20, 150, 80, true);
+        qp_rect(display, base_x + 4, base_y - trunk_height - 6, base_x + 6, base_y - trunk_height + 2, 20, 150, 80, true);
 
-        // Smaller twigs
-        qp_rect(display, base_x - 18, base_y - trunk_height + 2, base_x - 16, base_y - trunk_height + 5, 20, 120, 70, true);
-        qp_rect(display, base_x + 16, base_y - trunk_height + 2, base_x + 18, base_y - trunk_height + 5, 20, 120, 70, true);
-        qp_rect(display, base_x - 13, base_y - trunk_height - 5, base_x - 11, base_y - trunk_height - 2, 20, 120, 70, true);
-        qp_rect(display, base_x + 11, base_y - trunk_height - 5, base_x + 13, base_y - trunk_height - 2, 20, 120, 70, true);
+        // Outward angled branches (lower)
+        qp_rect(display, base_x - 10, base_y - trunk_height + 4, base_x - 8, base_y - trunk_height + 8, 20, 150, 80, true);
+        qp_rect(display, base_x + 8, base_y - trunk_height + 4, base_x + 10, base_y - trunk_height + 8, 20, 150, 80, true);
 
-        // Top twigs
-        qp_rect(display, base_x - 5, base_y - trunk_height - 8, base_x - 3, base_y - trunk_height - 5, 20, 120, 70, true);
-        qp_rect(display, base_x + 3, base_y - trunk_height - 8, base_x + 5, base_y - trunk_height - 5, 20, 120, 70, true);
+        // Smaller upward twigs
+        qp_rect(display, base_x - 10, base_y - trunk_height - 12, base_x - 9, base_y - trunk_height - 9, 20, 120, 70, true);
+        qp_rect(display, base_x + 9, base_y - trunk_height - 12, base_x + 10, base_y - trunk_height - 9, 20, 120, 70, true);
+        qp_rect(display, base_x - 3, base_y - trunk_height - 13, base_x - 2, base_y - trunk_height - 10, 20, 120, 70, true);
+        qp_rect(display, base_x + 2, base_y - trunk_height - 13, base_x + 3, base_y - trunk_height - 10, 20, 120, 70, true);
+
+        // Side twigs extending from main branches
+        qp_rect(display, base_x - 14, base_y - trunk_height - 6, base_x - 12, base_y - trunk_height - 4, 20, 120, 70, true);
+        qp_rect(display, base_x + 12, base_y - trunk_height - 6, base_x + 14, base_y - trunk_height - 4, 20, 120, 70, true);
     } else if (season == 1) { // Spring - pink blossoms
         // Tree shape with pink/white blossoms
         qp_circle(display, base_x, base_y - trunk_height - 7, 15, 234, 180, 255, true); // Pink
