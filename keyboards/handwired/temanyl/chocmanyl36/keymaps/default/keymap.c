@@ -39,9 +39,16 @@ static uint32_t brightness_display_timer = 0; // Timer for brightness display ti
 static bool brightness_display_active = false; // Whether brightness indicator is shown
 #define BRIGHTNESS_DISPLAY_TIMEOUT 3000      // Show brightness for 3 seconds
 
-// Media text state (static text between uptime and volume bar)
+// Media text state (scrolling text between uptime and volume bar)
 static char current_media[64] = "";  // Current media text
 static bool media_active = false;     // Whether media is playing
+static uint8_t scroll_position = 0;  // Current scroll position in characters
+static uint32_t scroll_timer = 0;    // Timer for scroll updates
+static uint8_t text_length = 0;      // Length of current text in characters
+static bool needs_scroll = false;    // Whether text is too long and needs scrolling
+#define SCROLL_SPEED 300              // Tick every 500ms (0.5 seconds)
+#define SCROLL_PAUSE_START 500      // Pause 2 seconds before first scroll
+#define MAX_DISPLAY_CHARS 13         // Maximum characters that fit on display (~130px / 10px per char)
 
 // Custom keycodes
 enum custom_keycodes {
@@ -207,7 +214,7 @@ void draw_uptime_timer(void) {
     draw_digit(start_x + 76, timer_y, seconds / 10, hue, sat, val);
     draw_digit(start_x + 92, timer_y, seconds % 10, hue, sat, val);
 
-    qp_flush(display);
+    // Note: No qp_flush() here - let the caller decide when to flush
 }
 
 // Function to draw logo with color based on layer
@@ -261,7 +268,7 @@ void draw_volume_bar(uint8_t hue, uint8_t sat, uint8_t val) {
         qp_rect(display, 6, 234, 6 + bar_width, 237, hue, sat, val, true);
     }
 
-    qp_flush(display);
+    // Note: No qp_flush() here - let the caller decide when to flush
 }
 
 // Draw brightness indicator overlay (temporary, appears when brightness changes)
@@ -343,7 +350,7 @@ void draw_brightness_indicator(void) {
     qp_flush(display);
 }
 
-// Draw media text using Quantum Painter's text rendering
+// Draw media text using Quantum Painter's text rendering with scrolling
 void draw_media_text(void) {
     // Media text area: between uptime timer and volume bar
     // Timer ends at y=206, media starts at y=207
@@ -352,7 +359,7 @@ void draw_media_text(void) {
     uint16_t media_h = 23;
 
     // Clear media text area (black background)
-    qp_rect(display, 0, media_y, 134, media_y + media_h, 0, 0, 0, true);
+    qp_rect(display, 0, media_y, 134, media_y + media_h - 1, 0, 0, 0, true);
 
     // Only draw text if font was loaded successfully
     if (media_font != NULL) {
@@ -361,27 +368,50 @@ void draw_media_text(void) {
         uint8_t hue, sat, val;
         get_layer_color(layer, &hue, &sat, &val);
 
-        // Determine what text to show and truncate to fit display
-        char display_text[20];  // ~12-13 chars at 10px avg width fits in 130px
+        // Determine what text to show
+        const char *display_text;
         if (media_active && current_media[0] != '\0') {
-            // Truncate media text to fit display width
-            strncpy(display_text, current_media, sizeof(display_text) - 1);
-            display_text[sizeof(display_text) - 1] = '\0';
+            display_text = current_media;
         } else {
-            // Show placeholder for debugging
-            strncpy(display_text, "No media", sizeof(display_text) - 1);
-            display_text[sizeof(display_text) - 1] = '\0';
+            display_text = "No Media playing";
         }
 
-        // Draw the text with padding (2px left margin, 2px top padding)
-        // Use layer color for text
-        qp_drawtext_recolor(display, 2, media_y + 2, media_font, display_text, hue, sat, val, 0, 0, 0);
+        // Calculate text length if this is new text
+        if (text_length == 0) {
+            text_length = strlen(display_text);
+            needs_scroll = (text_length > MAX_DISPLAY_CHARS);
+            scroll_position = 0;
+            scroll_timer = timer_read32();
+        }
+
+        // Prepare display buffer with scrolled text
+        char display_buffer[MAX_DISPLAY_CHARS + 1];
+
+        if (needs_scroll) {
+            // Create a scrolling window into the text
+            for (uint8_t i = 0; i < MAX_DISPLAY_CHARS; i++) {
+                uint8_t source_pos = (scroll_position + i) % (text_length + 3); // +3 for spacing
+                if (source_pos < text_length) {
+                    display_buffer[i] = display_text[source_pos];
+                } else {
+                    display_buffer[i] = ' '; // Gap between repetitions
+                }
+            }
+            display_buffer[MAX_DISPLAY_CHARS] = '\0';
+        } else {
+            // Text fits, no scrolling needed
+            strncpy(display_buffer, display_text, MAX_DISPLAY_CHARS);
+            display_buffer[MAX_DISPLAY_CHARS] = '\0';
+        }
+
+        // Draw the text (2px left margin, 2px top padding)
+        qp_drawtext_recolor(display, 2, media_y + 2, media_font, display_buffer, hue, sat, val, 0, 0, 0);
     } else {
         // Font failed to load - draw error indicator (red rectangle)
         qp_rect(display, 2, media_y + 2, 20, media_y + 10, 0, 255, 255, true);
     }
 
-    qp_flush(display);
+    // Note: No qp_flush() here - let the caller decide when to flush
 }
 
 // Set backlight brightness via PWM
@@ -422,7 +452,7 @@ static void init_display(void) {
 
     // Power on display
     if (!qp_power(display, true)) {
-        return;  // Power on failed4
+        return;  // Power on failed
     }
 
     // Wait for display to stabilize
@@ -512,6 +542,7 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
             uint8_t hue, sat, val;
             get_layer_color(layer, &hue, &sat, &val);
             draw_volume_bar(hue, sat, val);
+            qp_flush(display);
             break;
 
         case 0x02:  // Media text update
@@ -542,7 +573,13 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
 
                 // Only redraw if text actually changed
                 if (text_changed) {
+                    // Reset scroll state for new text
+                    scroll_position = 0;
+                    text_length = 0;
+                    needs_scroll = false;
+                    scroll_timer = timer_read32();
                     draw_media_text();
+                    qp_flush(display);
                 }
             }
             break;
@@ -710,11 +747,13 @@ void housekeeping_task_user(void) {
     update_display_for_layer();
 
     uint32_t current_time = timer_read32();
+    bool needs_flush = false;
 
     // Update uptime timer once per second
     if (current_time - last_uptime_update >= 1000) {
         last_uptime_update = current_time;
         draw_uptime_timer();
+        needs_flush = true;
     }
 
     // Handle brightness display timeout
@@ -725,11 +764,33 @@ void housekeeping_task_user(void) {
             // Force a full redraw by invalidating the current layer
             current_display_layer = 255;
             update_display_for_layer();
+            needs_flush = true;
         }
     }
 
-    // Handle media text scrolling - DISABLED
-    // Scrolling text was too resource-intensive
+    // Handle media text scrolling (character-based tick scrolling)
+    if (needs_scroll && media_active) {
+        uint32_t elapsed = current_time - scroll_timer;
+
+        // Start scrolling after initial pause
+        if (elapsed >= SCROLL_PAUSE_START) {
+            // Calculate how many ticks should have occurred
+            uint32_t scroll_ticks = (elapsed - SCROLL_PAUSE_START) / SCROLL_SPEED;
+            uint8_t target_position = scroll_ticks % (text_length + 3); // +3 for spacing
+
+            // Only redraw if scroll position actually changed
+            if (target_position != scroll_position) {
+                scroll_position = target_position;
+                draw_media_text();
+                needs_flush = true;
+            }
+        }
+    }
+
+    // Single flush at the end to batch all updates
+    if (needs_flush) {
+        qp_flush(display);
+    }
 }
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
