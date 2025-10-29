@@ -450,24 +450,27 @@ void draw_seasonal_animation(void) {
 
     if (season == 0) { // Winter - snow falling with clouds
         // Draw winter clouds (light gray, fluffy)
-        uint16_t cloud_x[] = {25, 85, 110};
-        uint16_t cloud_y[] = {35, 40, 30};
+        uint16_t cloud_positions[][2] = {
+            {25, 35}, {85, 40}, {110, 30}
+        };
         for (uint8_t i = 0; i < 3; i++) {
             // Main cloud body (light gray)
-            qp_circle(display, cloud_x[i], cloud_y[i], 8, 0, 0, 160, true);
-            qp_circle(display, cloud_x[i] + 9, cloud_y[i] + 2, 6, 0, 0, 160, true);
-            qp_circle(display, cloud_x[i] - 7, cloud_y[i] + 2, 6, 0, 0, 160, true);
-            qp_circle(display, cloud_x[i] + 4, cloud_y[i] - 3, 5, 0, 0, 150, true);
+            qp_circle(display, cloud_positions[i][0], cloud_positions[i][1], 8, 0, 0, 160, true);
+            qp_circle(display, cloud_positions[i][0] + 9, cloud_positions[i][1] + 2, 6, 0, 0, 160, true);
+            qp_circle(display, cloud_positions[i][0] - 7, cloud_positions[i][1] + 2, 6, 0, 0, 160, true);
+            qp_circle(display, cloud_positions[i][0] + 4, cloud_positions[i][1] - 3, 5, 0, 0, 150, true);
         }
 
         // Draw snowflakes
-        uint16_t snow_x[] = {15, 40, 65, 85, 110, 25, 55, 95, 120, 10, 32, 48, 72, 90, 105, 125, 18, 35, 62, 78, 98};
-        uint16_t snow_y[] = {50, 70, 90, 60, 80, 100, 120, 110, 65, 45, 85, 105, 55, 75, 95, 115, 130, 62, 88, 108, 72};
+        uint16_t snow_positions[][2] = {
+            {15, 50}, {40, 70}, {65, 90}, {85, 60}, {110, 80}, {25, 100}, {55, 120}, {95, 110}, {120, 65}, {10, 45}, {32, 85},
+            {48, 105}, {72, 55}, {90, 75}, {105, 95}, {125, 115}, {18, 130}, {35, 62}, {62, 88}, {78, 108}, {98, 72}
+        };
         for (uint8_t i = 0; i < 21; i++) {
             // Simple snowflake with cross pattern
-            qp_rect(display, snow_x[i], snow_y[i], snow_x[i] + 2, snow_y[i] + 2, 170, 80, 255, true);
-            qp_rect(display, snow_x[i] - 2, snow_y[i] + 1, snow_x[i] + 4, snow_y[i] + 1, 170, 80, 255, true);
-            qp_rect(display, snow_x[i] + 1, snow_y[i] - 2, snow_x[i] + 1, snow_y[i] + 4, 170, 80, 255, true);
+            qp_rect(display, snow_positions[i][0], snow_positions[i][1], snow_positions[i][0] + 2, snow_positions[i][1] + 2, 170, 80, 255, true);
+            qp_rect(display, snow_positions[i][0] - 2, snow_positions[i][1] + 1, snow_positions[i][0] + 4, snow_positions[i][1] + 1, 170, 80, 255, true);
+            qp_rect(display, snow_positions[i][0] + 1, snow_positions[i][1] - 2, snow_positions[i][0] + 1, snow_positions[i][1] + 4, 170, 80, 255, true);
         }
 
         // Draw snow on the ground
@@ -475,43 +478,49 @@ void draw_seasonal_animation(void) {
         qp_rect(display, 0, ground_y - 2, 134, ground_y, 0, 0, 240, true); // Base snow layer
 
         // Add snow drifts with varying heights for natural look (extending upward from ground)
-        uint16_t drift_x[] = {0, 20, 45, 70, 95, 115};
-        uint8_t drift_height[] = {2, 4, 3, 5, 3, 4};
+        struct { uint16_t x; uint8_t height; } snow_drifts[] = {
+            {0, 2}, {20, 4}, {45, 3}, {70, 5}, {95, 3}, {115, 4}
+        };
         for (uint8_t i = 0; i < 6; i++) {
-            qp_rect(display, drift_x[i], ground_y - drift_height[i], drift_x[i] + 20, ground_y, 170, 40, 255, true);
+            qp_rect(display, snow_drifts[i].x, ground_y - snow_drifts[i].height, snow_drifts[i].x + 20, ground_y, 170, 40, 255, true);
         }
     } else if (season == 1) { // Spring - butterflies, flowers, and birds
         // Draw birds in the sky (larger V shapes) - 7 birds
-        uint16_t bird_x[] = {25, 60, 90, 110, 40, 150};
-        uint16_t bird_y[] = {50, 40, 70, 45, 75, 65};
+        uint16_t bird_positions[][2] = {
+            {25, 50}, {60, 40}, {90, 70}, {110, 45}, {40, 75}, {150, 65}
+        };
         for (uint8_t i = 0; i < 6; i++) {
             // Left wing (larger)
-            qp_rect(display, bird_x[i] - 5, bird_y[i], bird_x[i] - 1, bird_y[i] - 3, 0, 0, 100, true);
+            qp_rect(display, bird_positions[i][0] - 5, bird_positions[i][1], bird_positions[i][0] - 1, bird_positions[i][1] - 3, 0, 0, 100, true);
             // Right wing (larger)
-            qp_rect(display, bird_x[i] + 1, bird_y[i] - 3, bird_x[i] + 5, bird_y[i], 0, 0, 100, true);
+            qp_rect(display, bird_positions[i][0] + 1, bird_positions[i][1] - 3, bird_positions[i][0] + 5, bird_positions[i][1], 0, 0, 100, true);
         }
 
         // More butterflies, lower to the ground
-        uint16_t butterfly_x[] = {20, 45, 65, 85, 105, 125, 35, 75, 95};
-        uint16_t butterfly_y[] = {115, 125, 120, 130, 118, 135, 128, 122, 133};
-        uint8_t butterfly_hues[] = {234, 170, 42, 200, 10, 234, 85, 42, 170}; // Pink, cyan, yellow, magenta, red, pink, green, yellow, cyan
+        struct { uint16_t x; uint16_t y; uint8_t hue; } butterflies[] = {
+            {20, 115, 234}, {45, 125, 170}, {65, 120, 42}, {85, 130, 200}, {105, 118, 10},
+            {125, 135, 234}, {35, 128, 85}, {75, 122, 42}, {95, 133, 170}
+            // Pink, cyan, yellow, magenta, red, pink, green, yellow, cyan
+        };
         for (uint8_t i = 0; i < 9; i++) {
-            qp_circle(display, butterfly_x[i] - 2, butterfly_y[i], 2, butterfly_hues[i], 255, 200, true);
-            qp_circle(display, butterfly_x[i] + 2, butterfly_y[i], 2, butterfly_hues[i], 255, 200, true);
+            qp_circle(display, butterflies[i].x - 2, butterflies[i].y, 2, butterflies[i].hue, 255, 200, true);
+            qp_circle(display, butterflies[i].x + 2, butterflies[i].y, 2, butterflies[i].hue, 255, 200, true);
         }
 
         // Draw flowers on the ground (various colors and sizes)
-        uint16_t flower_x[] = {15, 28, 42, 58, 72, 88, 102, 118, 25, 50, 80, 95, 110, 35, 65};
-        uint8_t flower_hues[] = {234, 0, 42, 170, 200, 10, 85, 234, 42, 200, 0, 170, 234, 10, 42}; // Various spring colors
-        uint8_t flower_sizes[] = {3, 4, 3, 5, 3, 4, 3, 5, 4, 3, 5, 3, 4, 5, 3}; // Varying petal sizes
-        uint8_t stem_heights[] = {5, 6, 5, 7, 5, 6, 5, 7, 6, 5, 7, 5, 6, 7, 5}; // Varying stem heights
+        struct { uint16_t x; uint8_t hue; uint8_t size; uint8_t stem_height; } flowers[] = {
+            {15, 234, 3, 5}, {28, 0, 4, 6}, {42, 42, 3, 5}, {58, 170, 5, 7}, {72, 200, 3, 5},
+            {88, 10, 4, 6}, {102, 85, 3, 5}, {118, 234, 5, 7}, {25, 42, 4, 6}, {50, 200, 3, 5},
+            {80, 0, 5, 7}, {95, 170, 3, 5}, {110, 234, 4, 6}, {35, 10, 5, 7}, {65, 42, 3, 5}
+            // Various spring colors and sizes
+        };
         for (uint8_t i = 0; i < 15; i++) {
             // Flower stem (green)
-            qp_rect(display, flower_x[i], ground_y - stem_heights[i], flower_x[i] + 1, ground_y, 85, 200, 150, true);
+            qp_rect(display, flowers[i].x, ground_y - flowers[i].stem_height, flowers[i].x + 1, ground_y, 85, 200, 150, true);
             // Flower petals (colorful circles with varying sizes)
-            qp_circle(display, flower_x[i], ground_y - stem_heights[i] - 2, flower_sizes[i], flower_hues[i], 255, 220, true);
+            qp_circle(display, flowers[i].x, ground_y - flowers[i].stem_height - 2, flowers[i].size, flowers[i].hue, 255, 220, true);
             // Flower center (yellow, size varies with flower)
-            qp_circle(display, flower_x[i], ground_y - stem_heights[i] - 2, flower_sizes[i] / 3, 42, 255, 255, true);
+            qp_circle(display, flowers[i].x, ground_y - flowers[i].stem_height - 2, flowers[i].size / 3, 42, 255, 255, true);
         }
     } else if (season == 2) { // Summer - sunflowers and airplane
         // Draw airplane in top left (more realistic side view)
@@ -542,56 +551,62 @@ void draw_seasonal_animation(void) {
         qp_circle(display, plane_x + 13, plane_y + 7, 2, 0, 0, 160, true);
 
         // Draw sunflowers on the ground (tall with large yellow heads)
-        uint16_t sunflower_x[] = {22, 52, 78, 102, 122};
-        uint8_t stem_heights[] = {13, 15, 14, 12, 14}; // Tall stems
+        struct { uint16_t x; uint8_t stem_height; } sunflowers[] = {
+            {22, 13}, {52, 15}, {78, 14}, {102, 12}, {122, 14} // Tall stems
+        };
         for (uint8_t i = 0; i < 5; i++) {
             // Sunflower stem (green)
-            qp_rect(display, sunflower_x[i], ground_y - stem_heights[i], sunflower_x[i] + 2, ground_y, 85, 200, 150, true);
+            qp_rect(display, sunflowers[i].x, ground_y - sunflowers[i].stem_height, sunflowers[i].x + 2, ground_y, 85, 200, 150, true);
 
             // Large sunflower head (bright yellow)
-            qp_circle(display, sunflower_x[i] + 1, ground_y - stem_heights[i] - 3, 5, 42, 255, 255, true);
+            qp_circle(display, sunflowers[i].x + 1, ground_y - sunflowers[i].stem_height - 3, 5, 42, 255, 255, true);
 
             // Dark center (brown)
-            qp_circle(display, sunflower_x[i] + 1, ground_y - stem_heights[i] - 3, 2, 20, 200, 100, true);
+            qp_circle(display, sunflowers[i].x + 1, ground_y - sunflowers[i].stem_height - 3, 2, 20, 200, 100, true);
         }
     } else { // Fall - rain and clouds
         // Draw rain clouds (darker gray clouds)
-        uint16_t cloud_x[] = {25, 70, 105};
-        uint16_t cloud_y[] = {30, 40, 35};
+        uint16_t cloud_positions[][2] = {
+            {25, 30}, {70, 40}, {105, 35}
+        };
         for (uint8_t i = 0; i < 3; i++) {
             // Main cloud body (dark gray)
-            qp_circle(display, cloud_x[i], cloud_y[i], 9, 0, 0, 120, true);
-            qp_circle(display, cloud_x[i] + 10, cloud_y[i] + 2, 7, 0, 0, 120, true);
-            qp_circle(display, cloud_x[i] - 8, cloud_y[i] + 2, 7, 0, 0, 120, true);
-            qp_circle(display, cloud_x[i] + 5, cloud_y[i] - 4, 6, 0, 0, 110, true);
+            qp_circle(display, cloud_positions[i][0], cloud_positions[i][1], 9, 0, 0, 120, true);
+            qp_circle(display, cloud_positions[i][0] + 10, cloud_positions[i][1] + 2, 7, 0, 0, 120, true);
+            qp_circle(display, cloud_positions[i][0] - 8, cloud_positions[i][1] + 2, 7, 0, 0, 120, true);
+            qp_circle(display, cloud_positions[i][0] + 5, cloud_positions[i][1] - 4, 6, 0, 0, 110, true);
         }
 
         // Draw rain drops scattered throughout the scene
         // Random distribution from clouds to near ground (50 drops)
-        uint16_t rain_x[] = {91, 25, 108, 62, 45, 119, 31, 76, 100, 53, 17, 85, 69, 122, 38, 96, 58, 20, 106, 72,
-                             41, 115, 29, 83, 50, 124, 64, 18, 98, 56, 36, 88, 67, 110, 42, 78, 26, 102, 60, 21,
-                             94, 48, 116, 33, 81, 52, 120, 39, 75, 104};
-        uint16_t rain_y_base[] = {86, 128, 61, 101, 74, 139, 52, 118, 93, 67, 131, 79, 105, 49, 123, 84, 58, 143, 71, 113,
-                                  96, 54, 136, 88, 109, 63, 121, 76, 99, 56, 140, 82, 115, 69, 127, 91, 59, 103, 77, 133,
-                                  94, 66, 51, 119, 87, 106, 73, 137, 98, 62};
+        uint16_t rain_positions[][2] = {
+            {91, 86}, {25, 128}, {108, 61}, {62, 101}, {45, 74}, {119, 139}, {31, 52}, {76, 118}, {100, 93}, {53, 67},
+            {17, 131}, {85, 79}, {69, 105}, {122, 49}, {38, 123}, {96, 84}, {58, 58}, {20, 143}, {106, 71}, {72, 113},
+            {41, 96}, {115, 54}, {29, 136}, {83, 88}, {50, 109}, {124, 63}, {64, 121}, {18, 76}, {98, 99}, {56, 56},
+            {36, 140}, {88, 82}, {67, 115}, {110, 69}, {42, 127}, {78, 91}, {26, 59}, {102, 103}, {60, 77}, {21, 133},
+            {94, 94}, {48, 66}, {116, 51}, {33, 119}, {81, 87}, {52, 106}, {120, 73}, {39, 137}, {75, 98}, {104, 62}
+        };
         for (uint8_t i = 0; i < NUM_RAINDROPS; i++) {
             // Use static Y positions directly
-            uint16_t y_pos = rain_y_base[i];
+            uint16_t y_pos = rain_positions[i][1];
 
             // Draw raindrops (2 pixels wide, 4 pixels tall)
             uint8_t drop_height = 4;
             if (y_pos < 150) {
-                qp_rect(display, rain_x[i], y_pos, rain_x[i] + 1, y_pos + drop_height, 170, 150, 200, true);
+                qp_rect(display, rain_positions[i][0], y_pos, rain_positions[i][0] + 1, y_pos + drop_height, 170, 150, 200, true);
             }
         }
         rain_initialized = true;
 
         // Draw fallen leaves on the ground (just above ground line at y=150)
-        uint16_t leaf_ground_x[] = {18, 35, 52, 68, 82, 95, 108, 122, 25, 45, 62, 78, 92, 105, 118};
-        uint8_t leaf_ground_colors[] = {10, 0, 25, 15, 8, 20, 5, 30, 12, 18, 22, 28, 15, 10, 25}; // Orange, red, yellow shades
+        struct { uint16_t x; uint8_t hue; } fallen_leaves[] = {
+            {18, 10}, {35, 0}, {52, 25}, {68, 15}, {82, 8}, {95, 20}, {108, 5}, {122, 30},
+            {25, 12}, {45, 18}, {62, 22}, {78, 28}, {92, 15}, {105, 10}, {118, 25}
+            // Orange, red, yellow shades
+        };
         for (uint8_t i = 0; i < 15; i++) {
             // Small leaves on ground (small circles just above ground line)
-            qp_circle(display, leaf_ground_x[i], 146, 2, leaf_ground_colors[i], 255, 220, true);
+            qp_circle(display, fallen_leaves[i].x, 146, 2, fallen_leaves[i].hue, 255, 220, true);
         }
     }
 
