@@ -215,12 +215,28 @@ void draw_tree(uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, ui
             base_x + trunk_width/2, base_y, 20, 200, 100, true);
 
     // Canopy changes by season
-    if (season == 0) { // Winter - bare branches
-        // Draw simple branch lines
-        for (int8_t i = -3; i <= 3; i++) {
-            qp_rect(display, base_x - 12 + i * 5, base_y - trunk_height - 4 - abs(i) * 2,
-                    base_x - 9 + i * 5, base_y - trunk_height - 2 - abs(i) * 2, 20, 150, 80, true);
-        }
+    if (season == 0) { // Winter - bare branches with more detail
+        // Draw main branches (larger, more visible)
+        // Left main branch
+        qp_rect(display, base_x - 15, base_y - trunk_height - 2, base_x - 13, base_y - trunk_height + 4, 20, 150, 80, true);
+        qp_rect(display, base_x - 15, base_y - trunk_height - 2, base_x - 10, base_y - trunk_height, 20, 150, 80, true);
+        // Right main branch
+        qp_rect(display, base_x + 13, base_y - trunk_height - 2, base_x + 15, base_y - trunk_height + 4, 20, 150, 80, true);
+        qp_rect(display, base_x + 10, base_y - trunk_height - 2, base_x + 15, base_y - trunk_height, 20, 150, 80, true);
+
+        // Upper branches
+        qp_rect(display, base_x - 10, base_y - trunk_height - 6, base_x - 8, base_y - trunk_height - 1, 20, 150, 80, true);
+        qp_rect(display, base_x + 8, base_y - trunk_height - 6, base_x + 10, base_y - trunk_height - 1, 20, 150, 80, true);
+
+        // Smaller twigs
+        qp_rect(display, base_x - 18, base_y - trunk_height + 2, base_x - 16, base_y - trunk_height + 5, 20, 120, 70, true);
+        qp_rect(display, base_x + 16, base_y - trunk_height + 2, base_x + 18, base_y - trunk_height + 5, 20, 120, 70, true);
+        qp_rect(display, base_x - 13, base_y - trunk_height - 5, base_x - 11, base_y - trunk_height - 2, 20, 120, 70, true);
+        qp_rect(display, base_x + 11, base_y - trunk_height - 5, base_x + 13, base_y - trunk_height - 2, 20, 120, 70, true);
+
+        // Top twigs
+        qp_rect(display, base_x - 5, base_y - trunk_height - 8, base_x - 3, base_y - trunk_height - 5, 20, 120, 70, true);
+        qp_rect(display, base_x + 3, base_y - trunk_height - 8, base_x + 5, base_y - trunk_height - 5, 20, 120, 70, true);
     } else if (season == 1) { // Spring - pink blossoms
         // Tree shape with pink/white blossoms
         qp_circle(display, base_x, base_y - trunk_height - 7, 15, 234, 180, 255, true); // Pink
@@ -364,11 +380,23 @@ void draw_seasonal_animation(void) {
 
     // === SEASONAL WEATHER EFFECTS ===
 
-    if (season == 0) { // Winter - snow falling
-        uint16_t snow_x[] = {15, 40, 65, 85, 110, 25, 55, 95, 120};
-        uint16_t snow_y[] = {30, 50, 70, 40, 60, 80, 100, 90, 45};
-        for (uint8_t i = 0; i < 9; i++) {
-            // Simple snowflake
+    if (season == 0) { // Winter - snow falling with clouds
+        // Draw winter clouds (light gray, fluffy)
+        uint16_t cloud_x[] = {25, 85, 110};
+        uint16_t cloud_y[] = {35, 40, 30};
+        for (uint8_t i = 0; i < 3; i++) {
+            // Main cloud body (light gray)
+            qp_circle(display, cloud_x[i], cloud_y[i], 8, 0, 0, 160, true);
+            qp_circle(display, cloud_x[i] + 9, cloud_y[i] + 2, 6, 0, 0, 160, true);
+            qp_circle(display, cloud_x[i] - 7, cloud_y[i] + 2, 6, 0, 0, 160, true);
+            qp_circle(display, cloud_x[i] + 4, cloud_y[i] - 3, 5, 0, 0, 150, true);
+        }
+
+        // Draw snowflakes
+        uint16_t snow_x[] = {15, 40, 65, 85, 110, 25, 55, 95, 120, 10, 32, 48, 72, 90, 105, 125, 18, 35, 62, 78, 98};
+        uint16_t snow_y[] = {50, 70, 90, 60, 80, 100, 120, 110, 65, 45, 85, 105, 55, 75, 95, 115, 130, 62, 88, 108, 72};
+        for (uint8_t i = 0; i < 21; i++) {
+            // Simple snowflake with cross pattern
             qp_rect(display, snow_x[i], snow_y[i], snow_x[i] + 2, snow_y[i] + 2, 170, 80, 255, true);
             qp_rect(display, snow_x[i] - 2, snow_y[i] + 1, snow_x[i] + 4, snow_y[i] + 1, 170, 80, 255, true);
             qp_rect(display, snow_x[i] + 1, snow_y[i] - 2, snow_x[i] + 1, snow_y[i] + 4, 170, 80, 255, true);
