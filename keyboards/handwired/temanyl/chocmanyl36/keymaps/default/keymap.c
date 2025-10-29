@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <qp.h>
 #include "draw_logo.h"
 #include "graphics/helvetica20.qff.c"
@@ -58,6 +59,10 @@ static bool needs_scroll = false;    // Whether text is too long and needs scrol
 #define SCROLL_PAUSE_START 500      // Pause 2 seconds before first scroll
 #define MAX_DISPLAY_CHARS 13         // Maximum characters that fit on display (~130px / 10px per char)
 
+// Rain (static - no animation to avoid artifacts)
+static bool rain_initialized = false; // Track if rain has been drawn
+#define NUM_RAINDROPS 50
+
 // Custom keycodes
 enum custom_keycodes {
     DISP_UP = SAFE_RANGE,  // Display brightness up
@@ -81,6 +86,9 @@ void draw_media_text(void);
 void draw_seasonal_animation(void);
 void draw_tree(uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, uint8_t sat, uint8_t val);
 void get_celestial_position(uint8_t hour, uint16_t *x, uint16_t *y);
+void update_rain_animation(void);
+void get_background_pixel_color(uint16_t x, uint16_t y, uint8_t *hue, uint8_t *sat, uint8_t *val);
+void capture_scene_to_framebuffer(void);
 
 // Helper function to draw a single digit using 7-segment style
 void draw_digit(uint16_t x, uint16_t y, uint8_t digit, uint8_t hue, uint8_t sat, uint8_t val) {
@@ -394,14 +402,24 @@ void draw_seasonal_animation(void) {
         }
 
         // Draw rain drops scattered throughout the scene
-        // Random distribution from clouds to near ground
-        uint16_t rain_x[] = {22, 67, 103, 48, 85, 16, 125, 56, 92, 38, 112, 73, 29, 98, 61, 119, 42, 78, 108, 33, 88, 52, 95, 70};
-        uint16_t rain_y[] = {52, 118, 73, 95, 135, 62, 88, 112, 55, 128, 78, 105, 105, 142, 82, 58, 122, 92, 75, 138, 102, 65, 115, 98};
-        for (uint8_t i = 0; i < 24; i++) {
-            // Short rain drop (4-6 pixels long)
-            uint8_t drop_length = 4 + (i % 3);
-            qp_rect(display, rain_x[i], rain_y[i], rain_x[i] + 1, rain_y[i] + drop_length, 170, 150, 200, true);
+        // Random distribution from clouds to near ground (50 drops)
+        uint16_t rain_x[] = {91, 25, 108, 62, 45, 119, 31, 76, 100, 53, 17, 85, 69, 122, 38, 96, 58, 20, 106, 72,
+                             41, 115, 29, 83, 50, 124, 64, 18, 98, 56, 36, 88, 67, 110, 42, 78, 26, 102, 60, 21,
+                             94, 48, 116, 33, 81, 52, 120, 39, 75, 104};
+        uint16_t rain_y_base[] = {86, 128, 61, 101, 74, 139, 52, 118, 93, 67, 131, 79, 105, 49, 123, 84, 58, 143, 71, 113,
+                                  96, 54, 136, 88, 109, 63, 121, 76, 99, 56, 140, 82, 115, 69, 127, 91, 59, 103, 77, 133,
+                                  94, 66, 51, 119, 87, 106, 73, 137, 98, 62};
+        for (uint8_t i = 0; i < NUM_RAINDROPS; i++) {
+            // Use static Y positions directly
+            uint16_t y_pos = rain_y_base[i];
+
+            // Draw raindrops (2 pixels wide, 4 pixels tall)
+            uint8_t drop_height = 4;
+            if (y_pos < 150) {
+                qp_rect(display, rain_x[i], y_pos, rain_x[i] + 1, y_pos + drop_height, 170, 150, 200, true);
+            }
         }
+        rain_initialized = true;
 
         // Draw fallen leaves on the ground (just above ground line at y=150)
         uint16_t leaf_ground_x[] = {18, 35, 52, 68, 82, 95, 108, 122, 25, 45, 62, 78, 92, 105, 118};
@@ -1024,6 +1042,8 @@ void housekeeping_task_user(void) {
             }
         }
     }
+
+    // Rain animation disabled - static rain looks better without artifacts
 
     // Single flush at the end to batch all updates
     if (needs_flush) {

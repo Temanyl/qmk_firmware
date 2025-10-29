@@ -26,4 +26,4 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // Quantum Painter display settings
 // Set to 0 to disable timeout and keep display always on
 // Default is 30000 (30 seconds)
-#define QUANTUM_PAINTER_DISPLAY_TIMEOUT 30000
+#define QUANTUM_PAINTER_DISPLAY_TIMEOUT 60000
