@@ -33,6 +33,14 @@ static uint32_t last_uptime_update = 0;     // Track last uptime display update
 // Volume indicator state (permanent bar at bottom)
 static uint8_t current_volume = 0;          // Current volume level (0-100)
 
+// Date/time state (received from host)
+static uint8_t current_hour = 0;            // Current hour (0-23)
+static uint8_t current_minute = 0;          // Current minute (0-59)
+static uint8_t current_day = 1;             // Current day (1-31)
+static uint8_t current_month = 1;           // Current month (1-12)
+static uint16_t current_year = 2025;        // Current year
+static bool time_received = false;          // Whether we've received time from host
+
 // Brightness indicator state (temporary overlay)
 static uint8_t last_brightness_value = 102; // Track last brightness for change detection
 static uint32_t brightness_display_timer = 0; // Timer for brightness display timeout
@@ -66,7 +74,7 @@ enum layer_names {
 
 // Forward declarations
 void draw_volume_bar(uint8_t hue, uint8_t sat, uint8_t val);
-void draw_uptime_timer(void);
+void draw_date_time(void);
 void get_layer_color(uint8_t layer, uint8_t *hue, uint8_t *sat, uint8_t *val);
 void draw_brightness_indicator(void);
 void draw_media_text(void);
@@ -128,91 +136,60 @@ void get_layer_color(uint8_t layer, uint8_t *hue, uint8_t *sat, uint8_t *val) {
     }
 }
 
-// Draw uptime timer at top of display
-void draw_uptime_timer(void) {
-    // Get uptime in milliseconds
-    uint32_t uptime_ms = timer_read32();
-    uint32_t uptime_seconds = uptime_ms / 1000;
-
-    // Calculate days, hours, minutes, seconds
-    uint16_t days = uptime_seconds / 86400;
-    uint8_t hours = (uptime_seconds % 86400) / 3600;
-    uint8_t minutes = (uptime_seconds % 3600) / 60;
-    uint8_t seconds = uptime_seconds % 60;
-
-    // Get current layer color for the timer
+// Draw date and time at top of display
+void draw_date_time(void) {
+    // Get current layer color
     uint8_t layer = get_highest_layer(layer_state);
     uint8_t hue, sat, val;
     get_layer_color(layer, &hue, &sat, &val);
 
-    // Clear timer area above media text (black background)
-    // Ends at y=206 (timer ends at 186+20=206)
+    // Clear date/time area above media text (black background)
     qp_rect(display, 0, 165, 134, 206, 0, 0, 0, true);
 
-    // Draw "Day" label and number centered (much larger, more readable)
-    uint16_t day_x = (135 - 65) / 2;  // Center position for wider text
-    uint16_t day_y = 158;  // Start position (moved up for more space)
+    // Date area: y=155 to y=171
+    uint16_t date_y = 155;
 
-    // Draw "Day" text - much larger (~8x11 pixels per letter, 2px thick)
-    // D
-    qp_rect(display, day_x, day_y, day_x + 2, day_y + 10, hue, sat, val, true);      // left vertical (thick)
-    qp_rect(display, day_x + 2, day_y, day_x + 7, day_y + 2, hue, sat, val, true);   // top horizontal (thick)
-    qp_rect(display, day_x + 6, day_y + 2, day_x + 8, day_y + 8, hue, sat, val, true);  // right vertical (thick)
-    qp_rect(display, day_x + 2, day_y + 8, day_x + 7, day_y + 10, hue, sat, val, true); // bottom horizontal (thick)
+    // Draw date in DD.MM.YYYY format centered
+    // Each digit is ~14px wide, with dots: total ~115px wide
+    uint16_t date_x = (135 - 115) / 2;
 
-    // a
-    qp_rect(display, day_x + 11, day_y + 4, day_x + 16, day_y + 6, hue, sat, val, true);  // top (thick)
-    qp_rect(display, day_x + 15, day_y + 4, day_x + 17, day_y + 10, hue, sat, val, true); // right vertical (thick)
-    qp_rect(display, day_x + 11, day_y + 8, day_x + 16, day_y + 10, hue, sat, val, true); // bottom (thick)
-    qp_rect(display, day_x + 10, day_y + 6, day_x + 12, day_y + 10, hue, sat, val, true);  // left vertical short (thick)
+    // Draw day (2 digits)
+    draw_digit(date_x, date_y, current_day / 10, hue, sat, val);
+    draw_digit(date_x + 16, date_y, current_day % 10, hue, sat, val);
 
-    // y
-    qp_rect(display, day_x + 21, day_y + 4, day_x + 23, day_y + 11, hue, sat, val, true);  // left with descender (thick)
-    qp_rect(display, day_x + 26, day_y + 4, day_x + 28, day_y + 9, hue, sat, val, true);  // right vertical (thick)
-    qp_rect(display, day_x + 23, day_y + 8, day_x + 26, day_y + 10, hue, sat, val, true); // bottom connection (thick)
+    // Draw first dot
+    qp_rect(display, date_x + 31, date_y + 15, date_x + 34, date_y + 18, hue, sat, val, true);
 
-    // Space before number
-    uint16_t num_x = day_x + 34;
+    // Draw month (2 digits)
+    draw_digit(date_x + 37, date_y, current_month / 10, hue, sat, val);
+    draw_digit(date_x + 53, date_y, current_month % 10, hue, sat, val);
 
-    // Draw day number using same-size 7-segment digits (aligned with "Day" text)
-    if (days >= 10) {
-        // Draw tens digit
-        uint8_t tens = days / 10;
-        draw_digit(num_x, day_y, tens, hue, sat, val);
-        num_x += 16;
-    }
-    // Draw ones digit
-    draw_digit(num_x, day_y, days % 10, hue, sat, val);
+    // Draw second dot
+    qp_rect(display, date_x + 68, date_y + 15, date_x + 71, date_y + 18, hue, sat, val, true);
 
-    // Main timer position (below day label)
-    // Day ends at y=185 (165+20)
-    // Start timer at y=186 (1px gap), ends at y=206
-    // This will overlap with media text (starts at 198), so move media down
-    uint16_t timer_y = 183;
+    // Draw year (4 digits, but only last 2 for space)
+    uint8_t year_last_two = current_year % 100;
+    draw_digit(date_x + 74, date_y, year_last_two / 10, hue, sat, val);
+    draw_digit(date_x + 90, date_y, year_last_two % 10, hue, sat, val);
 
-    // Draw time in HH:MM:SS format centered
-    // Each digit is ~14px wide, with spacing: total ~100px wide
-    uint16_t start_x = (135 - 100) / 2;
+    // Time area: y=190 to y=206
+    uint16_t time_y = 180;
+
+    // Draw time in HH:MM format centered
+    // Each digit is ~14px wide, with colon: total ~70px wide
+    uint16_t time_x = (135 - 70) / 2;
 
     // Draw hours (2 digits)
-    draw_digit(start_x, timer_y, hours / 10, hue, sat, val);
-    draw_digit(start_x + 16, timer_y, hours % 10, hue, sat, val);
+    draw_digit(time_x, time_y, current_hour / 10, hue, sat, val);
+    draw_digit(time_x + 16, time_y, current_hour % 10, hue, sat, val);
 
-    // Draw first colon
-    qp_rect(display, start_x + 32, timer_y + 5, start_x + 35, timer_y + 7, hue, sat, val, true);
-    qp_rect(display, start_x + 32, timer_y + 13, start_x + 35, timer_y + 15, hue, sat, val, true);
+    // Draw colon
+    qp_rect(display, time_x + 32, time_y + 5, time_x + 35, time_y + 7, hue, sat, val, true);
+    qp_rect(display, time_x + 32, time_y + 13, time_x + 35, time_y + 15, hue, sat, val, true);
 
     // Draw minutes (2 digits)
-    draw_digit(start_x + 38, timer_y, minutes / 10, hue, sat, val);
-    draw_digit(start_x + 54, timer_y, minutes % 10, hue, sat, val);
-
-    // Draw second colon
-    qp_rect(display, start_x + 70, timer_y + 5, start_x + 73, timer_y + 7, hue, sat, val, true);
-    qp_rect(display, start_x + 70, timer_y + 13, start_x + 73, timer_y + 15, hue, sat, val, true);
-
-    // Draw seconds (2 digits)
-    draw_digit(start_x + 76, timer_y, seconds / 10, hue, sat, val);
-    draw_digit(start_x + 92, timer_y, seconds % 10, hue, sat, val);
+    draw_digit(time_x + 38, time_y, current_minute / 10, hue, sat, val);
+    draw_digit(time_x + 54, time_y, current_minute % 10, hue, sat, val);
 
     // Note: No qp_flush() here - let the caller decide when to flush
 }
@@ -235,8 +212,8 @@ void set_layer_background(uint8_t layer) {
     // Draw the logo at the top with the selected color
     draw_amboss_logo(display, 7, 10, hue, sat, val);
 
-    // Redraw uptime timer above volume bar (will handle its own clearing)
-    draw_uptime_timer();
+    // Redraw date/time above volume bar (will handle its own clearing)
+    draw_date_time();
 
     // Redraw media text (if active) with new layer color
     draw_media_text();
@@ -500,8 +477,8 @@ static void init_display(void) {
     backlight_brightness = 102;
     last_brightness_value = 102;
 
-    // Draw initial uptime timer above volume bar
-    draw_uptime_timer();
+    // Draw initial date/time above volume bar
+    draw_date_time();
 
     // Draw initial media text (empty at startup)
     draw_media_text();
@@ -524,6 +501,7 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
     // Byte 0: Command ID
     //   0x01 = Volume update (Byte 1: volume 0-100)
     //   0x02 = Media text update (Bytes 1-31: null-terminated string)
+    //   0x03 = Date/Time update (Bytes 1-7: year_low, year_high, month, day, hour, minute, second)
 
     if (length < 2) return;  // Need at least 2 bytes
 
@@ -581,6 +559,29 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
                     draw_media_text();
                     qp_flush(display);
                 }
+            }
+            break;
+
+        case 0x03:  // Date/Time update
+            if (length >= 8) {
+                // Extract date/time components
+                current_year = data[1] | (data[2] << 8);  // 16-bit year
+                current_month = data[3];
+                current_day = data[4];
+                current_hour = data[5];
+                current_minute = data[6];
+                // data[7] is seconds, but we don't display it
+
+                // Validate ranges
+                if (current_month < 1 || current_month > 12) current_month = 1;
+                if (current_day < 1 || current_day > 31) current_day = 1;
+                if (current_hour > 23) current_hour = 0;
+                if (current_minute > 59) current_minute = 0;
+
+                time_received = true;
+                last_uptime_update = timer_read32();
+                draw_date_time();
+                qp_flush(display);
             }
             break;
 
@@ -749,10 +750,20 @@ void housekeeping_task_user(void) {
     uint32_t current_time = timer_read32();
     bool needs_flush = false;
 
-    // Update uptime timer once per second
-    if (current_time - last_uptime_update >= 1000) {
+    // Update date/time display once per minute (or when time is received)
+    if (time_received && (current_time - last_uptime_update >= 60000)) {
         last_uptime_update = current_time;
-        draw_uptime_timer();
+        // Increment minute (host will send updated time periodically)
+        current_minute++;
+        if (current_minute >= 60) {
+            current_minute = 0;
+            current_hour++;
+            if (current_hour >= 24) {
+                current_hour = 0;
+                // Day rollover - would need date logic, but host should update before this
+            }
+        }
+        draw_date_time();
         needs_flush = true;
     }
 

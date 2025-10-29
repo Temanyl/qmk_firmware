@@ -21,6 +21,7 @@ import time
 import subprocess
 import platform
 import sys
+from datetime import datetime
 
 # Import hidapi - handle potential import issues
 try:
@@ -55,6 +56,7 @@ HID_PACKET_SIZE = 32
 # Command IDs for the protocol
 CMD_VOLUME_UPDATE = 0x01
 CMD_MEDIA_UPDATE = 0x02
+CMD_DATETIME_UPDATE = 0x03
 
 # Poll interval in seconds
 POLL_INTERVAL = 0.1
@@ -304,6 +306,39 @@ def send_media_update(device, media_text):
         return False
 
 
+def send_datetime_update(device):
+    """Send current date/time update to keyboard via Raw HID."""
+    # Create HID packet (32 bytes)
+    packet = bytearray(HID_PACKET_SIZE)
+    packet[0] = CMD_DATETIME_UPDATE  # Command ID
+
+    # Get current date/time
+    now = datetime.now()
+
+    # Pack date/time: year (2 bytes), month, day, hour, minute, second
+    packet[1] = now.year & 0xFF  # Year low byte
+    packet[2] = (now.year >> 8) & 0xFF  # Year high byte
+    packet[3] = now.month
+    packet[4] = now.day
+    packet[5] = now.hour
+    packet[6] = now.minute
+    packet[7] = now.second
+
+    try:
+        # Send the packet
+        bytes_written = device.write([0] + list(packet))
+
+        # Check if write was successful
+        if bytes_written <= 0:
+            print(f"✗ DateTime write failed: {bytes_written} bytes written")
+            return False
+
+        return True
+    except Exception as e:
+        print(f"✗ Error sending datetime packet: {e}")
+        return False
+
+
 def is_keyboard_connected():
     """Check if keyboard is still in HID device list."""
     devices = hid.enumerate()
@@ -347,6 +382,8 @@ def main():
     connection_check_interval = 1.0  # Check connection every second
     last_connection_check = 0
     last_media_check = 0  # Last time we checked media
+    last_datetime_update = 0  # Last time we sent date/time
+    datetime_update_interval = 60.0  # Send time every 60 seconds
 
     try:
         while True:
@@ -401,6 +438,13 @@ def main():
                             last_media = current_media
                         else:
                             last_media = None
+
+                        # Immediately send current date/time on (re)connect
+                        print(f"Syncing date/time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                        if send_datetime_update(device):
+                            last_datetime_update = current_time
+                        else:
+                            print("✗ DateTime sync failed")
 
                 # Wait before next iteration
                 time.sleep(0.5)
@@ -469,6 +513,23 @@ def main():
                             last_volume = None
                             last_media = None
                             continue
+
+                # Periodically send date/time updates (every minute)
+                if current_time - last_datetime_update >= datetime_update_interval:
+                    if send_datetime_update(device):
+                        last_datetime_update = current_time
+                    else:
+                        # Send failed, likely disconnected
+                        print("✗ DateTime send failed, keyboard may be disconnected")
+                        print("Waiting for keyboard to reconnect...\n")
+                        try:
+                            device.close()
+                        except:
+                            pass
+                        device = None
+                        last_volume = None
+                        last_media = None
+                        continue
 
                 # Wait before next poll
                 time.sleep(POLL_INTERVAL)
