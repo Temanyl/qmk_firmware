@@ -130,8 +130,8 @@ void draw_uptime_timer(void) {
     uint8_t hue, sat, val;
     get_layer_color(layer, &hue, &sat, &val);
 
-    // Clear timer area above brightness bar (white background)
-    qp_rect(display, 0, 165, 134, 225, 0, 0, 255, true);
+    // Clear timer area above brightness bar (black background)
+    qp_rect(display, 0, 165, 134, 225, 0, 0, 0, true);
 
     // Draw "Day" label and number centered (much larger, more readable)
     uint16_t day_x = (135 - 65) / 2;  // Center position for wider text
@@ -206,8 +206,8 @@ void set_layer_background(uint8_t layer) {
     }
     current_display_layer = layer;
 
-    // Always draw white background
-    qp_rect(display, 0, 0, 134, 239, 0, 0, 255, true);
+    // Always draw black background
+    qp_rect(display, 0, 0, 134, 239, 0, 0, 0, true);
 
     // Select logo color based on layer
     uint8_t hue, sat, val;
@@ -235,11 +235,11 @@ void draw_volume_bar(uint8_t hue, uint8_t sat, uint8_t val) {
     // Calculate bar width based on volume (max width 120 pixels, leaving margins)
     uint16_t bar_width = (current_volume * 120) / 100;
 
-    // Clear bottom area with white background
-    qp_rect(display, 0, 225, 134, 239, 0, 0, 255, true);
+    // Clear bottom area with black background
+    qp_rect(display, 0, 225, 134, 239, 0, 0, 0, true);
 
-    // Draw volume bar outline (thin dark grey border)
-    qp_rect(display, 5, 230, 127, 236, 0, 0, 80, false);
+    // Draw volume bar outline (thin light grey border)
+    qp_rect(display, 5, 230, 127, 236, 0, 0, 150, false);
 
     // Draw filled volume bar using the logo color
     if (bar_width > 0) {
@@ -258,35 +258,35 @@ void draw_brightness_indicator(void) {
     uint16_t box_w = 100;
     uint16_t box_h = 40;
 
-    // Draw semi-transparent background (light grey box with border)
-    qp_rect(display, box_x, box_y, box_x + box_w, box_y + box_h, 0, 0, 220, true);
-    qp_rect(display, box_x, box_y, box_x + box_w, box_y + box_h, 0, 0, 100, false);
+    // Draw dark grey background box with lighter border
+    qp_rect(display, box_x, box_y, box_x + box_w, box_y + box_h, 0, 0, 40, true);
+    qp_rect(display, box_x, box_y, box_x + box_w, box_y + box_h, 0, 0, 150, false);
 
     // Draw "BRI" text using simple rectangles at top of box
     uint16_t text_y = box_y + 6;
     uint16_t text_x = box_x + 8;
 
-    // B
-    qp_rect(display, text_x, text_y, text_x + 1, text_y + 9, 0, 0, 0, true);
-    qp_rect(display, text_x, text_y, text_x + 6, text_y + 1, 0, 0, 0, true);
-    qp_rect(display, text_x, text_y + 4, text_x + 5, text_y + 5, 0, 0, 0, true);
-    qp_rect(display, text_x, text_y + 9, text_x + 6, text_y + 10, 0, 0, 0, true);
-    qp_rect(display, text_x + 5, text_y + 1, text_x + 7, text_y + 4, 0, 0, 0, true);
-    qp_rect(display, text_x + 5, text_y + 5, text_x + 7, text_y + 9, 0, 0, 0, true);
+    // B (white text)
+    qp_rect(display, text_x, text_y, text_x + 1, text_y + 9, 0, 0, 255, true);
+    qp_rect(display, text_x, text_y, text_x + 6, text_y + 1, 0, 0, 255, true);
+    qp_rect(display, text_x, text_y + 4, text_x + 5, text_y + 5, 0, 0, 255, true);
+    qp_rect(display, text_x, text_y + 9, text_x + 6, text_y + 10, 0, 0, 255, true);
+    qp_rect(display, text_x + 5, text_y + 1, text_x + 7, text_y + 4, 0, 0, 255, true);
+    qp_rect(display, text_x + 5, text_y + 5, text_x + 7, text_y + 9, 0, 0, 255, true);
 
-    // R
+    // R (white text)
     text_x += 10;
-    qp_rect(display, text_x, text_y, text_x + 1, text_y + 9, 0, 0, 0, true);
-    qp_rect(display, text_x, text_y, text_x + 6, text_y + 1, 0, 0, 0, true);
-    qp_rect(display, text_x, text_y + 4, text_x + 5, text_y + 5, 0, 0, 0, true);
-    qp_rect(display, text_x + 5, text_y + 1, text_x + 7, text_y + 4, 0, 0, 0, true);
-    qp_rect(display, text_x + 4, text_y + 5, text_x + 7, text_y + 9, 0, 0, 0, true);
+    qp_rect(display, text_x, text_y, text_x + 1, text_y + 9, 0, 0, 255, true);
+    qp_rect(display, text_x, text_y, text_x + 6, text_y + 1, 0, 0, 255, true);
+    qp_rect(display, text_x, text_y + 4, text_x + 5, text_y + 5, 0, 0, 255, true);
+    qp_rect(display, text_x + 5, text_y + 1, text_x + 7, text_y + 4, 0, 0, 255, true);
+    qp_rect(display, text_x + 4, text_y + 5, text_x + 7, text_y + 9, 0, 0, 255, true);
 
-    // I
+    // I (white text)
     text_x += 10;
-    qp_rect(display, text_x, text_y, text_x + 5, text_y + 1, 0, 0, 0, true);
-    qp_rect(display, text_x + 2, text_y + 1, text_x + 3, text_y + 9, 0, 0, 0, true);
-    qp_rect(display, text_x, text_y + 9, text_x + 5, text_y + 10, 0, 0, 0, true);
+    qp_rect(display, text_x, text_y, text_x + 5, text_y + 1, 0, 0, 255, true);
+    qp_rect(display, text_x + 2, text_y + 1, text_x + 3, text_y + 9, 0, 0, 255, true);
+    qp_rect(display, text_x, text_y + 9, text_x + 5, text_y + 10, 0, 0, 255, true);
 
     // Draw percentage using 7-segment digits
     uint16_t digit_x = box_x + 36;
@@ -399,8 +399,8 @@ static void init_display(void) {
     *(volatile uint32_t*)(0x40050028 + 0x0C) = 102;      // CC: channel A = 128 (50%)
     *(volatile uint32_t*)(0x40050028 + 0x00) = 0x01;     // CSR: enable
 
-    // Fill screen with white background (135x240 portrait)
-    qp_rect(display, 0, 0, 134, 239, 0, 0, 255, true);
+    // Fill screen with black background (135x240 portrait)
+    qp_rect(display, 0, 0, 134, 239, 0, 0, 0, true);
     wait_ms(50);
 
     // Draw the Amboss logo at the top in teal using line-by-line rendering
