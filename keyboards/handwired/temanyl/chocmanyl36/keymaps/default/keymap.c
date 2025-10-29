@@ -140,7 +140,7 @@ void draw_uptime_timer(void) {
 
     // Clear timer area above media text (black background)
     // Ends at y=206 (timer ends at 186+20=206)
-    qp_rect(display, 0, 165, 133, 206, 0, 0, 0, true);
+    qp_rect(display, 0, 165, 134, 206, 0, 0, 0, true);
 
     // Draw "Day" label and number centered (much larger, more readable)
     uint16_t day_x = (135 - 65) / 2;  // Center position for wider text
@@ -219,7 +219,7 @@ void set_layer_background(uint8_t layer) {
     current_display_layer = layer;
 
     // Always draw black background
-    qp_rect(display, 0, 0, 133, 239, 0, 0, 0, true);
+    qp_rect(display, 0, 0, 134, 239, 0, 0, 0, true);
 
     // Select logo color based on layer
     uint8_t hue, sat, val;
@@ -251,7 +251,7 @@ void draw_volume_bar(uint8_t hue, uint8_t sat, uint8_t val) {
     uint16_t bar_width = (current_volume * 120) / 100;
 
     // Clear bottom area with black background (starts after media text at y=230)
-    qp_rect(display, 0, 231, 133, 239, 0, 0, 0, true);
+    qp_rect(display, 0, 231, 134, 239, 0, 0, 0, true);
 
     // Draw volume bar outline (thin light grey border)
     qp_rect(display, 5, 233, 127, 238, 0, 0, 150, false);
@@ -352,8 +352,7 @@ void draw_media_text(void) {
     uint16_t media_h = 23;
 
     // Clear media text area (black background)
-    // Draw slightly narrower to avoid edge artifacts
-    qp_rect(display, 0, media_y, 133, media_y + media_h, 0, 0, 0, true);
+    qp_rect(display, 0, media_y, 134, media_y + media_h, 0, 0, 0, true);
 
     // Only draw text if font was loaded successfully
     if (media_font != NULL) {
@@ -460,7 +459,7 @@ static void init_display(void) {
     *(volatile uint32_t*)(0x40050028 + 0x00) = 0x01;     // CSR: enable
 
     // Fill screen with black background (135x240 portrait)
-    qp_rect(display, 0, 0, 133, 239, 0, 0, 0, true);
+    qp_rect(display, 0, 0, 134, 239, 0, 0, 0, true);
     wait_ms(50);
 
     // Draw the Amboss logo at the top in teal using line-by-line rendering
