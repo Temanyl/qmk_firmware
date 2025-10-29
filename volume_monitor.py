@@ -151,9 +151,10 @@ def get_system_volume():
         return None
 
 
-def find_keyboard_device():
-    """Find the keyboard HID device."""
-    print(f"Looking for keyboard (VID: 0x{VENDOR_ID:04X}, PID: 0x{PRODUCT_ID:04X})...")
+def find_keyboard_device(silent=False):
+    """Find the keyboard HID device. Set silent=True to suppress output."""
+    if not silent:
+        print(f"Looking for keyboard (VID: 0x{VENDOR_ID:04X}, PID: 0x{PRODUCT_ID:04X})...")
 
     # List all HID devices
     devices = hid.enumerate()
@@ -165,7 +166,8 @@ def find_keyboard_device():
             device_info['usage_page'] == USAGE_PAGE and
             device_info['usage'] == USAGE):
 
-            print(f"Found keyboard: {device_info['product_string']}")
+            if not silent:
+                print(f"Found keyboard: {device_info['product_string']}")
             return device_info['path']
 
     return None
@@ -180,65 +182,167 @@ def send_volume_update(device, volume):
 
     try:
         # Send the packet (first byte is report ID, usually 0)
-        device.write([0] + list(packet))
+        bytes_written = device.write([0] + list(packet))
+
+        # Check if write was successful
+        if bytes_written <= 0:
+            print(f"✗ Write failed: {bytes_written} bytes written")
+            return False
+
         return True
     except Exception as e:
-        print(f"Error sending HID packet: {e}")
+        print(f"✗ Error sending HID packet: {e}")
         return False
+
+
+def is_keyboard_connected():
+    """Check if keyboard is still in HID device list."""
+    devices = hid.enumerate()
+    for device_info in devices:
+        if (device_info['vendor_id'] == VENDOR_ID and
+            device_info['product_id'] == PRODUCT_ID and
+            device_info['usage_page'] == USAGE_PAGE and
+            device_info['usage'] == USAGE):
+            return True
+    return False
+
+
+def connect_to_keyboard(silent=False):
+    """Try to connect to the keyboard. Returns device handle or None."""
+    device_path = find_keyboard_device(silent=silent)
+    if not device_path:
+        return None
+
+    try:
+        device = hid.device()
+        device.open_path(device_path)
+        return device
+    except Exception as e:
+        if not silent:
+            print(f"Error opening HID device: {e}")
+        return None
 
 
 def main():
     """Main loop: monitor volume and send updates to keyboard."""
     print("QMK Volume Monitor")
     print("=" * 50)
+    print("Waiting for keyboard... (Press Ctrl+C to quit)\n")
 
-    # Find the keyboard
-    device_path = find_keyboard_device()
-    if not device_path:
-        print("Error: Keyboard not found!")
-        print("\nMake sure:")
-        print("  1. Your keyboard is connected")
-        print("  2. The firmware with Raw HID is flashed")
-        print("  3. VID/PID in this script match your keyboard.json")
-        print("\nAvailable HID devices:")
-        for dev in hid.enumerate():
-            print(f"  VID: 0x{dev['vendor_id']:04X} PID: 0x{dev['product_id']:04X} "
-                  f"Usage Page: 0x{dev['usage_page']:04X} Usage: 0x{dev['usage']:04X} "
-                  f"- {dev['product_string']}")
-        sys.exit(1)
-
-    # Open the HID device
-    try:
-        device = hid.device()
-        device.open_path(device_path)
-        print(f"Connected to keyboard!")
-    except Exception as e:
-        print(f"Error opening HID device: {e}")
-        sys.exit(1)
-
-    print("\nMonitoring system volume... (Press Ctrl+C to quit)")
-
+    device = None
     last_volume = None
+    reconnect_delay = 2.0  # Wait 2 seconds between reconnection attempts
+    last_connect_attempt = 0
+    first_connection = True  # Track if this is the first connection
+    connection_check_interval = 1.0  # Check connection every second
+    last_connection_check = 0
 
     try:
         while True:
-            # Get current system volume
-            current_volume = get_system_volume()
+            current_time = time.time()
 
-            if current_volume is not None:
-                # Only send update if volume changed
-                if current_volume != last_volume:
-                    print(f"Volume changed: {current_volume}%")
-                    if send_volume_update(device, current_volume):
-                        last_volume = current_volume
+            # Try to connect/reconnect if not connected
+            if device is None:
+                # Only attempt reconnect every reconnect_delay seconds
+                if current_time - last_connect_attempt >= reconnect_delay:
+                    last_connect_attempt = current_time
+                    # Be quiet during reconnection attempts, verbose on first connect
+                    device = connect_to_keyboard(silent=not first_connection)
 
-            # Wait before next poll
-            time.sleep(POLL_INTERVAL)
+                    if device is not None:
+                        if first_connection:
+                            print(f"✓ Connected to keyboard!")
+                            first_connection = False
+                        else:
+                            print(f"✓ Keyboard reconnected!")
+                        print("Monitoring system volume...\n")
+
+                        # Reset connection check timer to check immediately
+                        last_connection_check = current_time
+
+                        # Immediately send current volume on (re)connect
+                        current_volume = get_system_volume()
+                        if current_volume is not None:
+                            print(f"Syncing volume: {current_volume}%")
+                            if send_volume_update(device, current_volume):
+                                last_volume = current_volume
+                            else:
+                                # Send failed immediately after connect
+                                print("✗ Initial sync failed")
+                                print("Waiting for keyboard to reconnect...\n")
+                                try:
+                                    device.close()
+                                except:
+                                    pass
+                                device = None
+                                last_volume = None
+                                continue
+                        else:
+                            # Reset last_volume to force update on next successful read
+                            last_volume = None
+
+                # Wait before next iteration
+                time.sleep(0.5)
+                continue
+
+            # We're connected, periodically check if device is still there
+            if current_time - last_connection_check >= connection_check_interval:
+                last_connection_check = current_time
+                if not is_keyboard_connected():
+                    print("✗ Keyboard disconnected")
+                    print("Waiting for keyboard to reconnect...\n")
+                    try:
+                        device.close()
+                    except:
+                        pass
+                    device = None
+                    last_volume = None
+                    continue
+
+            # We're connected, try to get and send volume
+            try:
+                current_volume = get_system_volume()
+
+                if current_volume is not None:
+                    # Only send update if volume changed
+                    if current_volume != last_volume:
+                        print(f"Volume changed: {current_volume}%")
+                        if send_volume_update(device, current_volume):
+                            last_volume = current_volume
+                        else:
+                            # Send failed, likely disconnected
+                            print("✗ Send failed, keyboard may be disconnected")
+                            print("Waiting for keyboard to reconnect...\n")
+                            try:
+                                device.close()
+                            except:
+                                pass
+                            device = None
+                            last_volume = None
+                            continue
+
+                # Wait before next poll
+                time.sleep(POLL_INTERVAL)
+
+            except Exception as e:
+                # Any error during communication, assume disconnected
+                print(f"✗ Connection error: {e}")
+                print("Waiting for keyboard to reconnect...\n")
+                try:
+                    device.close()
+                except:
+                    pass
+                device = None
+                last_volume = None
 
     except KeyboardInterrupt:
-        print("\nStopping volume monitor...")
+        print("\n\nStopping volume monitor...")
     finally:
-        device.close()
+        if device is not None:
+            try:
+                device.close()
+            except:
+                pass
 
 
 if __name__ == "__main__":
