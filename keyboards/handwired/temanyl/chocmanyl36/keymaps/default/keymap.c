@@ -402,6 +402,14 @@ void draw_seasonal_animation(void) {
             uint8_t drop_length = 4 + (i % 3);
             qp_rect(display, rain_x[i], rain_y[i], rain_x[i] + 1, rain_y[i] + drop_length, 170, 150, 200, true);
         }
+
+        // Draw fallen leaves on the ground (just above ground line at y=150)
+        uint16_t leaf_ground_x[] = {18, 35, 52, 68, 82, 95, 108, 122, 25, 45, 62, 78, 92, 105, 118};
+        uint8_t leaf_ground_colors[] = {10, 0, 25, 15, 8, 20, 5, 30, 12, 18, 22, 28, 15, 10, 25}; // Orange, red, yellow shades
+        for (uint8_t i = 0; i < 15; i++) {
+            // Small leaves on ground (small circles just above ground line)
+            qp_circle(display, leaf_ground_x[i], 146, 2, leaf_ground_colors[i], 255, 220, true);
+        }
     }
 
     // Note: No qp_flush() here - let the caller decide when to flush
