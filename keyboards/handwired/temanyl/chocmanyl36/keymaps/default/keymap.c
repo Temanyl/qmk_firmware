@@ -383,8 +383,50 @@ void draw_seasonal_animation(void) {
 
     // Draw sun or moon with appropriate coloring based on time
     if (is_night) {
-        // Draw moon (pale yellow/white)
+        // Draw moon with phase based on day of month (waxing/waning cycle)
+        // Moon cycle: ~29.5 days, using day of month as approximation
+        // Phase 0 (new moon) -> 7 (first quarter) -> 14-15 (full) -> 22 (last quarter) -> 29 (new)
+        uint8_t moon_phase = (current_day * 29) / 31; // Map day 1-31 to phase 0-29
+
+        // Draw full moon circle first (pale yellow/white base)
         qp_circle(display, celestial_x, celestial_y, 8, 42, 100, 255, true);
+
+        // Add shadow to create moon phase effect
+        if (moon_phase < 14) {
+            // Waxing moon (new -> full): shadow on left side, shrinking
+            // Phase 0 = fully shadowed, phase 14 = no shadow (full moon)
+            if (moon_phase < 7) {
+                // New moon to first quarter: shadow covers most/half of left side
+                int8_t shadow_offset = -8 + (moon_phase * 2); // -8 to 6
+                uint8_t shadow_radius = 8 - (moon_phase / 2); // 8 to 4
+                qp_circle(display, celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
+            } else {
+                // First quarter to full: small shadow on left, disappearing
+                int8_t shadow_offset = 6 - ((moon_phase - 7) * 2); // 6 to -8
+                uint8_t shadow_radius = 4 - ((moon_phase - 7) / 2); // 4 to 0
+                if (shadow_radius > 0) {
+                    qp_circle(display, celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
+                }
+            }
+        } else if (moon_phase > 14) {
+            // Waning moon (full -> new): shadow on right side, growing
+            uint8_t waning_phase = moon_phase - 15; // 0 to 14
+            if (waning_phase < 7) {
+                // Full to last quarter: small shadow on right, growing
+                int8_t shadow_offset = -6 + (waning_phase * 2); // -6 to 8
+                uint8_t shadow_radius = (waning_phase / 2); // 0 to 3
+                if (shadow_radius > 0) {
+                    qp_circle(display, celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
+                }
+            } else {
+                // Last quarter to new: shadow covers half/most of right side
+                int8_t shadow_offset = 8 - ((waning_phase - 7) * 2); // 8 to -6
+                uint8_t shadow_radius = 4 + ((waning_phase - 7) / 2); // 4 to 7
+                qp_circle(display, celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
+            }
+        }
+        // Phase 14-15 is full moon - no shadow applied
+
         // Add stars scattered across the night sky
         uint16_t star_positions[][2] = {
             {20, 15}, {50, 25}, {90, 18}, {110, 30},            // Row 1
