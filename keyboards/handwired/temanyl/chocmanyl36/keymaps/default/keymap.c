@@ -401,6 +401,17 @@ void draw_seasonal_animation(void) {
             qp_rect(display, snow_x[i] - 2, snow_y[i] + 1, snow_x[i] + 4, snow_y[i] + 1, 170, 80, 255, true);
             qp_rect(display, snow_x[i] + 1, snow_y[i] - 2, snow_x[i] + 1, snow_y[i] + 4, 170, 80, 255, true);
         }
+
+        // Draw snow on the ground
+        // Create uneven snow drifts using overlapping shapes
+        qp_rect(display, 0, ground_y - 2, 134, ground_y, 0, 0, 240, true); // Base snow layer
+
+        // Add snow drifts with varying heights for natural look (extending upward from ground)
+        uint16_t drift_x[] = {0, 20, 45, 70, 95, 115};
+        uint8_t drift_height[] = {2, 4, 3, 5, 3, 4};
+        for (uint8_t i = 0; i < 6; i++) {
+            qp_rect(display, drift_x[i], ground_y - drift_height[i], drift_x[i] + 20, ground_y, 170, 40, 255, true);
+        }
     } else if (season == 1) { // Spring - butterflies
         uint16_t butterfly_x[] = {25, 70, 100};
         uint16_t butterfly_y[] = {60, 80, 50};
