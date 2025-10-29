@@ -27,6 +27,12 @@ static uint8_t current_display_layer = 255; // Track currently displayed layer
 static uint8_t backlight_brightness = 102;  // Current brightness level (40% default)
 static uint32_t last_uptime_update = 0;     // Track last uptime display update
 
+// Volume indicator state
+static uint8_t current_volume = 0;          // Current volume level (0-100)
+static uint32_t volume_display_timer = 0;   // Timer for volume display timeout
+static bool volume_display_active = false;  // Whether volume indicator is shown
+#define VOLUME_DISPLAY_TIMEOUT 3000         // Show volume for 3 seconds
+
 // Custom keycodes
 enum custom_keycodes {
     DISP_UP = SAFE_RANGE,  // Display brightness up
@@ -44,6 +50,8 @@ enum layer_names {
 // Forward declarations
 void draw_brightness_bar(uint8_t hue, uint8_t sat, uint8_t val);
 void draw_uptime_timer(void);
+void get_layer_color(uint8_t layer, uint8_t *hue, uint8_t *sat, uint8_t *val);
+void draw_volume_indicator(void);
 
 // Helper function to draw a single digit using 7-segment style
 void draw_digit(uint16_t x, uint16_t y, uint8_t digit, uint8_t hue, uint8_t sat, uint8_t val) {
@@ -81,6 +89,27 @@ void draw_digit(uint16_t x, uint16_t y, uint8_t digit, uint8_t hue, uint8_t sat,
     if (seg_g) qp_rect(display, x + 2, y + 9, x + 11, y + 11, hue, sat, val, true);     // middle
 }
 
+// Get color for a given layer
+void get_layer_color(uint8_t layer, uint8_t *hue, uint8_t *sat, uint8_t *val) {
+    switch (layer) {
+        case _MAC_COLEMAK_DH:
+            *hue = 128; *sat = 255; *val = 255;  // Teal
+            break;
+        case _MAC_NAV:
+            *hue = 85; *sat = 255; *val = 255;   // Green
+            break;
+        case _MAC_CODE:
+            *hue = 0; *sat = 255; *val = 255;    // Red
+            break;
+        case _MAC_NUM:
+            *hue = 43; *sat = 255; *val = 255;   // Yellow
+            break;
+        default:
+            *hue = 128; *sat = 255; *val = 255;  // Default to teal
+            break;
+    }
+}
+
 // Draw uptime timer at top of display
 void draw_uptime_timer(void) {
     // Get uptime in milliseconds
@@ -96,13 +125,7 @@ void draw_uptime_timer(void) {
     // Get current layer color for the timer
     uint8_t layer = get_highest_layer(layer_state);
     uint8_t hue, sat, val;
-    switch (layer) {
-        case _MAC_COLEMAK_DH: hue = 128; sat = 255; val = 255; break;
-        case _MAC_NAV: hue = 85; sat = 255; val = 255; break;
-        case _MAC_CODE: hue = 0; sat = 255; val = 255; break;
-        case _MAC_NUM: hue = 43; sat = 255; val = 255; break;
-        default: hue = 128; sat = 255; val = 255; break;
-    }
+    get_layer_color(layer, &hue, &sat, &val);
 
     // Clear timer area above brightness bar (white background)
     qp_rect(display, 0, 165, 134, 225, 0, 0, 255, true);
@@ -185,28 +208,7 @@ void set_layer_background(uint8_t layer) {
 
     // Select logo color based on layer
     uint8_t hue, sat, val;
-    switch (layer) {
-        case _MAC_COLEMAK_DH:
-            // Teal logo for base layer (original color)
-            hue = 128; sat = 255; val = 255;
-            break;
-        case _MAC_NAV:
-            // Green logo for navigation layer
-            hue = 85; sat = 255; val = 255;
-            break;
-        case _MAC_CODE:
-            // Red logo for symbols layer
-            hue = 0; sat = 255; val = 255;
-            break;
-        case _MAC_NUM:
-            // Yellow logo for numbers layer
-            hue = 43; sat = 255; val = 255;
-            break;
-        default:
-            // Default to teal
-            hue = 128; sat = 255; val = 255;
-            break;
-    }
+    get_layer_color(layer, &hue, &sat, &val);
 
     // Draw the logo at the top with the selected color
     draw_amboss_logo(display, 7, 10, hue, sat, val);
@@ -244,6 +246,74 @@ void draw_brightness_bar(uint8_t hue, uint8_t sat, uint8_t val) {
     qp_flush(display);
 }
 
+// Draw volume indicator overlay
+void draw_volume_indicator(void) {
+    // Volume indicator appears as an overlay in the center of the screen
+    // Box dimensions: 100x50 centered
+    uint16_t box_x = 17;   // (135 - 100) / 2
+    uint16_t box_y = 95;   // Center vertically
+    uint16_t box_w = 100;
+    uint16_t box_h = 50;
+
+    // Draw semi-transparent background (light grey box with border)
+    qp_rect(display, box_x, box_y, box_x + box_w, box_y + box_h, 0, 0, 220, true);
+    qp_rect(display, box_x, box_y, box_x + box_w, box_y + box_h, 0, 0, 100, false);
+
+    // Draw "VOL" text using simple rectangles at top of box
+    uint16_t text_y = box_y + 8;
+    uint16_t text_x = box_x + 10;
+
+    // V
+    qp_rect(display, text_x, text_y, text_x + 1, text_y + 8, 0, 0, 0, true);
+    qp_rect(display, text_x + 6, text_y, text_x + 7, text_y + 8, 0, 0, 0, true);
+    qp_rect(display, text_x + 2, text_y + 8, text_x + 5, text_y + 9, 0, 0, 0, true);
+
+    // O
+    text_x += 12;
+    qp_rect(display, text_x, text_y, text_x + 7, text_y + 9, 0, 0, 0, false);
+
+    // L
+    text_x += 12;
+    qp_rect(display, text_x, text_y, text_x + 1, text_y + 9, 0, 0, 0, true);
+    qp_rect(display, text_x, text_y + 9, text_x + 6, text_y + 10, 0, 0, 0, true);
+
+    // Draw percentage using 7-segment digits
+    uint16_t digit_x = box_x + 30;
+    uint16_t digit_y = box_y + 23;
+
+    // Get current layer color for digits
+    uint8_t layer = get_highest_layer(layer_state);
+    uint8_t hue, sat, val;
+    get_layer_color(layer, &hue, &sat, &val);
+
+    // Draw volume percentage (3 digits max: 0-100)
+    uint8_t hundreds = current_volume / 100;
+    uint8_t tens = (current_volume % 100) / 10;
+    uint8_t ones = current_volume % 10;
+
+    if (hundreds > 0) {
+        draw_digit(digit_x, digit_y, hundreds, hue, sat, val);
+        digit_x += 14;
+    }
+
+    if (hundreds > 0 || tens > 0) {
+        draw_digit(digit_x, digit_y, tens, hue, sat, val);
+        digit_x += 14;
+    }
+
+    draw_digit(digit_x, digit_y, ones, hue, sat, val);
+    digit_x += 14;
+
+    // Draw "%" symbol
+    qp_rect(display, digit_x + 2, digit_y + 2, digit_x + 4, digit_y + 4, hue, sat, val, true);
+    qp_rect(display, digit_x + 4, digit_y + 5, digit_x + 6, digit_y + 7, hue, sat, val, true);
+    qp_rect(display, digit_x + 5, digit_y + 8, digit_x + 7, digit_y + 10, hue, sat, val, true);
+    qp_rect(display, digit_x + 7, digit_y + 12, digit_x + 9, digit_y + 14, hue, sat, val, true);
+    qp_rect(display, digit_x + 2, digit_y + 16, digit_x + 4, digit_y + 18, hue, sat, val, true);
+
+    qp_flush(display);
+}
+
 // Set backlight brightness via PWM
 void set_backlight_brightness(uint8_t brightness) {
     backlight_brightness = brightness;
@@ -253,23 +323,7 @@ void set_backlight_brightness(uint8_t brightness) {
     // Get current layer color for the brightness bar
     uint8_t layer = get_highest_layer(layer_state);
     uint8_t hue, sat, val;
-    switch (layer) {
-        case _MAC_COLEMAK_DH:
-            hue = 128; sat = 255; val = 255;
-            break;
-        case _MAC_NAV:
-            hue = 85; sat = 255; val = 255;
-            break;
-        case _MAC_CODE:
-            hue = 0; sat = 255; val = 255;
-            break;
-        case _MAC_NUM:
-            hue = 43; sat = 255; val = 255;
-            break;
-        default:
-            hue = 128; sat = 255; val = 255;
-            break;
-    }
+    get_layer_color(layer, &hue, &sat, &val);
 
     // Update display with current layer color
     draw_brightness_bar(hue, sat, val);
@@ -355,6 +409,39 @@ static void init_display(void) {
 void keyboard_post_init_kb(void) {
     // Initialize the display
     init_display();
+}
+
+// Raw HID receive callback - handles data from computer
+void raw_hid_receive(uint8_t *data, uint8_t length) {
+    // Protocol:
+    // Byte 0: Command ID
+    //   0x01 = Volume update
+    // Byte 1: Volume level (0-100)
+
+    if (length < 2) return;  // Need at least 2 bytes
+
+    uint8_t command = data[0];
+
+    switch (command) {
+        case 0x01:  // Volume update
+            current_volume = data[1];
+            // Clamp to 0-100 range
+            if (current_volume > 100) {
+                current_volume = 100;
+            }
+
+            // Show volume indicator and reset timer
+            volume_display_active = true;
+            volume_display_timer = timer_read32();
+
+            // Draw the volume indicator
+            draw_volume_indicator();
+            break;
+
+        default:
+            // Unknown command, ignore
+            break;
+    }
 }
 
 
@@ -513,11 +600,23 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 void housekeeping_task_user(void) {
     update_display_for_layer();
 
-    // Update uptime timer once per second
     uint32_t current_time = timer_read32();
+
+    // Update uptime timer once per second
     if (current_time - last_uptime_update >= 1000) {
         last_uptime_update = current_time;
         draw_uptime_timer();
+    }
+
+    // Handle volume display timeout
+    if (volume_display_active) {
+        if (current_time - volume_display_timer >= VOLUME_DISPLAY_TIMEOUT) {
+            // Timeout expired, hide volume indicator
+            volume_display_active = false;
+            // Force a full redraw by invalidating the current layer
+            current_display_layer = 255;
+            update_display_for_layer();
+        }
     }
 }
 
