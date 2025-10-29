@@ -381,12 +381,26 @@ void draw_seasonal_animation(void) {
             qp_circle(display, cloud_x[i] + 10, 35, 6, 0, 0, 180, true);
             qp_circle(display, cloud_x[i] - 8, 35, 6, 0, 0, 180, true);
         }
-    } else { // Fall - falling leaves
-        uint16_t leaf_x[] = {20, 45, 70, 85, 110, 35, 95, 60};
-        uint16_t leaf_y[] = {40, 60, 50, 80, 70, 95, 55, 110};
-        uint8_t leaf_hues[] = {10, 0, 20, 15, 25, 8, 30, 12}; // Various fall colors
-        for (uint8_t i = 0; i < 8; i++) {
-            qp_circle(display, leaf_x[i], leaf_y[i], 3, leaf_hues[i], 255, 200, true);
+    } else { // Fall - rain and clouds
+        // Draw rain clouds (darker gray clouds)
+        uint16_t cloud_x[] = {25, 70, 105};
+        uint16_t cloud_y[] = {30, 40, 35};
+        for (uint8_t i = 0; i < 3; i++) {
+            // Main cloud body (dark gray)
+            qp_circle(display, cloud_x[i], cloud_y[i], 9, 0, 0, 120, true);
+            qp_circle(display, cloud_x[i] + 10, cloud_y[i] + 2, 7, 0, 0, 120, true);
+            qp_circle(display, cloud_x[i] - 8, cloud_y[i] + 2, 7, 0, 0, 120, true);
+            qp_circle(display, cloud_x[i] + 5, cloud_y[i] - 4, 6, 0, 0, 110, true);
+        }
+
+        // Draw rain drops scattered throughout the scene
+        // Random distribution from clouds to near ground
+        uint16_t rain_x[] = {22, 67, 103, 48, 85, 16, 125, 56, 92, 38, 112, 73, 29, 98, 61, 119, 42, 78, 108, 33, 88, 52, 95, 70};
+        uint16_t rain_y[] = {52, 118, 73, 95, 135, 62, 88, 112, 55, 128, 78, 105, 105, 142, 82, 58, 122, 92, 75, 138, 102, 65, 115, 98};
+        for (uint8_t i = 0; i < 24; i++) {
+            // Short rain drop (4-6 pixels long)
+            uint8_t drop_length = 4 + (i % 3);
+            qp_rect(display, rain_x[i], rain_y[i], rain_x[i] + 1, rain_y[i] + drop_length, 170, 150, 200, true);
         }
     }
 
