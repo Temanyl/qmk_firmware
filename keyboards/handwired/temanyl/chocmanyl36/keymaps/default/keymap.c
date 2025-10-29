@@ -205,12 +205,12 @@ void draw_date_time(void) {
     // Note: No qp_flush() here - let the caller decide when to flush
 }
 
-// Helper function to draw a simple tree (adjusted size 6x22)
+// Helper function to draw a simple tree (adjusted size 6x22, spring: 6x28)
 void draw_tree(uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, uint8_t sat, uint8_t val) {
     // Tree structure: trunk + canopy
     // Trunk (brown)
     uint8_t trunk_width = 6;
-    uint8_t trunk_height = 22;
+    uint8_t trunk_height = (season == 1) ? 28 : 22; // Spring trees are taller
     qp_rect(display, base_x - trunk_width/2, base_y - trunk_height,
             base_x + trunk_width/2, base_y, 20, 200, 100, true);
 
@@ -276,14 +276,19 @@ void draw_tree(uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, ui
         // Side twig snow
         qp_rect(display, base_x - 15, base_y - trunk_height - 7, base_x - 11, base_y - trunk_height - 5, 170, 40, 255, true);
         qp_rect(display, base_x + 11, base_y - trunk_height - 7, base_x + 15, base_y - trunk_height - 5, 170, 40, 255, true);
-    } else if (season == 1) { // Spring - pink blossoms
-        // Tree shape with pink/white blossoms
-        qp_circle(display, base_x, base_y - trunk_height - 7, 15, 234, 180, 255, true); // Pink
-        // Add blossom dots
+    } else if (season == 1) { // Spring - green leaves with pink blossoms
+        // Tree shape with green base
+        qp_circle(display, base_x, base_y - trunk_height - 7, 15, 85, 220, 200, true); // Light green
+        // Add leaf and blossom dots (smaller, mostly pink blossoms)
         for (uint8_t i = 0; i < 9; i++) {
             int8_t offset_x = (i % 3 - 1) * 7;
             int8_t offset_y = (i / 3 - 1) * 7;
-            qp_circle(display, base_x + offset_x, base_y - trunk_height - 7 + offset_y, 3, 0, 0, 255, true); // White
+            // Make 8 dots pink blossoms, only dot 4 (center) is green leaf
+            if (i != 4) {
+                qp_circle(display, base_x + offset_x, base_y - trunk_height - 7 + offset_y, 2, 234, 255, 220, true); // Pink blossom (smaller)
+            } else {
+                qp_circle(display, base_x + offset_x, base_y - trunk_height - 7 + offset_y, 2, 85, 255, 180, true); // Green leaf (smaller)
+            }
         }
     } else if (season == 2) { // Summer - full green foliage
         // Dense green canopy
@@ -451,13 +456,38 @@ void draw_seasonal_animation(void) {
         for (uint8_t i = 0; i < 6; i++) {
             qp_rect(display, drift_x[i], ground_y - drift_height[i], drift_x[i] + 20, ground_y, 170, 40, 255, true);
         }
-    } else if (season == 1) { // Spring - butterflies
-        uint16_t butterfly_x[] = {25, 70, 100};
-        uint16_t butterfly_y[] = {60, 80, 50};
-        uint8_t butterfly_hues[] = {234, 170, 42}; // Pink, cyan, yellow
-        for (uint8_t i = 0; i < 3; i++) {
+    } else if (season == 1) { // Spring - butterflies, flowers, and birds
+        // Draw birds in the sky (larger V shapes) - 7 birds
+        uint16_t bird_x[] = {25, 60, 90, 110, 40, 150};
+        uint16_t bird_y[] = {50, 40, 70, 45, 75, 65};
+        for (uint8_t i = 0; i < 6; i++) {
+            // Left wing (larger)
+            qp_rect(display, bird_x[i] - 5, bird_y[i], bird_x[i] - 1, bird_y[i] - 3, 0, 0, 100, true);
+            // Right wing (larger)
+            qp_rect(display, bird_x[i] + 1, bird_y[i] - 3, bird_x[i] + 5, bird_y[i], 0, 0, 100, true);
+        }
+
+        // More butterflies, lower to the ground
+        uint16_t butterfly_x[] = {20, 45, 65, 85, 105, 125, 35, 75, 95};
+        uint16_t butterfly_y[] = {115, 125, 120, 130, 118, 135, 128, 122, 133};
+        uint8_t butterfly_hues[] = {234, 170, 42, 200, 10, 234, 85, 42, 170}; // Pink, cyan, yellow, magenta, red, pink, green, yellow, cyan
+        for (uint8_t i = 0; i < 9; i++) {
             qp_circle(display, butterfly_x[i] - 2, butterfly_y[i], 2, butterfly_hues[i], 255, 200, true);
             qp_circle(display, butterfly_x[i] + 2, butterfly_y[i], 2, butterfly_hues[i], 255, 200, true);
+        }
+
+        // Draw flowers on the ground (various colors and sizes)
+        uint16_t flower_x[] = {15, 28, 42, 58, 72, 88, 102, 118, 25, 50, 80, 95, 110, 35, 65};
+        uint8_t flower_hues[] = {234, 0, 42, 170, 200, 10, 85, 234, 42, 200, 0, 170, 234, 10, 42}; // Various spring colors
+        uint8_t flower_sizes[] = {3, 4, 3, 5, 3, 4, 3, 5, 4, 3, 5, 3, 4, 5, 3}; // Varying petal sizes
+        uint8_t stem_heights[] = {5, 6, 5, 7, 5, 6, 5, 7, 6, 5, 7, 5, 6, 7, 5}; // Varying stem heights
+        for (uint8_t i = 0; i < 15; i++) {
+            // Flower stem (green)
+            qp_rect(display, flower_x[i], ground_y - stem_heights[i], flower_x[i] + 1, ground_y, 85, 200, 150, true);
+            // Flower petals (colorful circles with varying sizes)
+            qp_circle(display, flower_x[i], ground_y - stem_heights[i] - 2, flower_sizes[i], flower_hues[i], 255, 220, true);
+            // Flower center (yellow, size varies with flower)
+            qp_circle(display, flower_x[i], ground_y - stem_heights[i] - 2, flower_sizes[i] / 3, 42, 255, 255, true);
         }
     } else if (season == 2) { // Summer - birds or clouds
         // Simple cloud shapes
