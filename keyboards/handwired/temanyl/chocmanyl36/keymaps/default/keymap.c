@@ -18,11 +18,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include QMK_KEYBOARD_H
 
 #include <stdio.h>
+#include <string.h>
 #include <qp.h>
 #include "draw_logo.h"
+#include "graphics/helvetica20.qff.c"
 
 // Display configuration
 painter_device_t display;
+static painter_font_handle_t media_font = NULL;
 static uint8_t current_display_layer = 255; // Track currently displayed layer
 static uint8_t backlight_brightness = 102;  // Current brightness level (40% default)
 static uint32_t last_uptime_update = 0;     // Track last uptime display update
@@ -35,6 +38,10 @@ static uint8_t last_brightness_value = 102; // Track last brightness for change 
 static uint32_t brightness_display_timer = 0; // Timer for brightness display timeout
 static bool brightness_display_active = false; // Whether brightness indicator is shown
 #define BRIGHTNESS_DISPLAY_TIMEOUT 3000      // Show brightness for 3 seconds
+
+// Media text state (static text between uptime and volume bar)
+static char current_media[64] = "";  // Current media text
+static bool media_active = false;     // Whether media is playing
 
 // Custom keycodes
 enum custom_keycodes {
@@ -55,6 +62,7 @@ void draw_volume_bar(uint8_t hue, uint8_t sat, uint8_t val);
 void draw_uptime_timer(void);
 void get_layer_color(uint8_t layer, uint8_t *hue, uint8_t *sat, uint8_t *val);
 void draw_brightness_indicator(void);
+void draw_media_text(void);
 
 // Helper function to draw a single digit using 7-segment style
 void draw_digit(uint16_t x, uint16_t y, uint8_t digit, uint8_t hue, uint8_t sat, uint8_t val) {
@@ -130,12 +138,13 @@ void draw_uptime_timer(void) {
     uint8_t hue, sat, val;
     get_layer_color(layer, &hue, &sat, &val);
 
-    // Clear timer area above brightness bar (black background)
-    qp_rect(display, 0, 165, 134, 225, 0, 0, 0, true);
+    // Clear timer area above media text (black background)
+    // Ends at y=206 (timer ends at 186+20=206)
+    qp_rect(display, 0, 165, 133, 206, 0, 0, 0, true);
 
     // Draw "Day" label and number centered (much larger, more readable)
     uint16_t day_x = (135 - 65) / 2;  // Center position for wider text
-    uint16_t day_y = 168;  // Start position above brightness bar
+    uint16_t day_y = 158;  // Start position (moved up for more space)
 
     // Draw "Day" text - much larger (~8x11 pixels per letter, 2px thick)
     // D
@@ -158,18 +167,21 @@ void draw_uptime_timer(void) {
     // Space before number
     uint16_t num_x = day_x + 34;
 
-    // Draw day number using same-size 7-segment digits
+    // Draw day number using same-size 7-segment digits (aligned with "Day" text)
     if (days >= 10) {
         // Draw tens digit
         uint8_t tens = days / 10;
-        draw_digit(num_x, day_y - 1, tens, hue, sat, val);
+        draw_digit(num_x, day_y, tens, hue, sat, val);
         num_x += 16;
     }
     // Draw ones digit
-    draw_digit(num_x, day_y - 1, days % 10, hue, sat, val);
+    draw_digit(num_x, day_y, days % 10, hue, sat, val);
 
     // Main timer position (below day label)
-    uint16_t timer_y = 193;
+    // Day ends at y=185 (165+20)
+    // Start timer at y=186 (1px gap), ends at y=206
+    // This will overlap with media text (starts at 198), so move media down
+    uint16_t timer_y = 183;
 
     // Draw time in HH:MM:SS format centered
     // Each digit is ~14px wide, with spacing: total ~100px wide
@@ -207,7 +219,7 @@ void set_layer_background(uint8_t layer) {
     current_display_layer = layer;
 
     // Always draw black background
-    qp_rect(display, 0, 0, 134, 239, 0, 0, 0, true);
+    qp_rect(display, 0, 0, 133, 239, 0, 0, 0, true);
 
     // Select logo color based on layer
     uint8_t hue, sat, val;
@@ -218,6 +230,9 @@ void set_layer_background(uint8_t layer) {
 
     // Redraw uptime timer above volume bar (will handle its own clearing)
     draw_uptime_timer();
+
+    // Redraw media text (if active) with new layer color
+    draw_media_text();
 
     // Redraw volume bar with the same color at the bottom
     draw_volume_bar(hue, sat, val);
@@ -235,15 +250,15 @@ void draw_volume_bar(uint8_t hue, uint8_t sat, uint8_t val) {
     // Calculate bar width based on volume (max width 120 pixels, leaving margins)
     uint16_t bar_width = (current_volume * 120) / 100;
 
-    // Clear bottom area with black background
-    qp_rect(display, 0, 225, 134, 239, 0, 0, 0, true);
+    // Clear bottom area with black background (starts after media text at y=230)
+    qp_rect(display, 0, 231, 133, 239, 0, 0, 0, true);
 
     // Draw volume bar outline (thin light grey border)
-    qp_rect(display, 5, 230, 127, 236, 0, 0, 150, false);
+    qp_rect(display, 5, 233, 127, 238, 0, 0, 150, false);
 
     // Draw filled volume bar using the logo color
     if (bar_width > 0) {
-        qp_rect(display, 6, 231, 6 + bar_width, 235, hue, sat, val, true);
+        qp_rect(display, 6, 234, 6 + bar_width, 237, hue, sat, val, true);
     }
 
     qp_flush(display);
@@ -328,6 +343,48 @@ void draw_brightness_indicator(void) {
     qp_flush(display);
 }
 
+// Draw media text using Quantum Painter's text rendering
+void draw_media_text(void) {
+    // Media text area: between uptime timer and volume bar
+    // Timer ends at y=206, media starts at y=207
+    // Area: y=207-230 (23px height with 2px padding top, 1px bottom)
+    uint16_t media_y = 207;
+    uint16_t media_h = 23;
+
+    // Clear media text area (black background)
+    // Draw slightly narrower to avoid edge artifacts
+    qp_rect(display, 0, media_y, 133, media_y + media_h, 0, 0, 0, true);
+
+    // Only draw text if font was loaded successfully
+    if (media_font != NULL) {
+        // Get current layer color
+        uint8_t layer = get_highest_layer(layer_state);
+        uint8_t hue, sat, val;
+        get_layer_color(layer, &hue, &sat, &val);
+
+        // Determine what text to show and truncate to fit display
+        char display_text[20];  // ~12-13 chars at 10px avg width fits in 130px
+        if (media_active && current_media[0] != '\0') {
+            // Truncate media text to fit display width
+            strncpy(display_text, current_media, sizeof(display_text) - 1);
+            display_text[sizeof(display_text) - 1] = '\0';
+        } else {
+            // Show placeholder for debugging
+            strncpy(display_text, "No media", sizeof(display_text) - 1);
+            display_text[sizeof(display_text) - 1] = '\0';
+        }
+
+        // Draw the text with padding (2px left margin, 2px top padding)
+        // Use layer color for text
+        qp_drawtext_recolor(display, 2, media_y + 2, media_font, display_text, hue, sat, val, 0, 0, 0);
+    } else {
+        // Font failed to load - draw error indicator (red rectangle)
+        qp_rect(display, 2, media_y + 2, 20, media_y + 10, 0, 255, 255, true);
+    }
+
+    qp_flush(display);
+}
+
 // Set backlight brightness via PWM
 void set_backlight_brightness(uint8_t brightness) {
     backlight_brightness = brightness;
@@ -357,7 +414,7 @@ static void init_display(void) {
     display = qp_st7789_make_spi_device(135, 240, GP5, GP1, GP0, 16, 3);
 
     // LILYGO T-Display RP2040: Portrait mode with proper offsets
-    qp_set_viewport_offsets(display, 52, 40);
+    qp_set_viewport_offsets(display, 53, 40);
 
     // Initialize with 180° rotation (controller mounted upside down)
     if (!qp_init(display, QP_ROTATION_180)) {
@@ -371,6 +428,9 @@ static void init_display(void) {
 
     // Wait for display to stabilize
     wait_ms(50);
+
+    // Load font for media text (20px Helvetica)
+    media_font = qp_load_font_mem(font_helvetica20);
 
     // Dim backlight on GP4 using PWM (50% brightness)
     // First unreset the PWM peripheral (RESETS_BASE=0x4000c000, bit 14 for PWM)
@@ -400,7 +460,7 @@ static void init_display(void) {
     *(volatile uint32_t*)(0x40050028 + 0x00) = 0x01;     // CSR: enable
 
     // Fill screen with black background (135x240 portrait)
-    qp_rect(display, 0, 0, 134, 239, 0, 0, 0, true);
+    qp_rect(display, 0, 0, 133, 239, 0, 0, 0, true);
     wait_ms(50);
 
     // Draw the Amboss logo at the top in teal using line-by-line rendering
@@ -413,6 +473,9 @@ static void init_display(void) {
 
     // Draw initial uptime timer above volume bar
     draw_uptime_timer();
+
+    // Draw initial media text (empty at startup)
+    draw_media_text();
 
     // Draw initial volume bar with teal color (base layer) at bottom
     draw_volume_bar(128, 255, 255);
@@ -430,8 +493,8 @@ void keyboard_post_init_kb(void) {
 void raw_hid_receive(uint8_t *data, uint8_t length) {
     // Protocol:
     // Byte 0: Command ID
-    //   0x01 = Volume update
-    // Byte 1: Volume level (0-100)
+    //   0x01 = Volume update (Byte 1: volume 0-100)
+    //   0x02 = Media text update (Bytes 1-31: null-terminated string)
 
     if (length < 2) return;  // Need at least 2 bytes
 
@@ -450,6 +513,39 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
             uint8_t hue, sat, val;
             get_layer_color(layer, &hue, &sat, &val);
             draw_volume_bar(hue, sat, val);
+            break;
+
+        case 0x02:  // Media text update
+            {
+                // Copy media text (null-terminated string starting at byte 1)
+                bool text_changed = false;
+                if (data[1] == 0) {
+                    // Empty string = no media playing
+                    if (media_active) {
+                        media_active = false;
+                        current_media[0] = '\0';
+                        text_changed = true;
+                    }
+                } else {
+                    // Copy media text
+                    char new_media[sizeof(current_media)];
+                    strncpy(new_media, (char*)&data[1], sizeof(new_media) - 1);
+                    new_media[sizeof(new_media) - 1] = '\0';
+
+                    // Only update if text changed
+                    if (strcmp(current_media, new_media) != 0) {
+                        strncpy(current_media, new_media, sizeof(current_media) - 1);
+                        current_media[sizeof(current_media) - 1] = '\0';
+                        media_active = true;
+                        text_changed = true;
+                    }
+                }
+
+                // Only redraw if text actually changed
+                if (text_changed) {
+                    draw_media_text();
+                }
+            }
             break;
 
         default:
@@ -632,6 +728,9 @@ void housekeeping_task_user(void) {
             update_display_for_layer();
         }
     }
+
+    // Handle media text scrolling - DISABLED
+    // Scrolling text was too resource-intensive
 }
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
