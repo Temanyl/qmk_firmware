@@ -21,6 +21,7 @@ import time
 import subprocess
 import platform
 import sys
+import argparse
 from datetime import datetime
 
 # Import hidapi - handle potential import issues
@@ -306,14 +307,19 @@ def send_media_update(device, media_text):
         return False
 
 
-def send_datetime_update(device):
-    """Send current date/time update to keyboard via Raw HID."""
+def send_datetime_update(device, override_datetime=None):
+    """Send current date/time update to keyboard via Raw HID.
+
+    Args:
+        device: HID device handle
+        override_datetime: Optional datetime object to send instead of current time (for testing)
+    """
     # Create HID packet (32 bytes)
     packet = bytearray(HID_PACKET_SIZE)
     packet[0] = CMD_DATETIME_UPDATE  # Command ID
 
-    # Get current date/time
-    now = datetime.now()
+    # Get current date/time or use override
+    now = override_datetime if override_datetime else datetime.now()
 
     # Pack date/time: year (2 bytes), month, day, hour, minute, second
     packet[1] = now.year & 0xFF  # Year low byte
@@ -367,10 +373,81 @@ def connect_to_keyboard(silent=False):
         return None
 
 
+def get_season_name(month):
+    """Get season name from month number."""
+    if month in [12, 1, 2]:
+        return "Winter"
+    elif month in [3, 4, 5]:
+        return "Spring"
+    elif month in [6, 7, 8]:
+        return "Summer"
+    else:
+        return "Fall"
+
+
+def get_time_of_day_name(hour):
+    """Get time of day name from hour."""
+    if 5 <= hour < 12:
+        return "Morning"
+    elif 12 <= hour < 18:
+        return "Day"
+    elif 18 <= hour < 22:
+        return "Evening"
+    else:
+        return "Night"
+
+
+def parse_test_datetime(datetime_str):
+    """Parse test datetime string in format YYYY-MM-DD HH:MM or YYYY-MM-DD HH:MM:SS"""
+    try:
+        # Try with seconds first
+        try:
+            return datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            # Try without seconds
+            return datetime.strptime(datetime_str, "%Y-%m-%d %H:%M")
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"Invalid datetime format: {datetime_str}. Use YYYY-MM-DD HH:MM or YYYY-MM-DD HH:MM:SS")
+
+
 def main():
     """Main loop: monitor volume and media, sending updates to keyboard."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="QMK Keyboard Monitor - Send volume, media, and time updates to your keyboard",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Normal operation (use current time)
+  python3 keyboard_monitor.py
+
+  # Test winter night scene (January 1st at 11 PM)
+  python3 keyboard_monitor.py --test-date "2025-01-01 23:00"
+
+  # Test spring morning (April 15th at 8 AM)
+  python3 keyboard_monitor.py --test-date "2025-04-15 08:00"
+
+  # Test summer day (July 20th at 2 PM)
+  python3 keyboard_monitor.py --test-date "2025-07-20 14:00"
+
+  # Test fall evening (October 31st at 7 PM)
+  python3 keyboard_monitor.py --test-date "2025-10-31 19:00"
+        """
+    )
+    parser.add_argument(
+        '--test-date',
+        type=parse_test_datetime,
+        metavar='DATETIME',
+        help='Override date/time for testing animations (format: YYYY-MM-DD HH:MM or YYYY-MM-DD HH:MM:SS)'
+    )
+    args = parser.parse_args()
+
     print("QMK Keyboard Monitor")
     print("=" * 50)
+    if args.test_date:
+        print(f"TEST MODE: Using override date/time: {args.test_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"  Season: {get_season_name(args.test_date.month)}")
+        print(f"  Time of day: {get_time_of_day_name(args.test_date.hour)}")
     print("Waiting for keyboard... (Press Ctrl+C to quit)\n")
 
     device = None
@@ -383,7 +460,7 @@ def main():
     last_connection_check = 0
     last_media_check = 0  # Last time we checked media
     last_datetime_update = 0  # Last time we sent date/time
-    datetime_update_interval = 60.0  # Send time every 60 seconds
+    datetime_update_interval = 60.0  # Send time every 60 seconds (or never if using test date)
 
     try:
         while True:
@@ -440,8 +517,9 @@ def main():
                             last_media = None
 
                         # Immediately send current date/time on (re)connect
-                        print(f"Syncing date/time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                        if send_datetime_update(device):
+                        dt_to_send = args.test_date if args.test_date else datetime.now()
+                        print(f"Syncing date/time: {dt_to_send.strftime('%Y-%m-%d %H:%M:%S')}")
+                        if send_datetime_update(device, dt_to_send):
                             last_datetime_update = current_time
                         else:
                             print("✗ DateTime sync failed")
@@ -514,8 +592,9 @@ def main():
                             last_media = None
                             continue
 
-                # Periodically send date/time updates (every minute)
-                if current_time - last_datetime_update >= datetime_update_interval:
+                # Periodically send date/time updates (every minute, unless using test date)
+                # If using test date, only send once at connection
+                if not args.test_date and current_time - last_datetime_update >= datetime_update_interval:
                     if send_datetime_update(device):
                         last_datetime_update = current_time
                     else:

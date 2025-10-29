@@ -78,6 +78,9 @@ void draw_date_time(void);
 void get_layer_color(uint8_t layer, uint8_t *hue, uint8_t *sat, uint8_t *val);
 void draw_brightness_indicator(void);
 void draw_media_text(void);
+void draw_seasonal_animation(void);
+void draw_tree(uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, uint8_t sat, uint8_t val);
+void get_celestial_position(uint8_t hour, uint16_t *x, uint16_t *y);
 
 // Helper function to draw a single digit using 7-segment style
 void draw_digit(uint16_t x, uint16_t y, uint8_t digit, uint8_t hue, uint8_t sat, uint8_t val) {
@@ -194,6 +197,202 @@ void draw_date_time(void) {
     // Note: No qp_flush() here - let the caller decide when to flush
 }
 
+// Helper function to draw a simple tree
+void draw_tree(uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, uint8_t sat, uint8_t val) {
+    // Tree structure: trunk + canopy
+    // Trunk (brown)
+    uint8_t trunk_width = 4;
+    uint8_t trunk_height = 15;
+    qp_rect(display, base_x - trunk_width/2, base_y - trunk_height,
+            base_x + trunk_width/2, base_y, 20, 200, 100, true);
+
+    // Canopy changes by season
+    if (season == 0) { // Winter - bare branches
+        // Draw simple branch lines
+        for (int8_t i = -2; i <= 2; i++) {
+            qp_rect(display, base_x - 8 + i * 4, base_y - trunk_height - 3 - abs(i) * 2,
+                    base_x - 5 + i * 4, base_y - trunk_height - 2 - abs(i) * 2, 20, 150, 80, true);
+        }
+    } else if (season == 1) { // Spring - pink blossoms
+        // Tree shape with pink/white blossoms
+        qp_circle(display, base_x, base_y - trunk_height - 5, 10, 234, 180, 255, true); // Pink
+        // Add blossom dots
+        for (uint8_t i = 0; i < 6; i++) {
+            int8_t offset_x = (i % 3 - 1) * 5;
+            int8_t offset_y = (i / 3) * 5;
+            qp_circle(display, base_x + offset_x, base_y - trunk_height - 5 + offset_y, 2, 0, 0, 255, true); // White
+        }
+    } else if (season == 2) { // Summer - full green foliage
+        // Dense green canopy
+        qp_circle(display, base_x, base_y - trunk_height - 5, 11, 85, 255, 200, true);
+        qp_circle(display, base_x - 6, base_y - trunk_height - 3, 8, 85, 255, 180, true);
+        qp_circle(display, base_x + 6, base_y - trunk_height - 3, 8, 85, 255, 180, true);
+    } else { // Fall - orange/red/yellow leaves
+        // Tree shape with autumn colors
+        qp_circle(display, base_x, base_y - trunk_height - 5, 10, 20, 255, 200, true); // Orange
+        qp_circle(display, base_x - 5, base_y - trunk_height - 3, 7, 10, 255, 220, true); // Red-orange
+        qp_circle(display, base_x + 5, base_y - trunk_height - 3, 7, 30, 255, 200, true); // Yellow-orange
+    }
+}
+
+// Calculate sun/moon position based on time of day
+void get_celestial_position(uint8_t hour, uint16_t *x, uint16_t *y) {
+    // Sun/moon moves across sky throughout the day
+    // Hour 0-23: position from left to right
+    // Peak at noon (y lowest), near horizon at dawn/dusk (y highest)
+
+    // X position: moves from left (sunrise ~6am) to right (sunset ~18pm)
+    // Map hour 0-23 to x position
+    if (hour >= 6 && hour <= 18) {
+        // Daytime: sun moves from left to right
+        // hour 6 -> x=20, hour 12 -> x=67, hour 18 -> x=114
+        *x = 20 + ((hour - 6) * 94) / 12;
+
+        // Y position: arc across sky (lowest at noon)
+        // hour 6 -> y=40, hour 12 -> y=20, hour 18 -> y=40
+        int16_t time_from_noon = hour - 12;
+        *y = 20 + (time_from_noon * time_from_noon) / 2;
+    } else {
+        // Nighttime: moon moves from right to left
+        // hour 18-23 and 0-6
+        uint8_t night_hour = (hour >= 18) ? (hour - 18) : (hour + 6);
+        // night_hour 0-12: position from right to left
+        *x = 114 - (night_hour * 94) / 12;
+
+        // Y position: arc across sky (lowest at midnight)
+        int16_t time_from_midnight = (hour >= 18) ? (hour - 24) : hour;
+        *y = 25 + (time_from_midnight * time_from_midnight) / 3;
+    }
+
+    // Clamp values
+    if (*x < 15) *x = 15;
+    if (*x > 120) *x = 120;
+    if (*y < 15) *y = 15;
+    if (*y > 50) *y = 50;
+}
+
+// Draw seasonal animation based on time and month (overlays the entire upper screen including logo)
+void draw_seasonal_animation(void) {
+    // Animation area: entire upper portion from top to date area
+    // Logo area: y=10 to y=130 (120x120 logo)
+    // Animation extends from y=0 to y=152 (above date which starts at y=155)
+
+    // Determine season based on month (1-12)
+    // Winter: 12, 1, 2 | Spring: 3, 4, 5 | Summer: 6, 7, 8 | Fall: 9, 10, 11
+    uint8_t season = 0; // 0=winter, 1=spring, 2=summer, 3=fall
+    if (current_month == 12 || current_month <= 2) season = 0;
+    else if (current_month >= 3 && current_month <= 5) season = 1;
+    else if (current_month >= 6 && current_month <= 8) season = 2;
+    else season = 3;
+
+    // Determine time of day based on hour (0-23)
+    bool is_night = (current_hour >= 20 || current_hour < 6);
+
+    // Get sun/moon position based on time
+    uint16_t celestial_x, celestial_y;
+    get_celestial_position(current_hour, &celestial_x, &celestial_y);
+
+    // === SKY AND CELESTIAL OBJECTS ===
+
+    // Draw sun or moon with appropriate coloring based on time
+    if (is_night) {
+        // Draw moon (pale yellow/white)
+        qp_circle(display, celestial_x, celestial_y, 8, 42, 100, 255, true);
+        // Add some stars
+        uint16_t star_positions[][2] = {{20, 15}, {50, 25}, {90, 18}, {110, 30}, {35, 40}};
+        for (uint8_t i = 0; i < 5; i++) {
+            qp_rect(display, star_positions[i][0], star_positions[i][1],
+                    star_positions[i][0] + 2, star_positions[i][1] + 2, 42, 50, 255, true);
+        }
+    } else {
+        // Draw sun with color based on time of day
+        uint8_t sun_hue, sun_sat;
+        if (current_hour < 8 || current_hour > 17) {
+            // Dawn/dusk - orange/red sun
+            sun_hue = 10;
+            sun_sat = 255;
+        } else {
+            // Midday - bright yellow sun
+            sun_hue = 42;
+            sun_sat = 255;
+        }
+
+        // Draw sun with rays
+        qp_circle(display, celestial_x, celestial_y, 9, sun_hue, sun_sat, 255, true);
+
+        // Add sun rays (8 rays around sun)
+        for (uint8_t i = 0; i < 8; i++) {
+            int16_t ray_x = 0, ray_y = 0;
+
+            // Calculate ray direction (simplified - just 8 cardinal directions)
+            if (i == 0) { ray_x = 12; ray_y = 0; }       // Right
+            else if (i == 1) { ray_x = 9; ray_y = -9; }  // Up-right
+            else if (i == 2) { ray_x = 0; ray_y = -12; } // Up
+            else if (i == 3) { ray_x = -9; ray_y = -9; } // Up-left
+            else if (i == 4) { ray_x = -12; ray_y = 0; } // Left
+            else if (i == 5) { ray_x = -9; ray_y = 9; }  // Down-left
+            else if (i == 6) { ray_x = 0; ray_y = 12; }  // Down
+            else if (i == 7) { ray_x = 9; ray_y = 9; }   // Down-right
+
+            qp_rect(display, celestial_x + ray_x - 1, celestial_y + ray_y - 1,
+                    celestial_x + ray_x + 1, celestial_y + ray_y + 1, sun_hue, sun_sat, 200, true);
+        }
+    }
+
+    // === GROUND AND TREES ===
+
+    // Draw ground line
+    uint16_t ground_y = 150;
+    qp_rect(display, 0, ground_y, 134, ground_y + 1, 85, 180, 100, true); // Green-brown ground
+
+    // Draw trees at different positions
+    uint8_t layer = get_highest_layer(layer_state);
+    uint8_t tree_hue, tree_sat, tree_val;
+    get_layer_color(layer, &tree_hue, &tree_sat, &tree_val);
+
+    draw_tree(30, ground_y, season, tree_hue, tree_sat, tree_val);
+    draw_tree(67, ground_y, season, tree_hue, tree_sat, tree_val); // Center tree
+    draw_tree(105, ground_y, season, tree_hue, tree_sat, tree_val);
+
+    // === SEASONAL WEATHER EFFECTS ===
+
+    if (season == 0) { // Winter - snow falling
+        uint16_t snow_x[] = {15, 40, 65, 85, 110, 25, 55, 95, 120};
+        uint16_t snow_y[] = {30, 50, 70, 40, 60, 80, 100, 90, 45};
+        for (uint8_t i = 0; i < 9; i++) {
+            // Simple snowflake
+            qp_rect(display, snow_x[i], snow_y[i], snow_x[i] + 2, snow_y[i] + 2, 170, 80, 255, true);
+            qp_rect(display, snow_x[i] - 2, snow_y[i] + 1, snow_x[i] + 4, snow_y[i] + 1, 170, 80, 255, true);
+            qp_rect(display, snow_x[i] + 1, snow_y[i] - 2, snow_x[i] + 1, snow_y[i] + 4, 170, 80, 255, true);
+        }
+    } else if (season == 1) { // Spring - butterflies
+        uint16_t butterfly_x[] = {25, 70, 100};
+        uint16_t butterfly_y[] = {60, 80, 50};
+        uint8_t butterfly_hues[] = {234, 170, 42}; // Pink, cyan, yellow
+        for (uint8_t i = 0; i < 3; i++) {
+            qp_circle(display, butterfly_x[i] - 2, butterfly_y[i], 2, butterfly_hues[i], 255, 200, true);
+            qp_circle(display, butterfly_x[i] + 2, butterfly_y[i], 2, butterfly_hues[i], 255, 200, true);
+        }
+    } else if (season == 2) { // Summer - birds or clouds
+        // Simple cloud shapes
+        uint16_t cloud_x[] = {20, 90};
+        for (uint8_t i = 0; i < 2; i++) {
+            qp_circle(display, cloud_x[i], 35, 8, 0, 0, 180, true);
+            qp_circle(display, cloud_x[i] + 10, 35, 6, 0, 0, 180, true);
+            qp_circle(display, cloud_x[i] - 8, 35, 6, 0, 0, 180, true);
+        }
+    } else { // Fall - falling leaves
+        uint16_t leaf_x[] = {20, 45, 70, 85, 110, 35, 95, 60};
+        uint16_t leaf_y[] = {40, 60, 50, 80, 70, 95, 55, 110};
+        uint8_t leaf_hues[] = {10, 0, 20, 15, 25, 8, 30, 12}; // Various fall colors
+        for (uint8_t i = 0; i < 8; i++) {
+            qp_circle(display, leaf_x[i], leaf_y[i], 3, leaf_hues[i], 255, 200, true);
+        }
+    }
+
+    // Note: No qp_flush() here - let the caller decide when to flush
+}
+
 // Function to draw logo with color based on layer
 void set_layer_background(uint8_t layer) {
     // Only update if the layer actually changed
@@ -211,6 +410,9 @@ void set_layer_background(uint8_t layer) {
 
     // Draw the logo at the top with the selected color
     draw_amboss_logo(display, 7, 10, hue, sat, val);
+
+    // Draw seasonal animation between logo and date
+    draw_seasonal_animation();
 
     // Redraw date/time above volume bar (will handle its own clearing)
     draw_date_time();
@@ -476,6 +678,9 @@ static void init_display(void) {
     // Update brightness variable to match the PWM setting
     backlight_brightness = 102;
     last_brightness_value = 102;
+
+    // Draw seasonal animation between logo and date
+    draw_seasonal_animation();
 
     // Draw initial date/time above volume bar
     draw_date_time();
