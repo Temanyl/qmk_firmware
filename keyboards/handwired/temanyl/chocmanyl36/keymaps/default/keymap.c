@@ -63,6 +63,10 @@ static bool needs_scroll = false;    // Whether text is too long and needs scrol
 static bool rain_initialized = false; // Track if rain has been drawn
 #define NUM_RAINDROPS 50
 
+// Halloween event (Oct 28 - Nov 3) - static decorations
+#define NUM_PUMPKINS 4
+#define NUM_GHOSTS 2
+
 // Custom keycodes
 enum custom_keycodes {
     DISP_UP = SAFE_RANGE,  // Display brightness up
@@ -90,6 +94,12 @@ void get_celestial_position(uint8_t hour, uint16_t *x, uint16_t *y);
 void update_rain_animation(void);
 void get_background_pixel_color(uint16_t x, uint16_t y, uint8_t *hue, uint8_t *sat, uint8_t *val);
 void capture_scene_to_framebuffer(void);
+
+// Halloween event functions
+bool is_halloween_event(void);
+void draw_pumpkin(int16_t x, int16_t y, uint8_t size);
+void draw_ghost(int16_t x, int16_t y);
+void draw_halloween_elements(void);
 
 // Helper function to draw a single digit using 7-segment style
 void draw_digit(uint16_t x, uint16_t y, uint8_t digit, uint8_t hue, uint8_t sat, uint8_t val) {
@@ -750,7 +760,100 @@ void draw_seasonal_animation(void) {
         }
     }
 
+    // === HALLOWEEN EVENT OVERLAY ===
+    // Draw Halloween elements on top of seasonal scene during Halloween period
+    if (is_halloween_event()) {
+        draw_halloween_elements();
+    }
+
     // Note: No qp_flush() here - let the caller decide when to flush
+}
+
+// === HALLOWEEN EVENT FUNCTIONS ===
+
+// Check if current date is within Halloween event period (Oct 28 - Nov 3)
+bool is_halloween_event(void) {
+    // Halloween event: 3 days before (Oct 28-30), Halloween (Oct 31), 3 days after (Nov 1-3)
+    return (current_month == 10 && current_day >= 28) ||
+           (current_month == 11 && current_day <= 3);
+}
+
+// Draw a jack-o-lantern pumpkin
+void draw_pumpkin(int16_t x, int16_t y, uint8_t size) {
+    if (x < -size || x > 135 + size || y < -size || y > 152 + size) return;
+
+    // Pumpkin body (orange circle)
+    qp_circle(display, x, y, size, 20, 255, 255, true);  // Bright orange
+
+    // Darker orange shading on bottom
+    qp_circle(display, x, y + size/3, size - 2, 16, 255, 220, true);
+
+    // Draw jack-o-lantern face (scale with size)
+    uint8_t eye_offset = size / 3;
+    uint8_t eye_size = size / 4;
+
+    // Left eye (triangle)
+    qp_rect(display, x - eye_offset - eye_size, y - eye_offset,
+            x - eye_offset + eye_size, y - eye_offset + eye_size, 0, 0, 0, true);
+
+    // Right eye (triangle)
+    qp_rect(display, x + eye_offset - eye_size, y - eye_offset,
+            x + eye_offset + eye_size, y - eye_offset + eye_size, 0, 0, 0, true);
+
+    // Nose (small triangle)
+    qp_rect(display, x - eye_size/2, y,
+            x + eye_size/2, y + eye_size, 0, 0, 0, true);
+
+    // Mouth (jagged grin)
+    qp_rect(display, x - size/2, y + size/3,
+            x + size/2, y + size/2, 0, 0, 0, true);
+
+    // Teeth (make gaps in the mouth)
+    for (int8_t i = -size/3; i < size/3; i += size/4) {
+        qp_rect(display, x + i, y + size/3,
+                x + i + size/6, y + size/2 - 1, 20, 255, 255, true);
+    }
+
+    // Stem (brown/green)
+    qp_rect(display, x - 2, y - size - 3, x + 2, y - size + 1, 85, 200, 100, true);
+}
+
+// Draw a ghost (static)
+void draw_ghost(int16_t x, int16_t y) {
+    if (x < -15 || x > 150 || y < -20 || y > 172) return;
+
+    // Ghost body (white rounded shape)
+    // Head (circle)
+    qp_circle(display, x, y, 7, 0, 0, 240, true);  // Light grey-white
+
+    // Body (rounded rectangle)
+    qp_rect(display, x - 7, y, x + 7, y + 12, 0, 0, 240, true);
+
+    // Wavy bottom edge (static)
+    qp_rect(display, x - 7, y + 10, x - 4, y + 13, 0, 0, 240, true);
+    qp_rect(display, x - 3, y + 10, x + 0, y + 12, 0, 0, 240, true);
+    qp_rect(display, x + 1, y + 10, x + 4, y + 13, 0, 0, 240, true);
+    qp_rect(display, x + 5, y + 10, x + 7, y + 12, 0, 0, 240, true);
+
+    // Eyes (black dots)
+    qp_rect(display, x - 3, y - 2, x - 1, y, 0, 0, 0, true);  // Left eye
+    qp_rect(display, x + 1, y - 2, x + 3, y, 0, 0, 0, true);  // Right eye
+
+    // Mouth (small O shape)
+    qp_circle(display, x, y + 3, 2, 0, 0, 0, false);
+}
+
+// Draw all Halloween elements (static decorations)
+void draw_halloween_elements(void) {
+    // Draw 2 ghosts in the sky at fixed positions
+    draw_ghost(20, 90);   // Left ghost
+    draw_ghost(40, 50);   // middle ghost
+    draw_ghost(95, 60);   // Right ghost
+
+    // Draw 4 pumpkins on the ground (y=150 is ground level)
+    draw_pumpkin(25, 145, 8);   // Left pumpkin (small)
+    draw_pumpkin(55, 143, 10);  // Left-center pumpkin (medium)
+    draw_pumpkin(90, 144, 9);  // Right pumpkin (medium-small)
 }
 
 // Function to draw logo with color based on layer
