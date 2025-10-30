@@ -41,6 +41,8 @@ static uint8_t current_day = 1;             // Current day (1-31)
 static uint8_t current_month = 1;           // Current month (1-12)
 static uint16_t current_year = 2025;        // Current year
 static bool time_received = false;          // Whether we've received time from host
+static uint8_t last_hour = 255;             // Track last hour for sun/moon position updates
+static uint8_t last_day = 255;              // Track last day for moon phase updates
 
 // Brightness indicator state (temporary overlay)
 static uint8_t last_brightness_value = 102; // Track last brightness for change detection
@@ -209,9 +211,10 @@ void draw_date_time(void) {
     get_layer_color(layer, &hue, &sat, &val);
 
     // Clear date/time area above media text (black background)
-    qp_rect(display, 0, 165, 134, 206, 0, 0, 0, true);
+    // Date starts at y=155 and is 20px tall, time starts at y=180 and is 20px tall
+    qp_rect(display, 0, 155, 134, 206, 0, 0, 0, true);
 
-    // Date area: y=155 to y=171
+    // Date area: y=155 to y=175 (20px tall digits)
     uint16_t date_y = 155;
 
     // Draw date in DD.MM.YYYY format centered
@@ -1284,24 +1287,33 @@ void draw_fireworks_scene(void) {
 
 // Function to draw logo with color based on layer
 void set_layer_background(uint8_t layer) {
-    // Only update if the layer actually changed
-    if (layer == current_display_layer) {
+    // Check if this is a forced full redraw (current_display_layer was set to 255)
+    bool force_full_redraw = (current_display_layer == 255);
+
+    // Only update if the layer actually changed or forced redraw
+    if (!force_full_redraw && layer == current_display_layer) {
         return;
     }
     current_display_layer = layer;
 
-    // Always draw black background
-    qp_rect(display, 0, 0, 134, 239, 0, 0, 0, true);
-
-    // Select logo color based on layer
+    // Get layer color for dynamic elements (date/time, media, volume)
     uint8_t hue, sat, val;
     get_layer_color(layer, &hue, &sat, &val);
 
-    // Draw the logo at the top with the selected color
-    draw_amboss_logo(display, 7, 10, hue, sat, val);
+    // If full redraw is forced, clear screen and redraw everything
+    if (force_full_redraw) {
+        // Clear entire screen
+        qp_rect(display, 0, 0, 134, 239, 0, 0, 0, true);
 
-    // Draw seasonal animation between logo and date
-    draw_seasonal_animation();
+        // Draw the logo in teal (always the same color)
+        draw_amboss_logo(display, 7, 10, 128, 255, 255);
+
+        // Draw seasonal animation between logo and date
+        draw_seasonal_animation();
+    }
+
+    // Always redraw dynamic elements (they change color with layer)
+    // Each of these functions clears its own area before drawing
 
     // Redraw date/time above volume bar (will handle its own clearing)
     draw_date_time();
@@ -1675,6 +1687,10 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
                 time_received = true;
                 last_uptime_update = timer_read32();
 
+                // Update tracking variables for hour/day change detection
+                last_hour = current_hour;
+                last_day = current_day;
+
                 // Force full redraw of scene (season and sun/moon position depend on time)
                 current_display_layer = 255;  // Invalidate layer cache
                 update_display_for_layer();
@@ -1846,6 +1862,10 @@ void housekeeping_task_user(void) {
     uint32_t current_time = timer_read32();
     bool needs_flush = false;
 
+    // Check if hour or day changed (for seasonal animation updates)
+    bool hour_changed = (current_hour != last_hour);
+    bool day_changed = (current_day != last_day);
+
     // Update date/time display once per minute (or when time is received)
     if (time_received && (current_time - last_uptime_update >= 60000)) {
         last_uptime_update = current_time;
@@ -1854,9 +1874,11 @@ void housekeeping_task_user(void) {
         if (current_minute >= 60) {
             current_minute = 0;
             current_hour++;
+            hour_changed = true;
             if (current_hour >= 24) {
                 current_hour = 0;
                 current_day++;
+                day_changed = true;
 
                 // Handle day rollover with proper month boundaries
                 uint8_t days_in_month = 31; // Default
@@ -1885,6 +1907,14 @@ void housekeeping_task_user(void) {
         if (needs_flush) {
             draw_date_time();
         }
+        needs_flush = true;
+    }
+
+    // Redraw seasonal animation when hour or day changes (sun/moon position, moon phase)
+    if (hour_changed || day_changed) {
+        draw_seasonal_animation();
+        last_hour = current_hour;
+        last_day = current_day;
         needs_flush = true;
     }
 
