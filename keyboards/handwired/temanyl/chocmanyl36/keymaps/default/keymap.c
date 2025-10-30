@@ -67,6 +67,32 @@ static bool rain_initialized = false; // Track if rain has been drawn
 #define NUM_PUMPKINS 4
 #define NUM_GHOSTS 2
 
+// Christmas advent calendar (Dec 1-31)
+#define NUM_CHRISTMAS_ITEMS 24
+#define SANTA_ANIMATION_SPEED 100  // Update every 100ms for smooth Santa flight
+
+// Christmas item types
+typedef enum {
+    XMAS_PRESENT_RED, XMAS_PRESENT_GREEN, XMAS_PRESENT_BLUE,
+    XMAS_CANDY_CANE, XMAS_STOCKING, XMAS_ORNAMENT_RED,
+    XMAS_ORNAMENT_GOLD, XMAS_ORNAMENT_BLUE, XMAS_BELL,
+    XMAS_HOLLY, XMAS_STAR_SMALL, XMAS_SNOWFLAKE,
+    XMAS_CANDLE, XMAS_TREE_SMALL, XMAS_GINGERBREAD,
+    XMAS_WREATH, XMAS_ANGEL, XMAS_REINDEER_SMALL,
+    XMAS_SNOWMAN_SMALL, XMAS_LIGHTS, XMAS_MISTLETOE,
+    XMAS_NORTH_STAR, XMAS_SLEIGH_BELL, XMAS_HEART
+} christmas_item_type_t;
+
+typedef struct {
+    christmas_item_type_t type;
+    int16_t x;
+    int16_t y;
+} christmas_item_t;
+
+static bool santa_initialized = false;
+static uint32_t santa_animation_timer = 0;
+static int16_t santa_x = -60;  // Start offscreen left
+
 // Custom keycodes
 enum custom_keycodes {
     DISP_UP = SAFE_RANGE,  // Display brightness up
@@ -100,6 +126,15 @@ bool is_halloween_event(void);
 void draw_pumpkin(int16_t x, int16_t y, uint8_t size);
 void draw_ghost(int16_t x, int16_t y);
 void draw_halloween_elements(void);
+
+// Christmas advent calendar functions
+bool is_christmas_season(void);
+uint8_t get_christmas_items_to_show(void);
+void draw_christmas_item(christmas_item_type_t type, int16_t x, int16_t y);
+void draw_christmas_advent_items(void);
+void draw_santa_sleigh(int16_t x, int16_t y);
+void update_santa_animation(void);
+void draw_christmas_scene(void);
 
 // Helper function to draw a single digit using 7-segment style
 void draw_digit(uint16_t x, uint16_t y, uint8_t digit, uint8_t hue, uint8_t sat, uint8_t val) {
@@ -766,6 +801,12 @@ void draw_seasonal_animation(void) {
         draw_halloween_elements();
     }
 
+    // === CHRISTMAS ADVENT CALENDAR OVERLAY ===
+    // Draw Christmas decorations and Santa during December
+    if (is_christmas_season()) {
+        draw_christmas_scene();
+    }
+
     // Note: No qp_flush() here - let the caller decide when to flush
 }
 
@@ -854,6 +895,293 @@ void draw_halloween_elements(void) {
     draw_pumpkin(25, 145, 8);   // Left pumpkin (small)
     draw_pumpkin(55, 143, 10);  // Left-center pumpkin (medium)
     draw_pumpkin(90, 144, 9);  // Right pumpkin (medium-small)
+}
+
+// === CHRISTMAS ADVENT CALENDAR FUNCTIONS ===
+
+// Check if we're in December (Christmas season)
+bool is_christmas_season(void) {
+    return current_month == 12;
+}
+
+// Get number of Christmas items to show based on current day
+uint8_t get_christmas_items_to_show(void) {
+    if (!is_christmas_season()) return 0;
+    if (current_day >= 25) return NUM_CHRISTMAS_ITEMS;  // Show all items from Dec 25 onwards
+    if (current_day >= 1 && current_day <= 24) return current_day;  // Progressive reveal
+    return 0;
+}
+
+// Advent calendar items with positions (day 1-24)
+static const christmas_item_t advent_items[NUM_CHRISTMAS_ITEMS] = {
+    // Days 1-8: Ground level decorations
+    {XMAS_PRESENT_RED, 20, 145},        // Day 1
+    {XMAS_PRESENT_GREEN, 40, 143},      // Day 2
+    {XMAS_CANDY_CANE, 60, 140},         // Day 3
+    {XMAS_PRESENT_BLUE, 80, 144},       // Day 4
+    {XMAS_STOCKING, 100, 138},          // Day 5
+    {XMAS_GINGERBREAD, 115, 142},       // Day 6
+    {XMAS_SLEIGH_BELL, 12, 141},        // Day 7
+    {XMAS_SNOWMAN_SMALL, 125, 140},     // Day 8
+
+    // Days 9-16: Mid-level decorations
+    {XMAS_ORNAMENT_RED, 25, 110},       // Day 9
+    {XMAS_ORNAMENT_GOLD, 50, 105},      // Day 10
+    {XMAS_ORNAMENT_BLUE, 75, 108},      // Day 11
+    {XMAS_BELL, 95, 112},               // Day 12
+    {XMAS_WREATH, 110, 100},            // Day 13
+    {XMAS_TREE_SMALL, 15, 115},         // Day 14
+    {XMAS_HOLLY, 120, 115},             // Day 15
+    {XMAS_CANDLE, 42, 125},             // Day 16
+
+    // Days 17-24: Upper decorations
+    {XMAS_STAR_SMALL, 30, 70},          // Day 17
+    {XMAS_SNOWFLAKE, 65, 75},           // Day 18
+    {XMAS_ANGEL, 90, 65},               // Day 19
+    {XMAS_STAR_SMALL, 115, 80},         // Day 20
+    {XMAS_MISTLETOE, 48, 85},           // Day 21
+    {XMAS_LIGHTS, 10, 95},              // Day 22
+    {XMAS_NORTH_STAR, 67, 30},          // Day 23 - North Star high in sky
+    {XMAS_HEART, 100, 55}               // Day 24
+};
+
+// Draw a specific Christmas item
+void draw_christmas_item(christmas_item_type_t type, int16_t x, int16_t y) {
+    switch (type) {
+        case XMAS_PRESENT_RED:
+        case XMAS_PRESENT_GREEN:
+        case XMAS_PRESENT_BLUE: {
+            // Gift box with bow
+            uint8_t hue = (type == XMAS_PRESENT_RED) ? 0 : (type == XMAS_PRESENT_GREEN) ? 85 : 170;
+            qp_rect(display, x - 4, y - 4, x + 4, y + 4, hue, 255, 200, true);  // Box
+            qp_rect(display, x - 4, y - 1, x + 4, y + 1, 42, 200, 255, true);   // Ribbon horizontal
+            qp_rect(display, x - 1, y - 4, x + 1, y + 4, 42, 200, 255, true);   // Ribbon vertical
+            qp_rect(display, x - 2, y - 6, x + 2, y - 4, 42, 200, 255, true);   // Bow
+            break;
+        }
+        case XMAS_CANDY_CANE: {
+            // Red and white striped candy cane
+            qp_rect(display, x, y - 8, x + 2, y, 0, 255, 255, true);            // Stick (red)
+            qp_rect(display, x, y - 11, x + 5, y - 9, 0, 255, 255, true);       // Hook (red)
+            qp_rect(display, x, y - 6, x + 2, y - 4, 0, 0, 255, true);          // White stripe 1
+            qp_rect(display, x, y - 2, x + 2, y, 0, 0, 255, true);              // White stripe 2
+            qp_rect(display, x + 3, y - 11, x + 5, y - 10, 0, 0, 255, true);    // White stripe on hook
+            break;
+        }
+        case XMAS_STOCKING: {
+            // Christmas stocking
+            qp_rect(display, x - 3, y - 8, x + 2, y - 2, 0, 255, 220, true);    // Stocking body (red)
+            qp_rect(display, x - 2, y - 2, x + 4, y, 0, 255, 220, true);        // Foot
+            qp_rect(display, x - 3, y - 9, x + 2, y - 8, 0, 0, 255, true);      // White trim
+            break;
+        }
+        case XMAS_ORNAMENT_RED:
+        case XMAS_ORNAMENT_GOLD:
+        case XMAS_ORNAMENT_BLUE: {
+            // Christmas ornament ball
+            uint8_t hue = (type == XMAS_ORNAMENT_RED) ? 0 : (type == XMAS_ORNAMENT_GOLD) ? 42 : 170;
+            qp_circle(display, x, y, 4, hue, 255, 255, true);                   // Ball
+            qp_rect(display, x - 1, y - 5, x + 1, y - 4, 0, 0, 180, true);      // Hanger
+            break;
+        }
+        case XMAS_BELL: {
+            // Golden bell
+            qp_rect(display, x - 3, y - 2, x + 3, y + 2, 42, 255, 255, true);   // Bell body
+            qp_rect(display, x - 4, y - 3, x + 4, y - 2, 42, 255, 255, true);   // Bell top
+            qp_circle(display, x, y + 3, 1, 42, 255, 200, true);                // Clapper
+            break;
+        }
+        case XMAS_HOLLY: {
+            // Holly leaves with berries
+            qp_rect(display, x - 4, y - 1, x + 4, y + 1, 85, 255, 180, true);   // Leaves
+            qp_circle(display, x - 3, y - 2, 1, 0, 255, 255, true);             // Berry 1
+            qp_circle(display, x + 3, y - 2, 1, 0, 255, 255, true);             // Berry 2
+            break;
+        }
+        case XMAS_STAR_SMALL: {
+            // 5-pointed star (gold)
+            qp_rect(display, x - 1, y - 3, x + 1, y + 3, 42, 255, 255, true);   // Vertical
+            qp_rect(display, x - 3, y - 1, x + 3, y + 1, 42, 255, 255, true);   // Horizontal
+            qp_rect(display, x - 2, y - 2, x + 2, y + 2, 42, 255, 255, true);   // Diagonal cross
+            break;
+        }
+        case XMAS_SNOWFLAKE: {
+            // Snowflake
+            qp_rect(display, x, y - 4, x, y + 4, 170, 100, 255, true);          // Vertical
+            qp_rect(display, x - 4, y, x + 4, y, 170, 100, 255, true);          // Horizontal
+            qp_rect(display, x - 3, y - 3, x + 3, y + 3, 170, 100, 255, true);  // Diagonal
+            qp_rect(display, x - 3, y + 3, x + 3, y - 3, 170, 100, 255, true);  // Diagonal
+            break;
+        }
+        case XMAS_CANDLE: {
+            // Candle with flame
+            qp_rect(display, x - 2, y - 8, x + 2, y, 0, 255, 200, true);        // Candle (red)
+            qp_rect(display, x - 1, y - 11, x + 1, y - 8, 42, 255, 255, true);  // Flame
+            break;
+        }
+        case XMAS_TREE_SMALL: {
+            // Small decorated tree
+            qp_rect(display, x - 1, y - 2, x + 1, y, 20, 200, 120, true);       // Trunk
+            qp_circle(display, x, y - 5, 4, 85, 255, 180, true);                // Foliage
+            qp_circle(display, x - 2, y - 4, 1, 0, 255, 255, true);             // Red ornament
+            qp_circle(display, x + 2, y - 6, 1, 42, 255, 255, true);            // Gold ornament
+            break;
+        }
+        case XMAS_GINGERBREAD: {
+            // Gingerbread man
+            qp_circle(display, x, y - 6, 2, 20, 200, 150, true);                // Head
+            qp_rect(display, x - 2, y - 4, x + 2, y + 2, 20, 200, 150, true);   // Body
+            qp_rect(display, x - 4, y - 2, x - 2, y, 20, 200, 150, true);       // Left arm
+            qp_rect(display, x + 2, y - 2, x + 4, y, 20, 200, 150, true);       // Right arm
+            qp_rect(display, x - 2, y + 2, x, y + 4, 20, 200, 150, true);       // Left leg
+            qp_rect(display, x, y + 2, x + 2, y + 4, 20, 200, 150, true);       // Right leg
+            break;
+        }
+        case XMAS_WREATH: {
+            // Christmas wreath
+            qp_circle(display, x, y, 5, 85, 255, 180, false);                   // Green circle
+            qp_circle(display, x, y, 4, 85, 255, 180, false);                   // Double outline
+            qp_rect(display, x - 2, y + 5, x + 2, y + 7, 0, 255, 255, true);    // Red bow
+            break;
+        }
+        case XMAS_ANGEL: {
+            // Angel
+            qp_circle(display, x, y - 5, 2, 42, 100, 255, true);                // Halo (gold)
+            qp_circle(display, x, y - 2, 2, 0, 0, 240, true);                   // Head (white)
+            qp_rect(display, x - 3, y, x + 3, y + 4, 0, 0, 240, true);          // Body (white)
+            qp_rect(display, x - 5, y + 1, x - 3, y + 3, 0, 0, 220, true);      // Left wing
+            qp_rect(display, x + 3, y + 1, x + 5, y + 3, 0, 0, 220, true);      // Right wing
+            break;
+        }
+        case XMAS_REINDEER_SMALL: {
+            // Small reindeer
+            qp_circle(display, x, y, 2, 20, 200, 150, true);                    // Body (brown)
+            qp_circle(display, x + 2, y - 2, 1, 20, 200, 150, true);            // Head
+            qp_rect(display, x + 1, y - 4, x + 2, y - 3, 20, 200, 120, true);   // Antler
+            qp_rect(display, x + 3, y - 1, x + 3, y, 0, 255, 255, true);        // Red nose
+            break;
+        }
+        case XMAS_SNOWMAN_SMALL: {
+            // Small snowman
+            qp_circle(display, x, y - 5, 2, 0, 0, 240, true);                   // Head
+            qp_circle(display, x, y - 1, 3, 0, 0, 240, true);                   // Body
+            qp_rect(display, x - 1, y - 5, x + 1, y - 5, 0, 0, 0, true);        // Eyes
+            qp_rect(display, x - 3, y - 6, x + 3, y - 6, 20, 200, 100, true);   // Hat
+            break;
+        }
+        case XMAS_LIGHTS: {
+            // String of Christmas lights
+            qp_rect(display, x, y, x + 15, y, 0, 0, 100, true);                 // String
+            qp_circle(display, x + 2, y + 1, 1, 0, 255, 255, true);             // Red bulb
+            qp_circle(display, x + 6, y + 1, 1, 85, 255, 255, true);            // Green bulb
+            qp_circle(display, x + 10, y + 1, 1, 170, 255, 255, true);          // Blue bulb
+            qp_circle(display, x + 14, y + 1, 1, 42, 255, 255, true);           // Yellow bulb
+            break;
+        }
+        case XMAS_MISTLETOE: {
+            // Mistletoe
+            qp_circle(display, x, y, 3, 85, 200, 150, true);                    // Green leaves
+            qp_circle(display, x - 2, y - 1, 1, 0, 0, 255, true);               // White berry
+            qp_circle(display, x + 2, y - 1, 1, 0, 0, 255, true);               // White berry
+            break;
+        }
+        case XMAS_NORTH_STAR: {
+            // Large North Star (bright)
+            qp_rect(display, x - 1, y - 5, x + 1, y + 5, 42, 255, 255, true);   // Vertical
+            qp_rect(display, x - 5, y - 1, x + 5, y + 1, 42, 255, 255, true);   // Horizontal
+            qp_rect(display, x - 3, y - 3, x + 3, y + 3, 42, 255, 255, true);   // Diagonal 1
+            qp_rect(display, x - 3, y + 3, x + 3, y - 3, 42, 255, 255, true);   // Diagonal 2
+            // Add glow
+            qp_circle(display, x, y, 6, 42, 150, 200, false);                   // Glow ring
+            break;
+        }
+        case XMAS_SLEIGH_BELL: {
+            // Small sleigh bell (gold)
+            qp_circle(display, x, y, 2, 42, 255, 255, true);                    // Bell
+            qp_rect(display, x - 1, y - 3, x + 1, y - 2, 42, 200, 200, true);   // Top
+            break;
+        }
+        case XMAS_HEART: {
+            // Heart ornament (red)
+            qp_circle(display, x - 2, y - 2, 2, 0, 255, 255, true);             // Left circle
+            qp_circle(display, x + 2, y - 2, 2, 0, 255, 255, true);             // Right circle
+            qp_rect(display, x - 3, y - 1, x + 3, y + 2, 0, 255, 255, true);    // Bottom triangle
+            break;
+        }
+    }
+}
+
+// Draw advent calendar items based on current day
+void draw_christmas_advent_items(void) {
+    uint8_t items_to_show = get_christmas_items_to_show();
+    for (uint8_t i = 0; i < items_to_show; i++) {
+        draw_christmas_item(advent_items[i].type, advent_items[i].x, advent_items[i].y);
+    }
+}
+
+// Draw Santa's sleigh with reindeer
+void draw_santa_sleigh(int16_t x, int16_t y) {
+    if (x < -60 || x > 195) return;  // Off screen
+
+    // Reindeer (simplified - 2 reindeer)
+    // Leading reindeer
+    qp_circle(display, x + 40, y, 3, 20, 200, 150, true);                       // Body
+    qp_circle(display, x + 43, y - 2, 2, 20, 200, 150, true);                   // Head
+    qp_rect(display, x + 42, y - 5, x + 43, y - 3, 20, 180, 120, true);         // Antler left
+    qp_rect(display, x + 44, y - 5, x + 45, y - 3, 20, 180, 120, true);         // Antler right
+    qp_circle(display, x + 45, y - 2, 1, 0, 255, 255, true);                    // Red nose (Rudolph!)
+    qp_rect(display, x + 38, y + 2, x + 39, y + 4, 20, 200, 130, true);         // Legs
+    qp_rect(display, x + 42, y + 2, x + 43, y + 4, 20, 200, 130, true);
+
+    // Second reindeer
+    qp_circle(display, x + 25, y + 1, 3, 20, 200, 150, true);                   // Body
+    qp_circle(display, x + 28, y - 1, 2, 20, 200, 150, true);                   // Head
+    qp_rect(display, x + 27, y - 4, x + 28, y - 2, 20, 180, 120, true);         // Antler
+    qp_rect(display, x + 29, y - 4, x + 30, y - 2, 20, 180, 120, true);
+
+    // Reins (connecting reindeer to sleigh)
+    qp_rect(display, x + 20, y + 2, x + 40, y + 2, 20, 180, 100, true);         // Rein line
+
+    // Sleigh
+    qp_rect(display, x + 5, y + 2, x + 20, y + 8, 0, 255, 220, true);           // Sleigh body (red)
+    qp_rect(display, x + 5, y + 8, x + 20, y + 10, 42, 200, 200, true);         // Sleigh runners (gold)
+    qp_rect(display, x + 8, y - 2, x + 17, y + 2, 0, 200, 180, true);           // Gift sack
+
+    // Santa
+    qp_circle(display, x + 12, y - 2, 2, 20, 150, 255, true);                   // Head (peach)
+    qp_rect(display, x + 10, y, x + 14, y + 4, 0, 255, 220, true);              // Body (red suit)
+    qp_rect(display, x + 10, y - 1, x + 14, y, 0, 0, 255, true);                // White trim
+    qp_circle(display, x + 12, y - 4, 2, 0, 255, 255, true);                    // Hat
+    qp_rect(display, x + 11, y - 5, x + 13, y - 4, 0, 0, 255, true);            // Hat pom-pom
+}
+
+// Update Santa's sleigh position
+void update_santa_animation(void) {
+    if (!santa_initialized) {
+        santa_x = -60;  // Start from left
+        santa_initialized = true;
+    }
+
+    // Move Santa across screen from left to right
+    santa_x += 2;
+
+    // Reset when off screen
+    if (santa_x > 195) {
+        santa_x = -60;
+    }
+}
+
+// Main Christmas scene drawing function
+void draw_christmas_scene(void) {
+    if (!is_christmas_season()) return;
+
+    // Draw advent calendar items (progressive reveal Dec 1-24, all shown Dec 25+)
+    draw_christmas_advent_items();
+
+    // On Christmas Day (Dec 25) and after, show Santa flying
+    if (current_day >= 25) {
+        draw_santa_sleigh(santa_x, 40);  // Santa flies at y=40 in the sky
+    }
 }
 
 // Function to draw logo with color based on layer
@@ -1494,6 +1822,22 @@ void housekeeping_task_user(void) {
     }
 
     // Rain animation disabled - static rain looks better without artifacts
+
+    // Handle Santa sleigh animation (on Christmas Day Dec 25 and after)
+    if (is_christmas_season() && current_day >= 25) {
+        if (current_time - santa_animation_timer >= SANTA_ANIMATION_SPEED) {
+            santa_animation_timer = current_time;
+            update_santa_animation();
+            // Redraw seasonal animation to show updated Santa position
+            draw_seasonal_animation();
+            needs_flush = true;
+        }
+    } else {
+        // Reset Santa state when not Christmas Day
+        if (santa_initialized) {
+            santa_initialized = false;
+        }
+    }
 
     // Single flush at the end to batch all updates
     if (needs_flush) {
