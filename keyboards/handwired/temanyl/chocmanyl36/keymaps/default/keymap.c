@@ -85,6 +85,7 @@ void draw_brightness_indicator(void);
 void draw_media_text(void);
 void draw_seasonal_animation(void);
 void draw_tree(uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, uint8_t sat, uint8_t val);
+void draw_cabin(uint16_t base_x, uint16_t base_y, uint8_t season);
 void get_celestial_position(uint8_t hour, uint16_t *x, uint16_t *y);
 void update_rain_animation(void);
 void get_background_pixel_color(uint16_t x, uint16_t y, uint8_t *hue, uint8_t *sat, uint8_t *val);
@@ -322,6 +323,85 @@ void draw_tree(uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, ui
     }
 }
 
+// Helper function to draw a small wooden cabin
+void draw_cabin(uint16_t base_x, uint16_t base_y, uint8_t season) {
+    // Cabin dimensions
+    uint8_t cabin_width = 24;
+    uint8_t cabin_height = 18;
+    uint8_t roof_height = 10;
+
+    // Main cabin body (brown wood)
+    qp_rect(display, base_x - cabin_width/2, base_y - cabin_height,
+            base_x + cabin_width/2, base_y, 20, 200, 120, true);
+
+    // Roof (darker brown/grey triangular roof using rectangles)
+    // Left side of roof
+    for (uint8_t i = 0; i < roof_height; i++) {
+        uint8_t roof_y = base_y - cabin_height - i;
+        uint8_t roof_left = base_x - (cabin_width/2 + roof_height - i);
+        uint8_t roof_right = base_x - (cabin_width/2 - i);
+        qp_rect(display, roof_left, roof_y, roof_right, roof_y + 1, 15, 180, 80, true);
+    }
+    // Right side of roof
+    for (uint8_t i = 0; i < roof_height; i++) {
+        uint8_t roof_y = base_y - cabin_height - i;
+        uint8_t roof_left = base_x + (cabin_width/2 - i);
+        uint8_t roof_right = base_x + (cabin_width/2 + roof_height - i);
+        qp_rect(display, roof_left, roof_y, roof_right, roof_y + 1, 15, 180, 80, true);
+    }
+    // Fill the peak gap with a center line
+    qp_rect(display, base_x - 7, base_y - cabin_height - roof_height,
+            base_x + 7, base_y - cabin_height, 15, 180, 80, true);
+
+    // Door (darker brown)
+    uint8_t door_width = 7;
+    uint8_t door_height = 10;
+    qp_rect(display, base_x - door_width/2, base_y - door_height,
+            base_x + door_width/2, base_y, 15, 220, 60, true);
+
+    // Window (light yellow - lit window)
+    uint8_t window_size = 6;
+    qp_rect(display, base_x + 5, base_y - cabin_height + 5,
+            base_x + 5 + window_size, base_y - cabin_height + 5 + window_size, 42, 150, 255, true);
+
+    // Window frame cross (dark brown)
+    qp_rect(display, base_x + 7, base_y - cabin_height + 5,
+            base_x + 8, base_y - cabin_height + 5 + window_size, 20, 200, 80, true);
+    qp_rect(display, base_x + 5, base_y - cabin_height + 8,
+            base_x + 5 + window_size, base_y - cabin_height + 9, 20, 200, 80, true);
+
+    // Chimney on roof (brick red/brown)
+    uint8_t chimney_width = 4;
+    uint8_t chimney_height = 8;
+    qp_rect(display, base_x + 5, base_y - cabin_height - roof_height - chimney_height + 2,
+            base_x + 5 + chimney_width, base_y - cabin_height - roof_height + 3, 10, 200, 100, true);
+
+    // Smoke from chimney (light grey puffs) - only if not summer
+    if (season != 2) {
+        qp_circle(display, base_x + 6, base_y - cabin_height - roof_height - chimney_height - 2, 2, 0, 0, 180, true);
+        qp_circle(display, base_x + 7, base_y - cabin_height - roof_height - chimney_height - 5, 2, 0, 0, 160, true);
+        qp_circle(display, base_x + 8, base_y - cabin_height - roof_height - chimney_height - 8, 2, 0, 0, 140, true);
+    }
+
+    // Add snow on roof in winter
+    if (season == 0) {
+        // Snow on left side of roof
+        for (uint8_t i = 0; i < roof_height; i++) {
+            uint8_t roof_y = base_y - cabin_height - i;
+            uint8_t roof_left = base_x - (cabin_width/2 + roof_height - i);
+            uint8_t roof_right = base_x - (cabin_width/2 - i);
+            qp_rect(display, roof_left, roof_y - 2, roof_right, roof_y - 1, 170, 40, 255, true);
+        }
+        // Snow on right side of roof
+        for (uint8_t i = 0; i < roof_height; i++) {
+            uint8_t roof_y = base_y - cabin_height - i;
+            uint8_t roof_left = base_x + (cabin_width/2 - i);
+            uint8_t roof_right = base_x + (cabin_width/2 + roof_height - i);
+            qp_rect(display, roof_left, roof_y - 2, roof_right, roof_y - 1, 170, 40, 255, true);
+        }
+    }
+}
+
 // Calculate sun/moon position based on time of day
 void get_celestial_position(uint8_t hour, uint16_t *x, uint16_t *y) {
     // Sun/moon moves across sky throughout the day
@@ -403,7 +483,7 @@ void draw_seasonal_animation(void) {
             } else {
                 // First quarter to full: small shadow on left, disappearing
                 int8_t shadow_offset = 6 - ((moon_phase - 7) * 2); // 6 to -8
-                uint8_t shadow_radius = 4 - ((moon_phase - 7) / 2); // 4 to 0
+                uint8_t shadow_radius = 5 - ((moon_phase - 7) / 2); // 4 to 0
                 if (shadow_radius > 0) {
                     qp_circle(display, celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
                 }
@@ -421,7 +501,7 @@ void draw_seasonal_animation(void) {
             } else {
                 // Last quarter to new: shadow covers half/most of right side
                 int8_t shadow_offset = 8 - ((waning_phase - 7) * 2); // 8 to -6
-                uint8_t shadow_radius = 4 + ((waning_phase - 7) / 2); // 4 to 7
+                uint8_t shadow_radius = 5 + ((waning_phase - 7) / 2); // 4 to 7
                 qp_circle(display, celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
             }
         }
@@ -486,7 +566,7 @@ void draw_seasonal_animation(void) {
 
     draw_tree(30, ground_y, season, tree_hue, tree_sat, tree_val);
     draw_tree(67, ground_y, season, tree_hue, tree_sat, tree_val); // Center tree
-    draw_tree(105, ground_y, season, tree_hue, tree_sat, tree_val);
+    draw_cabin(105, ground_y, season); // Cabin on the right
 
     // === SEASONAL WEATHER EFFECTS ===
 
@@ -609,7 +689,7 @@ void draw_seasonal_animation(void) {
     } else { // Fall - rain and clouds
         // Draw rain clouds (darker gray clouds)
         uint16_t cloud_positions[][2] = {
-            {25, 30}, {70, 40}, {105, 35}
+            {25, 30}, {70, 40}, {120, 35}
         };
         for (uint8_t i = 0; i < 3; i++) {
             // Main cloud body (dark gray)
