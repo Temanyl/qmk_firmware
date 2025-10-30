@@ -93,6 +93,9 @@ static bool santa_initialized = false;
 static uint32_t santa_animation_timer = 0;
 static int16_t santa_x = -60;  // Start offscreen left
 
+// New Year's Eve fireworks (Dec 31) - static display
+#define NUM_FIREWORKS 6
+
 // Custom keycodes
 enum custom_keycodes {
     DISP_UP = SAFE_RANGE,  // Display brightness up
@@ -129,12 +132,17 @@ void draw_halloween_elements(void);
 
 // Christmas advent calendar functions
 bool is_christmas_season(void);
+bool is_new_years_eve(void);
 uint8_t get_christmas_items_to_show(void);
 void draw_christmas_item(christmas_item_type_t type, int16_t x, int16_t y);
 void draw_christmas_advent_items(void);
 void draw_santa_sleigh(int16_t x, int16_t y);
 void update_santa_animation(void);
 void draw_christmas_scene(void);
+
+// New Year's Eve fireworks functions
+void draw_static_firework(int16_t x, int16_t y, uint8_t hue, uint8_t size);
+void draw_fireworks_scene(void);
 
 // Helper function to draw a single digit using 7-segment style
 void draw_digit(uint16_t x, uint16_t y, uint8_t digit, uint8_t hue, uint8_t sat, uint8_t val) {
@@ -1175,13 +1183,103 @@ void update_santa_animation(void) {
 void draw_christmas_scene(void) {
     if (!is_christmas_season()) return;
 
+    // On New Year's Eve (Dec 31), show fireworks instead of Christmas items
+    if (is_new_years_eve()) {
+        draw_fireworks_scene();
+        return;
+    }
+
     // Draw advent calendar items (progressive reveal Dec 1-24, all shown Dec 25+)
     draw_christmas_advent_items();
 
-    // On Christmas Day (Dec 25) and after, show Santa flying
-    if (current_day >= 25) {
+    // On Christmas Day (Dec 25-30), show Santa flying
+    if (current_day >= 25 && current_day < 31) {
         draw_santa_sleigh(santa_x, 40);  // Santa flies at y=40 in the sky
     }
+}
+
+// === NEW YEAR'S EVE FIREWORKS FUNCTIONS ===
+
+// Check if it's New Year's Eve
+bool is_new_years_eve(void) {
+    return current_month == 12 && current_day == 31;
+}
+
+// Draw a single static firework burst
+void draw_static_firework(int16_t x, int16_t y, uint8_t hue, uint8_t size) {
+    // Draw center bright spot
+    qp_circle(display, x, y, size / 2, hue, 255, 255, true);
+
+    // Draw burst particles in 8 directions
+    for (uint8_t angle = 0; angle < 8; angle++) {
+        int8_t dx = 0, dy = 0;
+        switch (angle) {
+            case 0: dx = size; dy = 0; break;           // Right
+            case 1: dx = size; dy = -size; break;       // Up-right
+            case 2: dx = 0; dy = -size; break;          // Up
+            case 3: dx = -size; dy = -size; break;      // Up-left
+            case 4: dx = -size; dy = 0; break;          // Left
+            case 5: dx = -size; dy = size; break;       // Down-left
+            case 6: dx = 0; dy = size; break;           // Down
+            case 7: dx = size; dy = size; break;        // Down-right
+        }
+
+        int16_t px = x + dx;
+        int16_t py = y + dy;
+
+        // Draw particle
+        if (px >= 0 && px < 135 && py >= 0 && py < 152) {
+            qp_circle(display, px, py, 2, hue, 255, 220, true);
+        }
+
+        // Draw trail between center and particle
+        int16_t mid_x = x + (dx / 2);
+        int16_t mid_y = y + (dy / 2);
+        if (mid_x >= 0 && mid_x < 135 && mid_y >= 0 && mid_y < 152) {
+            qp_circle(display, mid_x, mid_y, 1, hue, 200, 180, true);
+        }
+    }
+}
+
+// Draw fireworks scene
+void draw_fireworks_scene(void) {
+    // Draw 6 colorful static firework bursts at various positions
+    // Red, Yellow, Green, Cyan, Blue, Magenta
+    const uint8_t colors[] = {0, 42, 85, 128, 170, 200};
+    const struct {int16_t x; int16_t y; uint8_t size;} positions[NUM_FIREWORKS] = {
+        {30, 50, 12},   // Left top - Red
+        {70, 35, 14},   // Center top - Yellow
+        {110, 55, 11},  // Right top - Green
+        {25, 90, 13},   // Left mid - Cyan
+        {95, 80, 15},   // Right mid - Blue
+        {60, 105, 12}   // Center lower - Magenta
+    };
+
+    for (uint8_t i = 0; i < NUM_FIREWORKS; i++) {
+        draw_static_firework(positions[i].x, positions[i].y, colors[i], positions[i].size);
+    }
+
+    // Draw "HNY" (Happy New Year) text at bottom in large block letters
+    uint16_t text_x = 45;  // Centered
+    uint16_t text_y = 130;
+
+    // H
+    qp_rect(display, text_x, text_y, text_x + 2, text_y + 12, 42, 255, 255, true);
+    qp_rect(display, text_x + 8, text_y, text_x + 10, text_y + 12, 42, 255, 255, true);
+    qp_rect(display, text_x, text_y + 5, text_x + 10, text_y + 7, 42, 255, 255, true);
+
+    // N
+    text_x += 15;
+    qp_rect(display, text_x, text_y, text_x + 2, text_y + 12, 42, 255, 255, true);
+    qp_rect(display, text_x + 8, text_y, text_x + 10, text_y + 12, 42, 255, 255, true);
+    qp_rect(display, text_x + 2, text_y + 4, text_x + 8, text_y + 8, 42, 255, 255, true);
+
+    // Y
+    text_x += 15;
+    qp_rect(display, text_x, text_y, text_x + 2, text_y + 6, 42, 255, 255, true);
+    qp_rect(display, text_x + 8, text_y, text_x + 10, text_y + 6, 42, 255, 255, true);
+    qp_rect(display, text_x + 2, text_y + 6, text_x + 8, text_y + 8, 42, 255, 255, true);
+    qp_rect(display, text_x + 4, text_y + 8, text_x + 6, text_y + 12, 42, 255, 255, true);
 }
 
 // Function to draw logo with color based on layer
