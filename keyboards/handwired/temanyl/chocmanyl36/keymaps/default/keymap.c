@@ -1127,8 +1127,10 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
 
                 time_received = true;
                 last_uptime_update = timer_read32();
-                draw_date_time();
-                qp_flush(display);
+
+                // Force full redraw of scene (season and sun/moon position depend on time)
+                current_display_layer = 255;  // Invalidate layer cache
+                update_display_for_layer();
             }
             break;
 
