@@ -408,27 +408,34 @@ void get_celestial_position(uint8_t hour, uint16_t *x, uint16_t *y) {
     // Hour 0-23: position from left to right
     // Peak at noon (y lowest), near horizon at dawn/dusk (y highest)
 
-    // X position: moves from left (sunrise ~6am) to right (sunset ~18pm)
+    // X position: moves from left to right across the sky
     // Map hour 0-23 to x position
-    if (hour >= 6 && hour <= 18) {
+    if (hour >= 6 && hour <= 19) {
         // Daytime: sun moves from left to right
-        // hour 6 -> x=20, hour 12 -> x=67, hour 18 -> x=114
-        *x = 20 + ((hour - 6) * 94) / 12;
+        // hour 6 -> x=20, hour 12 -> x=67, hour 19 -> x=114
+        *x = 20 + ((hour - 6) * 94) / 13;
 
         // Y position: arc across sky (lowest at noon)
-        // hour 6 -> y=40, hour 12 -> y=20, hour 18 -> y=40
+        // hour 6 -> y=40, hour 12 -> y=20, hour 19 -> y=40
         int16_t time_from_noon = hour - 12;
         *y = 20 + (time_from_noon * time_from_noon) / 2;
     } else {
-        // Nighttime: moon moves from right to left
-        // hour 18-23 and 0-6
-        uint8_t night_hour = (hour >= 18) ? (hour - 18) : (hour + 6);
-        // night_hour 0-12: position from right to left
-        *x = 114 - (night_hour * 94) / 12;
+        // Nighttime: moon moves from left to right (same direction as sun)
+        // Night: hour 20-23 (evening) and 0-5 (early morning)
+        // Map to continuous night progression: 20->0, 21->1, 22->2, 23->3, 0->4, 1->5, ..., 5->9
+        uint8_t night_hour;
+        if (hour >= 20) {
+            night_hour = hour - 20;  // 20->0, 21->1, 22->2, 23->3
+        } else {
+            night_hour = hour + 4;    // 0->4, 1->5, 2->6, 3->7, 4->8, 5->9
+        }
+        // night_hour 0-9: position from left to right (like sun)
+        // Starts at x=20 (hour 20) and ends at x=114 (hour 6)
+        *x = 20 + (night_hour * 94) / 9;
 
-        // Y position: arc across sky (lowest at midnight)
-        int16_t time_from_midnight = (hour >= 18) ? (hour - 24) : hour;
-        *y = 25 + (time_from_midnight * time_from_midnight) / 3;
+        // Y position: arc across sky (lowest at midnight, which is night_hour=4)
+        int16_t time_from_midnight = night_hour - 4;
+        *y = 25 + (time_from_midnight * time_from_midnight) / 2;
     }
 
     // Clamp values
@@ -466,7 +473,18 @@ void draw_seasonal_animation(void) {
         // Draw moon with phase based on day of month (waxing/waning cycle)
         // Moon cycle: ~29.5 days, using day of month as approximation
         // Phase 0 (new moon) -> 7 (first quarter) -> 14-15 (full) -> 22 (last quarter) -> 29 (new)
-        uint8_t moon_phase = (current_day * 29) / 31; // Map day 1-31 to phase 0-29
+        // Night ownership: hours 20-23 start a night, hours 0-5 continue that night
+        // Hours 0-5 of day N: End of night that started on day N-1 → use day N-1
+        // Hours 20-23 of day N: Start of night N → use day N
+        uint8_t moon_day;
+        if (current_hour < 6) {
+            // Early morning: this is the end of yesterday's night
+            moon_day = (current_day > 1) ? (current_day - 1) : 31;
+        } else {
+            // Evening (hours 20-23): this is the start of today's night
+            moon_day = current_day;
+        }
+        uint8_t moon_phase = (moon_day * 29) / 31; // Map day 1-31 to phase 0-29
 
         // Draw full moon circle first (pale yellow/white base)
         qp_circle(display, celestial_x, celestial_y, 8, 42, 100, 255, true);
@@ -1309,10 +1327,35 @@ void housekeeping_task_user(void) {
             current_hour++;
             if (current_hour >= 24) {
                 current_hour = 0;
-                // Day rollover - would need date logic, but host should update before this
+                current_day++;
+
+                // Handle day rollover with proper month boundaries
+                uint8_t days_in_month = 31; // Default
+                if (current_month == 2) {
+                    // February: check for leap year
+                    bool is_leap = (current_year % 4 == 0 && current_year % 100 != 0) || (current_year % 400 == 0);
+                    days_in_month = is_leap ? 29 : 28;
+                } else if (current_month == 4 || current_month == 6 || current_month == 9 || current_month == 11) {
+                    days_in_month = 30; // April, June, September, November
+                }
+
+                if (current_day > days_in_month) {
+                    current_day = 1;
+                    current_month++;
+                    if (current_month > 12) {
+                        current_month = 1;
+                        current_year++;
+                    }
+                    // Force full redraw when month changes (season may change)
+                    current_display_layer = 255;
+                    update_display_for_layer();
+                    needs_flush = false; // Already flushed by update_display_for_layer
+                }
             }
         }
-        draw_date_time();
+        if (needs_flush) {
+            draw_date_time();
+        }
         needs_flush = true;
     }
 
