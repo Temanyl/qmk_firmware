@@ -28,6 +28,13 @@ bool rain_background_saved = false;
 raindrop_t raindrops[NUM_RAINDROPS];
 uint32_t rain_animation_timer = 0;
 
+// Smoke animation state
+bool smoke_initialized = false;
+bool smoke_background_saved = false;
+smoke_particle_t smoke_particles[NUM_SMOKE_PARTICLES];
+uint32_t smoke_animation_timer = 0;
+uint32_t smoke_spawn_timer = 0;
+
 // Halloween animation state
 ghost_t ghosts[NUM_GHOSTS];
 bool ghost_initialized = false;
@@ -76,6 +83,8 @@ static const christmas_item_t advent_items[NUM_CHRISTMAS_ITEMS] = {
 void reset_scene_animations(void) {
     rain_initialized = false;
     rain_background_saved = false;
+    smoke_initialized = false;
+    smoke_background_saved = false;
     ghost_initialized = false;
     ghost_background_saved = false;
 }
@@ -261,11 +270,13 @@ void draw_cabin(uint16_t base_x, uint16_t base_y, uint8_t season) {
     fb_rect_hsv(base_x + 5, base_y - cabin_height - roof_height - chimney_height + 2,
             base_x + 5 + chimney_width, base_y - cabin_height - roof_height + 3, 10, 200, 100, true);
 
-    // Smoke from chimney (light grey puffs) - only if not summer
+    // Smoke is now animated separately (see animate_smoke function)
+    // Static smoke removed - only if not summer
     if (season != 2) {
-        fb_circle_hsv(base_x + 6, base_y - cabin_height - roof_height - chimney_height - 2, 2, 0, 0, 180, true);
-        fb_circle_hsv(base_x + 7, base_y - cabin_height - roof_height - chimney_height - 5, 2, 0, 0, 160, true);
-        fb_circle_hsv(base_x + 8, base_y - cabin_height - roof_height - chimney_height - 8, 2, 0, 0, 140, true);
+        // Initialize smoke animation if not already initialized
+        if (!smoke_initialized) {
+            init_smoke();
+        }
     }
 
     // Add snow on roof in winter
@@ -601,11 +612,12 @@ void draw_seasonal_animation(void) {
     }
 
     // === SAVE BACKGROUND FOR ANIMATIONS ===
-    bool need_background = (season == 3) || is_halloween_event();
-    if (need_background && !rain_background_saved && !ghost_background_saved) {
+    bool need_background = (season == 3) || is_halloween_event() || (season != 2 && smoke_initialized);
+    if (need_background && !rain_background_saved && !ghost_background_saved && !smoke_background_saved) {
         fb_save_to_background();
         rain_background_saved = true;
         ghost_background_saved = true;
+        smoke_background_saved = true;
     }
 
     // === DRAW RAINDROPS (if fall season) ===
@@ -655,6 +667,23 @@ void draw_seasonal_animation(void) {
         if (ghost_initialized) {
             ghost_initialized = false;
             ghost_background_saved = false;
+        }
+    }
+
+    // === DRAW SMOKE (all seasons except summer) ===
+    if (season != 2 && smoke_initialized) {
+        // Draw smoke particles
+        for (uint8_t i = 0; i < NUM_SMOKE_PARTICLES; i++) {
+            if (smoke_particles[i].brightness > 0) {
+                fb_circle_hsv(smoke_particles[i].x, smoke_particles[i].y,
+                             smoke_particles[i].size, 0, 0, smoke_particles[i].brightness, true);
+            }
+        }
+    } else if (season == 2) {
+        // Summer - no smoke from chimney
+        if (smoke_initialized) {
+            smoke_initialized = false;
+            smoke_background_saved = false;
         }
     }
 }
@@ -924,6 +953,196 @@ void animate_raindrops(void) {
             fb_flush_region(display, raindrops[i].x, raindrops[i].y,
                            raindrops[i].x + RAINDROP_WIDTH - 1,
                            raindrops[i].y + RAINDROP_HEIGHT - 1);
+        }
+    }
+}
+
+// Initialize smoke particles
+void init_smoke(void) {
+    if (smoke_initialized) {
+        return;
+    }
+
+    // Initialize all particles as inactive (brightness = 0)
+    for (uint8_t i = 0; i < NUM_SMOKE_PARTICLES; i++) {
+        smoke_particles[i].brightness = 0;  // Inactive
+        smoke_particles[i].x = 0;
+        smoke_particles[i].y = 0;
+        smoke_particles[i].size = 2;
+        smoke_particles[i].age = 0;
+        smoke_particles[i].drift = 1;
+    }
+
+    smoke_initialized = true;
+    smoke_spawn_timer = timer_read32();  // Start spawn timer
+}
+
+// Check if a pixel is part of smoke (for occlusion detection)
+bool is_pixel_in_smoke(int16_t px, int16_t py) {
+    if (!smoke_initialized) return false;
+
+    for (uint8_t i = 0; i < NUM_SMOKE_PARTICLES; i++) {
+        int16_t dx = px - smoke_particles[i].x;
+        int16_t dy = py - smoke_particles[i].y;
+        int16_t radius = smoke_particles[i].size;
+
+        // Simple circular bounds check
+        if (dx * dx + dy * dy <= radius * radius) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Redraw smoke particles in a specific region (for layering with other animations)
+void redraw_smoke_in_region(int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+    if (!smoke_initialized) return;
+
+    for (uint8_t i = 0; i < NUM_SMOKE_PARTICLES; i++) {
+        // Check if smoke particle overlaps with region
+        int16_t smoke_left = smoke_particles[i].x - smoke_particles[i].size;
+        int16_t smoke_right = smoke_particles[i].x + smoke_particles[i].size;
+        int16_t smoke_top = smoke_particles[i].y - smoke_particles[i].size;
+        int16_t smoke_bottom = smoke_particles[i].y + smoke_particles[i].size;
+
+        if (smoke_right >= x1 && smoke_left <= x2 &&
+            smoke_bottom >= y1 && smoke_top <= y2 &&
+            smoke_particles[i].brightness > 0) {
+            // Draw this smoke puff
+            fb_circle_hsv(smoke_particles[i].x, smoke_particles[i].y,
+                         smoke_particles[i].size, 0, 0, smoke_particles[i].brightness, true);
+        }
+    }
+}
+
+// Animate smoke particles
+void animate_smoke(void) {
+    if (!smoke_initialized || !smoke_background_saved) {
+        return;
+    }
+
+    // Chimney position
+    int16_t cabin_base_x = 105;
+    int16_t cabin_base_y = 150;
+    uint8_t cabin_height = 18;
+    uint8_t roof_height = 10;
+    uint8_t chimney_width = 4;
+    uint8_t chimney_height = 8;
+
+    int16_t chimney_x = cabin_base_x + 5 + chimney_width / 2;
+    int16_t chimney_top_y = cabin_base_y - cabin_height - roof_height - chimney_height + 2;
+
+    uint32_t current_time = timer_read32();
+
+    // TIME-BASED SPAWNING: Spawn new particle at randomized intervals (0.7-1.0 seconds)
+    // Calculate random interval using current_time as seed for variation
+    uint32_t random_interval = SMOKE_SPAWN_INTERVAL_MIN +
+                               ((current_time * 13 + 7) % (SMOKE_SPAWN_INTERVAL_MAX - SMOKE_SPAWN_INTERVAL_MIN + 1));
+
+    if (current_time - smoke_spawn_timer >= random_interval) {
+        smoke_spawn_timer = current_time;
+
+        // Find an inactive particle slot
+        for (uint8_t i = 0; i < NUM_SMOKE_PARTICLES; i++) {
+            if (smoke_particles[i].brightness == 0) {
+                // Spawn new particle at chimney with slight position variation
+                smoke_particles[i].x = chimney_x + ((current_time % 3) - 1);  // -1, 0, or +1
+                smoke_particles[i].y = chimney_top_y;
+                smoke_particles[i].size = 2;
+                smoke_particles[i].brightness = 180;
+                smoke_particles[i].age = 0;
+
+                // Randomize drift speed: some drift slowly, some faster
+                // Values: 0 = very slow, 1 = normal, 2 = faster
+                // Using current_time and particle index for pseudo-random variation
+                uint8_t drift_rand = (current_time + i * 17) % 10;
+                if (drift_rand < 3) {
+                    smoke_particles[i].drift = 0;  // 30% chance: very slow drift
+                } else if (drift_rand < 7) {
+                    smoke_particles[i].drift = 1;  // 40% chance: normal drift
+                } else {
+                    smoke_particles[i].drift = 2;  // 30% chance: faster drift
+                }
+
+                break;  // Only spawn one particle per interval
+            }
+        }
+    }
+
+    // Animate each ACTIVE smoke particle
+    for (uint8_t i = 0; i < NUM_SMOKE_PARTICLES; i++) {
+        // Skip inactive particles
+        if (smoke_particles[i].brightness == 0) {
+            continue;
+        }
+
+        // Store old position
+        int16_t old_x = smoke_particles[i].x;
+        int16_t old_y = smoke_particles[i].y;
+        uint8_t old_size = smoke_particles[i].size;
+
+        // Restore old smoke position from background
+        fb_restore_from_background(old_x - old_size, old_y - old_size,
+                                   old_x + old_size, old_y + old_size);
+
+        // If ghosts are active and might overlap, redraw them
+        if (is_halloween_event() && ghost_initialized) {
+            redraw_ghosts_in_region(old_x - old_size, old_y - old_size,
+                                   old_x + old_size, old_y + old_size);
+        }
+
+        // Flush the old smoke region to erase it
+        fb_flush_region(display, old_x - old_size, old_y - old_size,
+                       old_x + old_size, old_y + old_size);
+
+        // Age the particle
+        smoke_particles[i].age += 8;
+
+        // Move particle upward
+        smoke_particles[i].y -= 1;
+
+        // Add horizontal drift based on particle's drift speed
+        // drift=0: slow (every 48 ticks), drift=1: normal (every 24 ticks), drift=2: fast (every 12 ticks)
+        uint8_t drift_frequency = (smoke_particles[i].drift == 0) ? 48 :
+                                  (smoke_particles[i].drift == 1) ? 24 : 12;
+
+        if (smoke_particles[i].age % drift_frequency == 0) {
+            smoke_particles[i].x += 1;  // Always drift right by 1 pixel
+        }
+
+        // Grow size as it rises (max size 5)
+        if (smoke_particles[i].size < 5 && smoke_particles[i].age % 32 == 0) {
+            smoke_particles[i].size++;
+        }
+
+        // Fade out as it rises
+        if (smoke_particles[i].brightness > 10) {
+            smoke_particles[i].brightness -= 2;
+        } else {
+            smoke_particles[i].brightness = 0;
+        }
+
+        // DELETION: Deactivate particle when it goes off screen or fades out
+        // This is INDEPENDENT of spawning - spawning is time-based
+        if (smoke_particles[i].brightness == 0 ||
+            smoke_particles[i].y < 15 ||
+            smoke_particles[i].x > 135) {
+            // Just deactivate - don't respawn here
+            smoke_particles[i].brightness = 0;
+            continue;  // Skip drawing
+        }
+
+        // Draw smoke at new position
+        if (smoke_particles[i].y >= 0 && smoke_particles[i].y < 155) {
+            fb_circle_hsv(smoke_particles[i].x, smoke_particles[i].y,
+                         smoke_particles[i].size, 0, 0, smoke_particles[i].brightness, true);
+
+            // Flush the new smoke region
+            fb_flush_region(display,
+                           smoke_particles[i].x - smoke_particles[i].size,
+                           smoke_particles[i].y - smoke_particles[i].size,
+                           smoke_particles[i].x + smoke_particles[i].size,
+                           smoke_particles[i].y + smoke_particles[i].size);
         }
     }
 }

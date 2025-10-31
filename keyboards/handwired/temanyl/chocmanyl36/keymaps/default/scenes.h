@@ -36,6 +36,27 @@ extern bool rain_background_saved;
 extern raindrop_t raindrops[NUM_RAINDROPS];
 extern uint32_t rain_animation_timer;
 
+// Smoke animation
+#define NUM_SMOKE_PARTICLES 20  // Larger pool for time-based emission
+#define SMOKE_ANIMATION_SPEED 100  // Update every 100ms for smooth rising smoke
+#define SMOKE_SPAWN_INTERVAL_MIN 700   // Minimum spawn interval (0.7 seconds)
+#define SMOKE_SPAWN_INTERVAL_MAX 1000  // Maximum spawn interval (1.0 second)
+
+typedef struct {
+    int16_t x;
+    int16_t y;
+    uint8_t size;       // Smoke puff size (grows as it rises)
+    uint8_t brightness; // Brightness (fades as it rises) - 0 means inactive
+    uint8_t age;        // Age of particle (0-255)
+    int8_t  drift;      // Horizontal drift direction
+} smoke_particle_t;
+
+extern smoke_particle_t smoke_particles[NUM_SMOKE_PARTICLES];
+extern bool smoke_initialized;
+extern bool smoke_background_saved;
+extern uint32_t smoke_animation_timer;
+extern uint32_t smoke_spawn_timer;
+
 // Halloween event (Oct 28 - Nov 3)
 #define NUM_PUMPKINS 4
 #define NUM_GHOSTS 3
@@ -94,6 +115,12 @@ void reset_scene_animations(void);
 
 // Rain animation
 void animate_raindrops(void);
+
+// Smoke animation
+void init_smoke(void);
+void animate_smoke(void);
+bool is_pixel_in_smoke(int16_t px, int16_t py);
+void redraw_smoke_in_region(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
 // Halloween functions
 bool is_halloween_event(void);
