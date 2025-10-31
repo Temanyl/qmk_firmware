@@ -20,6 +20,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdbool.h>
 
+// Cloud animation
+#define NUM_CLOUDS 5  // 5 clouds total (3 for winter, 5 for fall)
+#define CLOUD_ANIMATION_SPEED 100  // Update every 100ms for smooth movement
+
+typedef struct {
+    int16_t x;
+    int16_t y;
+    int8_t  vx;  // Horizontal velocity (negative for right-to-left)
+} cloud_t;
+
+extern cloud_t clouds[NUM_CLOUDS];
+extern bool cloud_initialized;
+extern bool cloud_background_saved;
+extern uint32_t cloud_animation_timer;
+
 // Rain animation
 #define NUM_RAINDROPS 50
 #define RAINDROP_WIDTH 2
@@ -91,6 +106,11 @@ void draw_cabin(uint16_t base_x, uint16_t base_y, uint8_t season);
 void get_celestial_position(uint8_t hour, uint16_t *x, uint16_t *y);
 void draw_seasonal_animation(void);
 void reset_scene_animations(void);
+
+// Cloud animation
+void init_clouds(void);
+void draw_cloud(int16_t x, int16_t y);
+void animate_clouds(void);
 
 // Rain animation
 void animate_raindrops(void);

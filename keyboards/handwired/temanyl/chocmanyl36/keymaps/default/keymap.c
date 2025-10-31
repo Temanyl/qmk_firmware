@@ -530,6 +530,16 @@ void housekeeping_task_user(void) {
         }
     }
 
+    // Handle cloud animation
+    // Note: animate_clouds() handles its own region-based flushing
+    if (cloud_initialized && cloud_background_saved) {
+        if (current_time - cloud_animation_timer >= CLOUD_ANIMATION_SPEED) {
+            cloud_animation_timer = current_time;
+            animate_clouds();
+            // No needs_flush = true here - clouds flush their own regions
+        }
+    }
+
     // Handle ghost animation (during Halloween event)
     // Note: animate_ghosts() handles its own region-based flushing
     if (ghost_initialized && ghost_background_saved) {
