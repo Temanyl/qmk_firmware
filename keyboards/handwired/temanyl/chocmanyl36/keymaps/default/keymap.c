@@ -2185,9 +2185,10 @@ void animate_raindrops(void) {
         if (raindrops[i].y >= 150) {
             // Reset to random position at top (below clouds, y=45-55)
             raindrops[i].y = 45 + (i * 7) % 10; // Varied heights below clouds
-            // Keep x position but add slight variation
-            raindrops[i].x = (old_x + (i % 3) - 1); // Slight horizontal variation
-            // Clamp to screen bounds
+            // Reset to pseudo-random x position based on raindrop index to avoid cumulative drift
+            // Use a different offset pattern that cycles through positions
+            raindrops[i].x = 10 + ((i * 13 + (i / 5) * 7) % 115); // Spread across x=10 to x=125
+            // Clamp to screen bounds (should not be needed but safety check)
             if (raindrops[i].x < 0) raindrops[i].x = 0;
             if (raindrops[i].x > FB_WIDTH - RAINDROP_WIDTH) raindrops[i].x = FB_WIDTH - RAINDROP_WIDTH;
         }
@@ -2477,42 +2478,3 @@ void osl_code_reset(tap_dance_state_t *state, void *user_data) {
         layer_clear();
     }
 }
-
-// OLED
-//#ifdef OLED_ENABLE
-// Draw to OLED
-//bool oled_task_user() {
-//
-//    // Layer text
-//    oled_set_cursor(0, 1);
-//    switch (get_highest_layer(layer_state)) {
-//        case _MAC_CODE :
-//            oled_write_P(PSTR("MAC"), false);
-//            oled_set_cursor(0, 2);
-//            oled_write_P(PSTR("SYM"), false);
-//            break;
-//        case _MAC_NUM :
-//            oled_write_P(PSTR("MAC"), false);
-//            oled_set_cursor(0, 2);
-//            oled_write_P(PSTR("NUM"), false);
-//            break;
-//        case _MAC_NAV :
-//            oled_write_P(PSTR("MAC"), false);
-//            oled_set_cursor(0, 2);
-//            oled_write_P(PSTR("NAV"), false);
-//            break;
-//        case _MAC_COLEMAK_DH :
-//            oled_write_P(PSTR("MAC"), false);
-//            oled_set_cursor(0, 2);
-//            oled_write_P(PSTR("COLE"), false);
-//            break;
-//    }
-//
-//    // Caps lock text
-//    led_t led_state = host_keyboard_led_state();
-//    oled_set_cursor(0, 3);
-//    oled_write_P(led_state.caps_lock ? PSTR("CAPS") : PSTR(""), false);
-//
-//    return false;
-//}
-//#endif
