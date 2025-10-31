@@ -26,20 +26,17 @@
 // RGB565 color type
 typedef uint16_t fb_color_t;
 
-// Framebuffer structure with dirty region tracking
+// Framebuffer structure
 typedef struct {
     fb_color_t pixels[FB_HEIGHT][FB_WIDTH];
-
-    // Dirty region tracking for optimization
-    bool       is_dirty;
-    uint16_t   dirty_x1;
-    uint16_t   dirty_y1;
-    uint16_t   dirty_x2;
-    uint16_t   dirty_y2;
 } framebuffer_t;
 
 // Global framebuffer instance
 extern framebuffer_t fb;
+
+// Background buffer for storing original scene (without animated elements)
+// Used for efficient raindrop animation - restore old positions from here
+extern framebuffer_t fb_background;
 
 // ============================================================================
 // Color Conversion Functions
@@ -63,6 +60,24 @@ fb_color_t fb_hsv_to_rgb565(uint8_t hue, uint8_t sat, uint8_t val);
  */
 fb_color_t fb_rgb888_to_rgb565(uint8_t r, uint8_t g, uint8_t b);
 
+/**
+ * Convert RGB565 to RGB888
+ * @param color RGB565 color value
+ * @param r Pointer to store red component (0-255)
+ * @param g Pointer to store green component (0-255)
+ * @param b Pointer to store blue component (0-255)
+ */
+void fb_rgb565_to_rgb888(fb_color_t color, uint8_t *r, uint8_t *g, uint8_t *b);
+
+/**
+ * Convert RGB565 to HSV
+ * @param color RGB565 color value
+ * @param h Pointer to store hue (0-255)
+ * @param s Pointer to store saturation (0-255)
+ * @param v Pointer to store value (0-255)
+ */
+void fb_rgb565_to_hsv(fb_color_t color, uint8_t *h, uint8_t *s, uint8_t *v);
+
 // ============================================================================
 // Core Framebuffer Functions
 // ============================================================================
@@ -80,24 +95,26 @@ void fb_clear(fb_color_t color);
 
 /**
  * Flush the framebuffer to the physical display
- * Only updates the dirty region for efficiency
+ * Renders the entire framebuffer region (y=0 to FB_SPLIT_Y-1)
  * @param display The QP display device handle
  */
 void fb_flush(painter_device_t display);
 
 /**
- * Mark the entire framebuffer as dirty (forces full refresh)
+ * Save current framebuffer to background buffer
+ * Used to preserve the base scene before drawing animated elements
  */
-void fb_mark_dirty_all(void);
+void fb_save_to_background(void);
 
 /**
- * Mark a specific region as dirty
+ * Restore a rectangular region from background buffer to main framebuffer
+ * Used to "erase" animated elements by restoring the original background
  * @param x1 Left coordinate
  * @param y1 Top coordinate
  * @param x2 Right coordinate
  * @param y2 Bottom coordinate
  */
-void fb_mark_dirty_region(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
+void fb_restore_from_background(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
 // ============================================================================
 // Drawing Primitives
@@ -128,6 +145,28 @@ void fb_set_pixel_hsv(int16_t x, int16_t y, uint8_t hue, uint8_t sat, uint8_t va
  * @return RGB565 color value (0 if out of bounds)
  */
 fb_color_t fb_get_pixel(int16_t x, int16_t y);
+
+/**
+ * Get the RGB888 color of a pixel
+ * @param x X coordinate
+ * @param y Y coordinate
+ * @param r Pointer to store red component (0-255)
+ * @param g Pointer to store green component (0-255)
+ * @param b Pointer to store blue component (0-255)
+ * @return true if pixel is in bounds, false otherwise
+ */
+bool fb_get_pixel_rgb(int16_t x, int16_t y, uint8_t *r, uint8_t *g, uint8_t *b);
+
+/**
+ * Get the HSV color of a pixel
+ * @param x X coordinate
+ * @param y Y coordinate
+ * @param h Pointer to store hue (0-255)
+ * @param s Pointer to store saturation (0-255)
+ * @param v Pointer to store value (0-255)
+ * @return true if pixel is in bounds, false otherwise
+ */
+bool fb_get_pixel_hsv(int16_t x, int16_t y, uint8_t *h, uint8_t *s, uint8_t *v);
 
 /**
  * Draw a line from (x1,y1) to (x2,y2)

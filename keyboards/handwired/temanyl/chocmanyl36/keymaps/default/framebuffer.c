@@ -8,6 +8,9 @@
 // Global framebuffer instance
 framebuffer_t fb;
 
+// Background buffer for storing original scene (without animated elements)
+framebuffer_t fb_background;
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -88,17 +91,77 @@ fb_color_t fb_rgb888_to_rgb565(uint8_t r, uint8_t g, uint8_t b) {
     return __builtin_bswap16(rgb565);
 }
 
+void fb_rgb565_to_rgb888(fb_color_t color, uint8_t *r, uint8_t *g, uint8_t *b) {
+    // ST7789 stores byte-swapped RGB565, so swap back first
+    uint16_t rgb565 = __builtin_bswap16(color);
+
+    // Extract 5-bit red, 6-bit green, 5-bit blue
+    uint8_t r5 = (rgb565 >> 11) & 0x1F;
+    uint8_t g6 = (rgb565 >> 5) & 0x3F;
+    uint8_t b5 = rgb565 & 0x1F;
+
+    // Convert to 8-bit by scaling up and adding precision
+    // For 5-bit: (value << 3) | (value >> 2) gives better distribution
+    // For 6-bit: (value << 2) | (value >> 4) gives better distribution
+    *r = (r5 << 3) | (r5 >> 2);
+    *g = (g6 << 2) | (g6 >> 4);
+    *b = (b5 << 3) | (b5 >> 2);
+}
+
+void fb_rgb565_to_hsv(fb_color_t color, uint8_t *h, uint8_t *s, uint8_t *v) {
+    // First convert to RGB888
+    uint8_t r, g, b;
+    fb_rgb565_to_rgb888(color, &r, &g, &b);
+
+    // Find min and max RGB values
+    uint8_t rgb_min = MIN(MIN(r, g), b);
+    uint8_t rgb_max = MAX(MAX(r, g), b);
+
+    // Value is the max
+    *v = rgb_max;
+
+    if (rgb_max == 0) {
+        // Black - hue and saturation are undefined, set to 0
+        *h = 0;
+        *s = 0;
+        return;
+    }
+
+    // Saturation
+    *s = (uint16_t)(255 * (rgb_max - rgb_min)) / rgb_max;
+
+    if (*s == 0) {
+        // Grayscale - hue is undefined, set to 0
+        *h = 0;
+        return;
+    }
+
+    // Hue
+    uint8_t delta = rgb_max - rgb_min;
+    int16_t hue;
+
+    if (rgb_max == r) {
+        // Between yellow and magenta
+        hue = 0 + 43 * (g - b) / delta;
+    } else if (rgb_max == g) {
+        // Between cyan and yellow
+        hue = 85 + 43 * (b - r) / delta;
+    } else {
+        // Between magenta and cyan
+        hue = 171 + 43 * (r - g) / delta;
+    }
+
+    // Normalize to 0-255
+    if (hue < 0) hue += 256;
+    *h = (uint8_t)hue;
+}
+
 // ============================================================================
 // Core Framebuffer Functions
 // ============================================================================
 
 void fb_init(void) {
     fb_clear(FB_COLOR_BLACK);
-    fb.is_dirty = false;
-    fb.dirty_x1 = 0;
-    fb.dirty_y1 = 0;
-    fb.dirty_x2 = 0;
-    fb.dirty_y2 = 0;
 }
 
 void fb_clear(fb_color_t color) {
@@ -107,68 +170,42 @@ void fb_clear(fb_color_t color) {
             fb.pixels[y][x] = color;
         }
     }
-    fb_mark_dirty_all();
-}
-
-void fb_mark_dirty_all(void) {
-    fb.is_dirty = true;
-    fb.dirty_x1 = 0;
-    fb.dirty_y1 = 0;
-    fb.dirty_x2 = FB_WIDTH - 1;
-    fb.dirty_y2 = FB_HEIGHT - 1;
-}
-
-void fb_mark_dirty_region(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
-    // Clamp to screen bounds
-    x1 = MIN(x1, FB_WIDTH - 1);
-    x2 = MIN(x2, FB_WIDTH - 1);
-    y1 = MIN(y1, FB_HEIGHT - 1);
-    y2 = MIN(y2, FB_HEIGHT - 1);
-
-    if (!fb.is_dirty) {
-        fb.is_dirty = true;
-        fb.dirty_x1 = x1;
-        fb.dirty_y1 = y1;
-        fb.dirty_x2 = x2;
-        fb.dirty_y2 = y2;
-    } else {
-        // Expand dirty region
-        fb.dirty_x1 = MIN(fb.dirty_x1, x1);
-        fb.dirty_y1 = MIN(fb.dirty_y1, y1);
-        fb.dirty_x2 = MAX(fb.dirty_x2, x2);
-        fb.dirty_y2 = MAX(fb.dirty_y2, y2);
-    }
 }
 
 void fb_flush(painter_device_t display) {
-    if (!fb.is_dirty) {
-        return; // Nothing to update
-    }
-
-    // Clamp dirty region to framebuffer area (upper region only, y=0 to FB_SPLIT_Y-1)
+    // Set viewport to framebuffer area (upper region only, y=0 to FB_SPLIT_Y-1)
     // This ensures we don't overwrite the QP-rendered lower region (date, time, media, volume)
-    uint16_t y1_clamped = fb.dirty_y1;
-    uint16_t y2_clamped = MIN(fb.dirty_y2, FB_SPLIT_Y - 1);
+    qp_viewport(display, 0, 0, FB_WIDTH - 1, FB_SPLIT_Y - 1);
 
-    // Skip flush if dirty region is entirely outside framebuffer area
-    if (y1_clamped >= FB_SPLIT_Y) {
-        fb.is_dirty = false;
+    // Stream pixel data row by row
+    for (uint16_t y = 0; y < FB_SPLIT_Y; y++) {
+        qp_pixdata(display, fb.pixels[y], FB_WIDTH);
+    }
+}
+
+void fb_save_to_background(void) {
+    // Copy entire framebuffer to background buffer
+    memcpy(fb_background.pixels, fb.pixels, sizeof(fb.pixels));
+}
+
+void fb_restore_from_background(int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+    // Clamp to screen bounds
+    if (x1 < 0) x1 = 0;
+    if (y1 < 0) y1 = 0;
+    if (x2 >= FB_WIDTH) x2 = FB_WIDTH - 1;
+    if (y2 >= FB_HEIGHT) y2 = FB_HEIGHT - 1;
+
+    // Bounds check
+    if (x1 > x2 || y1 > y2 || x1 >= FB_WIDTH || y1 >= FB_HEIGHT) {
         return;
     }
 
-    // Set viewport to dirty region (clamped to framebuffer area)
-    qp_viewport(display, fb.dirty_x1, y1_clamped, fb.dirty_x2, y2_clamped);
-
-    // Calculate region width
-    uint16_t width = fb.dirty_x2 - fb.dirty_x1 + 1;
-
-    // Stream pixel data row by row
-    for (uint16_t y = y1_clamped; y <= y2_clamped; y++) {
-        qp_pixdata(display, &fb.pixels[y][fb.dirty_x1], width);
+    // Restore pixels from background buffer
+    for (int16_t y = y1; y <= y2; y++) {
+        for (int16_t x = x1; x <= x2; x++) {
+            fb.pixels[y][x] = fb_background.pixels[y][x];
+        }
     }
-
-    // Clear dirty flag
-    fb.is_dirty = false;
 }
 
 // ============================================================================
@@ -182,7 +219,6 @@ void fb_set_pixel(int16_t x, int16_t y, fb_color_t color) {
     }
 
     fb.pixels[y][x] = color;
-    fb_mark_dirty_region(x, y, x, y);
 }
 
 void fb_set_pixel_hsv(int16_t x, int16_t y, uint8_t hue, uint8_t sat, uint8_t val) {
@@ -194,6 +230,28 @@ fb_color_t fb_get_pixel(int16_t x, int16_t y) {
         return 0;
     }
     return fb.pixels[y][x];
+}
+
+bool fb_get_pixel_rgb(int16_t x, int16_t y, uint8_t *r, uint8_t *g, uint8_t *b) {
+    if (x < 0 || x >= FB_WIDTH || y < 0 || y >= FB_HEIGHT) {
+        *r = 0;
+        *g = 0;
+        *b = 0;
+        return false;
+    }
+    fb_rgb565_to_rgb888(fb.pixels[y][x], r, g, b);
+    return true;
+}
+
+bool fb_get_pixel_hsv(int16_t x, int16_t y, uint8_t *h, uint8_t *s, uint8_t *v) {
+    if (x < 0 || x >= FB_WIDTH || y < 0 || y >= FB_HEIGHT) {
+        *h = 0;
+        *s = 0;
+        *v = 0;
+        return false;
+    }
+    fb_rgb565_to_hsv(fb.pixels[y][x], h, s, v);
+    return true;
 }
 
 // ============================================================================
@@ -264,8 +322,6 @@ void fb_rect(int16_t x1, int16_t y1, int16_t x2, int16_t y2, fb_color_t color, b
             fb.pixels[y][x2] = color;
         }
     }
-
-    fb_mark_dirty_region(x1, y1, x2, y2);
 }
 
 void fb_rect_hsv(int16_t x1, int16_t y1, int16_t x2, int16_t y2, uint8_t hue, uint8_t sat, uint8_t val, bool filled) {

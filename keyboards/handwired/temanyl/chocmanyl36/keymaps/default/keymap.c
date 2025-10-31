@@ -62,9 +62,21 @@ static bool needs_scroll = false;    // Whether text is too long and needs scrol
 #define SCROLL_PAUSE_START 500      // Pause 2 seconds before first scroll
 #define MAX_DISPLAY_CHARS 13         // Maximum characters that fit on display (~130px / 10px per char)
 
-// Rain (static - no animation to avoid artifacts)
+// Rain (animated)
 static bool rain_initialized = false; // Track if rain has been drawn
+static bool rain_background_saved = false; // Track if background (without rain) has been saved
 #define NUM_RAINDROPS 50
+#define RAINDROP_WIDTH 2
+#define RAINDROP_HEIGHT 4
+#define RAIN_ANIMATION_SPEED 50  // Update every 50ms for smooth animation
+
+typedef struct {
+    int16_t x;
+    int16_t y;
+} raindrop_t;
+
+static raindrop_t raindrops[NUM_RAINDROPS];
+static uint32_t rain_animation_timer = 0;
 
 // Halloween event (Oct 28 - Nov 3) - static decorations
 #define NUM_PUMPKINS 4
@@ -505,19 +517,23 @@ void get_celestial_position(uint8_t hour, uint16_t *x, uint16_t *y) {
     if (*y > 50) *y = 50;
 }
 
+// Helper function to determine season based on month (1-12)
+// Winter: 12, 1, 2 | Spring: 3, 4, 5 | Summer: 6, 7, 8 | Fall: 9, 10, 11
+uint8_t get_season(uint8_t month) {
+    if (month == 12 || month <= 2) return 0; // Winter
+    else if (month >= 3 && month <= 5) return 1; // Spring
+    else if (month >= 6 && month <= 8) return 2; // Summer
+    else return 3; // Fall
+}
+
 // Draw seasonal animation based on time and month (overlays the entire upper screen including logo)
 void draw_seasonal_animation(void) {
     // Animation area: entire upper portion from top to date area
     // Logo area: y=10 to y=130 (120x120 logo)
     // Animation extends from y=0 to y=152 (above date which starts at y=155)
 
-    // Determine season based on month (1-12)
-    // Winter: 12, 1, 2 | Spring: 3, 4, 5 | Summer: 6, 7, 8 | Fall: 9, 10, 11
-    uint8_t season = 0; // 0=winter, 1=spring, 2=summer, 3=fall
-    if (current_month == 12 || current_month <= 2) season = 0;
-    else if (current_month >= 3 && current_month <= 5) season = 1;
-    else if (current_month >= 6 && current_month <= 8) season = 2;
-    else season = 3;
+    // Determine season based on month
+    uint8_t season = get_season(current_month);
 
     // Determine time of day based on hour (0-23)
     bool is_night = (current_hour >= 20 || current_hour < 6);
@@ -777,27 +793,6 @@ void draw_seasonal_animation(void) {
             fb_circle_hsv(cloud_positions[i][0] + 5, cloud_positions[i][1] - 4, 6, 0, 0, 110, true);
         }
 
-        // Draw rain drops scattered throughout the scene
-        // Random distribution from clouds to near ground (50 drops)
-        uint16_t rain_positions[][2] = {
-            {91, 86}, {25, 128}, {108, 61}, {62, 101}, {45, 74}, {119, 139}, {31, 52}, {76, 118}, {100, 93}, {53, 67},
-            {17, 131}, {85, 79}, {69, 105}, {122, 49}, {38, 123}, {96, 84}, {58, 58}, {20, 143}, {106, 71}, {72, 113},
-            {41, 96}, {115, 54}, {29, 136}, {83, 88}, {50, 109}, {124, 63}, {64, 121}, {18, 76}, {98, 99}, {56, 56},
-            {36, 140}, {88, 82}, {67, 115}, {110, 69}, {42, 127}, {78, 91}, {26, 59}, {102, 103}, {60, 77}, {21, 133},
-            {94, 94}, {48, 66}, {116, 51}, {33, 119}, {81, 87}, {52, 106}, {120, 73}, {39, 137}, {75, 98}, {104, 62}
-        };
-        for (uint8_t i = 0; i < NUM_RAINDROPS; i++) {
-            // Use static Y positions directly
-            uint16_t y_pos = rain_positions[i][1];
-
-            // Draw raindrops (2 pixels wide, 4 pixels tall)
-            uint8_t drop_height = 4;
-            if (y_pos < 150) {
-                fb_rect_hsv(rain_positions[i][0], y_pos, rain_positions[i][0] + 1, y_pos + drop_height, 170, 150, 200, true);
-            }
-        }
-        rain_initialized = true;
-
         // Draw fallen leaves on the ground (just above ground line at y=150)
         struct { uint16_t x; uint8_t hue; } fallen_leaves[] = {
             {18, 10}, {35, 0}, {52, 25}, {68, 15}, {82, 8}, {95, 20}, {108, 5}, {122, 30},
@@ -820,6 +815,44 @@ void draw_seasonal_animation(void) {
     // Draw Christmas decorations and Santa during December
     if (is_christmas_season()) {
         draw_christmas_scene();
+    }
+
+    // === SAVE BACKGROUND AND DRAW RAINDROPS ===
+    // Save background AFTER all static elements (including Halloween/Christmas) are drawn
+    // This must be done after Halloween/Christmas overlays so they're included in the background
+    if (season == 3) { // Fall season - draw rain
+        // Save background (scene without raindrops) for animation
+        if (!rain_background_saved) {
+            fb_save_to_background();
+            rain_background_saved = true;
+        }
+
+        // Initialize raindrop positions if needed
+        if (!rain_initialized) {
+            // Initial raindrop positions - random distribution from clouds to near ground (50 drops)
+            uint16_t rain_positions[][2] = {
+                {91, 86}, {25, 128}, {108, 61}, {62, 101}, {45, 74}, {119, 139}, {31, 52}, {76, 118}, {100, 93}, {53, 67},
+                {17, 131}, {85, 79}, {69, 105}, {122, 49}, {38, 123}, {96, 84}, {58, 58}, {20, 143}, {106, 71}, {72, 113},
+                {41, 96}, {115, 54}, {29, 136}, {83, 88}, {50, 109}, {124, 63}, {64, 121}, {18, 76}, {98, 99}, {56, 56},
+                {36, 140}, {88, 82}, {67, 115}, {110, 69}, {42, 127}, {78, 91}, {26, 59}, {102, 103}, {60, 77}, {21, 133},
+                {94, 94}, {48, 66}, {116, 51}, {33, 119}, {81, 87}, {52, 106}, {120, 73}, {39, 137}, {75, 98}, {104, 62}
+            };
+            for (uint8_t i = 0; i < NUM_RAINDROPS; i++) {
+                raindrops[i].x = rain_positions[i][0];
+                raindrops[i].y = rain_positions[i][1];
+            }
+            rain_initialized = true;
+        }
+
+        // Draw raindrops at current positions (2 pixels wide, 4 pixels tall)
+        for (uint8_t i = 0; i < NUM_RAINDROPS; i++) {
+            if (raindrops[i].y >= 0 && raindrops[i].y < 150) {
+                fb_rect_hsv(raindrops[i].x, raindrops[i].y,
+                           raindrops[i].x + RAINDROP_WIDTH - 1,
+                           raindrops[i].y + RAINDROP_HEIGHT - 1,
+                           170, 150, 200, true);
+            }
+        }
     }
 
     // Note: No qp_flush() here - let the caller decide when to flush
@@ -1306,6 +1339,10 @@ void set_layer_background(uint8_t layer) {
 
     // If full redraw is forced, clear screen and redraw everything
     if (force_full_redraw) {
+        // Reset rain animation state to allow background to be re-saved
+        rain_initialized = false;
+        rain_background_saved = false;
+
         // Clear entire screen
         fb_rect_hsv(0, 0, 134, 239, 0, 0, 0, true);
 
@@ -1908,6 +1945,55 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
+// Animate raindrops by moving them down and restoring background
+void animate_raindrops(void) {
+    if (!rain_initialized || !rain_background_saved) {
+        return;
+    }
+
+    // Get current season
+    uint8_t season = get_season(current_month);
+
+    // Only animate during fall (season 3)
+    if (season != 3) {
+        return;
+    }
+
+    // Animate each raindrop
+    for (uint8_t i = 0; i < NUM_RAINDROPS; i++) {
+        // Store old position
+        int16_t old_x = raindrops[i].x;
+        int16_t old_y = raindrops[i].y;
+
+        // Restore old raindrop position from background buffer
+        fb_restore_from_background(old_x, old_y,
+                                   old_x + RAINDROP_WIDTH - 1,
+                                   old_y + RAINDROP_HEIGHT - 1);
+
+        // Move raindrop down by 3 pixels
+        raindrops[i].y += 3;
+
+        // Reset raindrop to top if it goes below ground (y=150)
+        if (raindrops[i].y >= 150) {
+            // Reset to random position at top (below clouds, y=45-55)
+            raindrops[i].y = 45 + (i * 7) % 10; // Varied heights below clouds
+            // Keep x position but add slight variation
+            raindrops[i].x = (old_x + (i % 3) - 1); // Slight horizontal variation
+            // Clamp to screen bounds
+            if (raindrops[i].x < 0) raindrops[i].x = 0;
+            if (raindrops[i].x > FB_WIDTH - RAINDROP_WIDTH) raindrops[i].x = FB_WIDTH - RAINDROP_WIDTH;
+        }
+
+        // Draw raindrop at new position
+        if (raindrops[i].y >= 0 && raindrops[i].y < 150) {
+            fb_rect_hsv(raindrops[i].x, raindrops[i].y,
+                       raindrops[i].x + RAINDROP_WIDTH - 1,
+                       raindrops[i].y + RAINDROP_HEIGHT - 1,
+                       170, 150, 200, true);
+        }
+    }
+}
+
 // Periodically check and update display based on active layer
 void housekeeping_task_user(void) {
     update_display_for_layer();
@@ -2002,7 +2088,17 @@ void housekeeping_task_user(void) {
         }
     }
 
-    // Rain animation disabled - static rain looks better without artifacts
+    // Handle rain animation (during fall season)
+    if (rain_initialized && rain_background_saved) {
+        uint8_t season = get_season(current_month);
+        if (season == 3) { // Fall season
+            if (current_time - rain_animation_timer >= RAIN_ANIMATION_SPEED) {
+                rain_animation_timer = current_time;
+                animate_raindrops();
+                needs_flush = true;
+            }
+        }
+    }
 
     // Handle Santa sleigh animation (on Christmas Day Dec 25 and after)
     if (is_christmas_season() && current_day >= 25) {
