@@ -68,7 +68,7 @@ static bool rain_background_saved = false; // Track if background (without rain)
 #define NUM_RAINDROPS 50
 #define RAINDROP_WIDTH 2
 #define RAINDROP_HEIGHT 4
-#define RAIN_ANIMATION_SPEED 50  // Update every 50ms for smooth animation
+#define RAIN_ANIMATION_SPEED 50  // Update every 50ms (20fps) - only small regions flushed
 
 typedef struct {
     int16_t x;
@@ -1970,6 +1970,11 @@ void animate_raindrops(void) {
                                    old_x + RAINDROP_WIDTH - 1,
                                    old_y + RAINDROP_HEIGHT - 1);
 
+        // Flush the old raindrop region to erase it from display
+        fb_flush_region(display, old_x, old_y,
+                       old_x + RAINDROP_WIDTH - 1,
+                       old_y + RAINDROP_HEIGHT - 1);
+
         // Move raindrop down by 3 pixels
         raindrops[i].y += 3;
 
@@ -1990,6 +1995,11 @@ void animate_raindrops(void) {
                        raindrops[i].x + RAINDROP_WIDTH - 1,
                        raindrops[i].y + RAINDROP_HEIGHT - 1,
                        170, 150, 200, true);
+
+            // Flush the new raindrop region to draw it on display
+            fb_flush_region(display, raindrops[i].x, raindrops[i].y,
+                           raindrops[i].x + RAINDROP_WIDTH - 1,
+                           raindrops[i].y + RAINDROP_HEIGHT - 1);
         }
     }
 }
@@ -2089,13 +2099,14 @@ void housekeeping_task_user(void) {
     }
 
     // Handle rain animation (during fall season)
+    // Note: animate_raindrops() handles its own region-based flushing
     if (rain_initialized && rain_background_saved) {
         uint8_t season = get_season(current_month);
         if (season == 3) { // Fall season
             if (current_time - rain_animation_timer >= RAIN_ANIMATION_SPEED) {
                 rain_animation_timer = current_time;
                 animate_raindrops();
-                needs_flush = true;
+                // No needs_flush = true here - raindrops flush their own regions
             }
         }
     }

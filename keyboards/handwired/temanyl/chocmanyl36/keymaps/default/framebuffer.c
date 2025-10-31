@@ -183,6 +183,30 @@ void fb_flush(painter_device_t display) {
     }
 }
 
+void fb_flush_region(painter_device_t display, int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+    // Clamp to screen bounds and framebuffer area
+    if (x1 < 0) x1 = 0;
+    if (y1 < 0) y1 = 0;
+    if (x2 >= FB_WIDTH) x2 = FB_WIDTH - 1;
+    if (y2 >= FB_SPLIT_Y) y2 = FB_SPLIT_Y - 1;
+
+    // Bounds check
+    if (x1 > x2 || y1 > y2 || x1 >= FB_WIDTH || y1 >= FB_SPLIT_Y) {
+        return;
+    }
+
+    // Set viewport to the specific region
+    qp_viewport(display, x1, y1, x2, y2);
+
+    // Calculate region width
+    uint16_t width = x2 - x1 + 1;
+
+    // Stream pixel data row by row for this region only
+    for (int16_t y = y1; y <= y2; y++) {
+        qp_pixdata(display, &fb.pixels[y][x1], width);
+    }
+}
+
 void fb_save_to_background(void) {
     // Copy entire framebuffer to background buffer
     memcpy(fb_background.pixels, fb.pixels, sizeof(fb.pixels));

@@ -101,6 +101,17 @@ void fb_clear(fb_color_t color);
 void fb_flush(painter_device_t display);
 
 /**
+ * Flush a specific region of the framebuffer to the physical display
+ * Only updates the specified rectangular region for efficiency
+ * @param display The QP display device handle
+ * @param x1 Left coordinate
+ * @param y1 Top coordinate
+ * @param x2 Right coordinate
+ * @param y2 Bottom coordinate
+ */
+void fb_flush_region(painter_device_t display, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
+
+/**
  * Save current framebuffer to background buffer
  * Used to preserve the base scene before drawing animated elements
  */
