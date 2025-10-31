@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <string.h>
 #include <stdlib.h>
 #include <qp.h>
+#include "framebuffer.h"
 #include "draw_logo.h"
 #include "graphics/helvetica20.qff.c"
 
@@ -98,6 +99,9 @@ static int16_t santa_x = -60;  // Start offscreen left
 // New Year's Eve fireworks (Dec 31) - static display
 #define NUM_FIREWORKS 6
 
+// Framebuffer test (set to 1 to enable quick test on startup)
+#define FRAMEBUFFER_TEST 0
+
 // Custom keycodes
 enum custom_keycodes {
     DISP_UP = SAFE_RANGE,  // Display brightness up
@@ -172,7 +176,7 @@ void draw_digit(uint16_t x, uint16_t y, uint8_t digit, uint8_t hue, uint8_t sat,
         case 9: seg_a = seg_b = seg_c = seg_d = seg_f = seg_g = true; break;
     }
 
-    // Draw segments (larger size, ~14x20 digit)
+    // Draw segments using QP (lower region y >= 155)
     if (seg_a) qp_rect(display, x + 2, y, x + 11, y + 2, hue, sat, val, true);          // top
     if (seg_b) qp_rect(display, x + 11, y + 2, x + 13, y + 9, hue, sat, val, true);     // top right
     if (seg_c) qp_rect(display, x + 11, y + 11, x + 13, y + 18, hue, sat, val, true);   // bottom right
@@ -268,90 +272,90 @@ void draw_tree(uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, ui
     // Trunk (brown)
     uint8_t trunk_width = 6;
     uint8_t trunk_height = (season == 1) ? 28 : 22; // Spring trees are taller
-    qp_rect(display, base_x - trunk_width/2, base_y - trunk_height,
+    fb_rect_hsv(base_x - trunk_width/2, base_y - trunk_height,
             base_x + trunk_width/2, base_y, 20, 200, 100, true);
 
     // Canopy changes by season
     if (season == 0) { // Winter - bare branches with more detail
         // Draw main upward-reaching branches
         // Left upward branch
-        qp_rect(display, base_x - 8, base_y - trunk_height - 10, base_x - 6, base_y - trunk_height - 2, 20, 150, 80, true);
-        qp_rect(display, base_x - 12, base_y - trunk_height - 8, base_x - 8, base_y - trunk_height - 6, 20, 150, 80, true);
+        fb_rect_hsv(base_x - 8, base_y - trunk_height - 10, base_x - 6, base_y - trunk_height - 2, 20, 150, 80, true);
+        fb_rect_hsv(base_x - 12, base_y - trunk_height - 8, base_x - 8, base_y - trunk_height - 6, 20, 150, 80, true);
         // Right upward branch
-        qp_rect(display, base_x + 6, base_y - trunk_height - 10, base_x + 8, base_y - trunk_height - 2, 20, 150, 80, true);
-        qp_rect(display, base_x + 8, base_y - trunk_height - 8, base_x + 12, base_y - trunk_height - 6, 20, 150, 80, true);
+        fb_rect_hsv(base_x + 6, base_y - trunk_height - 10, base_x + 8, base_y - trunk_height - 2, 20, 150, 80, true);
+        fb_rect_hsv(base_x + 8, base_y - trunk_height - 8, base_x + 12, base_y - trunk_height - 6, 20, 150, 80, true);
 
         // Middle upward branches (from mid-trunk)
-        qp_rect(display, base_x - 6, base_y - trunk_height - 6, base_x - 4, base_y - trunk_height + 2, 20, 150, 80, true);
-        qp_rect(display, base_x + 4, base_y - trunk_height - 6, base_x + 6, base_y - trunk_height + 2, 20, 150, 80, true);
+        fb_rect_hsv(base_x - 6, base_y - trunk_height - 6, base_x - 4, base_y - trunk_height + 2, 20, 150, 80, true);
+        fb_rect_hsv(base_x + 4, base_y - trunk_height - 6, base_x + 6, base_y - trunk_height + 2, 20, 150, 80, true);
 
         // Outward angled branches (lower)
-        qp_rect(display, base_x - 10, base_y - trunk_height + 4, base_x - 8, base_y - trunk_height + 8, 20, 150, 80, true);
-        qp_rect(display, base_x + 8, base_y - trunk_height + 4, base_x + 10, base_y - trunk_height + 8, 20, 150, 80, true);
+        fb_rect_hsv(base_x - 10, base_y - trunk_height + 4, base_x - 8, base_y - trunk_height + 8, 20, 150, 80, true);
+        fb_rect_hsv(base_x + 8, base_y - trunk_height + 4, base_x + 10, base_y - trunk_height + 8, 20, 150, 80, true);
 
         // Smaller upward twigs
-        qp_rect(display, base_x - 10, base_y - trunk_height - 12, base_x - 9, base_y - trunk_height - 9, 20, 120, 70, true);
-        qp_rect(display, base_x + 9, base_y - trunk_height - 12, base_x + 10, base_y - trunk_height - 9, 20, 120, 70, true);
-        qp_rect(display, base_x - 3, base_y - trunk_height - 13, base_x - 2, base_y - trunk_height - 10, 20, 120, 70, true);
-        qp_rect(display, base_x + 2, base_y - trunk_height - 13, base_x + 3, base_y - trunk_height - 10, 20, 120, 70, true);
+        fb_rect_hsv(base_x - 10, base_y - trunk_height - 12, base_x - 9, base_y - trunk_height - 9, 20, 120, 70, true);
+        fb_rect_hsv(base_x + 9, base_y - trunk_height - 12, base_x + 10, base_y - trunk_height - 9, 20, 120, 70, true);
+        fb_rect_hsv(base_x - 3, base_y - trunk_height - 13, base_x - 2, base_y - trunk_height - 10, 20, 120, 70, true);
+        fb_rect_hsv(base_x + 2, base_y - trunk_height - 13, base_x + 3, base_y - trunk_height - 10, 20, 120, 70, true);
 
         // Side twigs extending from main branches
-        qp_rect(display, base_x - 14, base_y - trunk_height - 6, base_x - 12, base_y - trunk_height - 4, 20, 120, 70, true);
-        qp_rect(display, base_x + 12, base_y - trunk_height - 6, base_x + 14, base_y - trunk_height - 4, 20, 120, 70, true);
+        fb_rect_hsv(base_x - 14, base_y - trunk_height - 6, base_x - 12, base_y - trunk_height - 4, 20, 120, 70, true);
+        fb_rect_hsv(base_x + 12, base_y - trunk_height - 6, base_x + 14, base_y - trunk_height - 4, 20, 120, 70, true);
 
         // Add snow accumulation on branches (thicker and more coverage)
         // Snow on main upward branches (thicker patches)
-        qp_rect(display, base_x - 9, base_y - trunk_height - 11, base_x - 5, base_y - trunk_height - 9, 170, 40, 255, true);
-        qp_rect(display, base_x + 5, base_y - trunk_height - 11, base_x + 9, base_y - trunk_height - 9, 170, 40, 255, true);
+        fb_rect_hsv(base_x - 9, base_y - trunk_height - 11, base_x - 5, base_y - trunk_height - 9, 170, 40, 255, true);
+        fb_rect_hsv(base_x + 5, base_y - trunk_height - 11, base_x + 9, base_y - trunk_height - 9, 170, 40, 255, true);
 
         // Snow on horizontal/angled branch sections (larger)
-        qp_rect(display, base_x - 13, base_y - trunk_height - 9, base_x - 7, base_y - trunk_height - 7, 170, 40, 255, true);
-        qp_rect(display, base_x + 7, base_y - trunk_height - 9, base_x + 13, base_y - trunk_height - 7, 170, 40, 255, true);
+        fb_rect_hsv(base_x - 13, base_y - trunk_height - 9, base_x - 7, base_y - trunk_height - 7, 170, 40, 255, true);
+        fb_rect_hsv(base_x + 7, base_y - trunk_height - 9, base_x + 13, base_y - trunk_height - 7, 170, 40, 255, true);
 
         // Snow on middle branches (thicker)
-        qp_rect(display, base_x - 7, base_y - trunk_height - 7, base_x - 3, base_y - trunk_height - 5, 170, 40, 255, true);
-        qp_rect(display, base_x + 3, base_y - trunk_height - 7, base_x + 7, base_y - trunk_height - 5, 170, 40, 255, true);
+        fb_rect_hsv(base_x - 7, base_y - trunk_height - 7, base_x - 3, base_y - trunk_height - 5, 170, 40, 255, true);
+        fb_rect_hsv(base_x + 3, base_y - trunk_height - 7, base_x + 7, base_y - trunk_height - 5, 170, 40, 255, true);
 
         // Additional snow on mid-trunk branches
-        qp_rect(display, base_x - 6, base_y - trunk_height - 3, base_x - 3, base_y - trunk_height - 1, 170, 40, 255, true);
-        qp_rect(display, base_x + 3, base_y - trunk_height - 3, base_x + 6, base_y - trunk_height - 1, 170, 40, 255, true);
+        fb_rect_hsv(base_x - 6, base_y - trunk_height - 3, base_x - 3, base_y - trunk_height - 1, 170, 40, 255, true);
+        fb_rect_hsv(base_x + 3, base_y - trunk_height - 3, base_x + 6, base_y - trunk_height - 1, 170, 40, 255, true);
 
         // Snow on lower outward branches (larger)
-        qp_rect(display, base_x - 11, base_y - trunk_height + 3, base_x - 7, base_y - trunk_height + 5, 170, 40, 255, true);
-        qp_rect(display, base_x + 7, base_y - trunk_height + 3, base_x + 11, base_y - trunk_height + 5, 170, 40, 255, true);
+        fb_rect_hsv(base_x - 11, base_y - trunk_height + 3, base_x - 7, base_y - trunk_height + 5, 170, 40, 255, true);
+        fb_rect_hsv(base_x + 7, base_y - trunk_height + 3, base_x + 11, base_y - trunk_height + 5, 170, 40, 255, true);
 
         // Additional snow lower down
-        qp_rect(display, base_x - 9, base_y - trunk_height + 6, base_x - 7, base_y - trunk_height + 8, 170, 40, 255, true);
-        qp_rect(display, base_x + 7, base_y - trunk_height + 6, base_x + 9, base_y - trunk_height + 8, 170, 40, 255, true);
+        fb_rect_hsv(base_x - 9, base_y - trunk_height + 6, base_x - 7, base_y - trunk_height + 8, 170, 40, 255, true);
+        fb_rect_hsv(base_x + 7, base_y - trunk_height + 6, base_x + 9, base_y - trunk_height + 8, 170, 40, 255, true);
 
         // Snow patches on twigs (larger and brighter)
-        qp_rect(display, base_x - 11, base_y - trunk_height - 13, base_x - 8, base_y - trunk_height - 11, 0, 0, 255, true);
-        qp_rect(display, base_x + 8, base_y - trunk_height - 13, base_x + 11, base_y - trunk_height - 11, 0, 0, 255, true);
-        qp_rect(display, base_x - 4, base_y - trunk_height - 14, base_x - 1, base_y - trunk_height - 12, 0, 0, 255, true);
-        qp_rect(display, base_x + 1, base_y - trunk_height - 14, base_x + 4, base_y - trunk_height - 12, 0, 0, 255, true);
+        fb_rect_hsv(base_x - 11, base_y - trunk_height - 13, base_x - 8, base_y - trunk_height - 11, 0, 0, 255, true);
+        fb_rect_hsv(base_x + 8, base_y - trunk_height - 13, base_x + 11, base_y - trunk_height - 11, 0, 0, 255, true);
+        fb_rect_hsv(base_x - 4, base_y - trunk_height - 14, base_x - 1, base_y - trunk_height - 12, 0, 0, 255, true);
+        fb_rect_hsv(base_x + 1, base_y - trunk_height - 14, base_x + 4, base_y - trunk_height - 12, 0, 0, 255, true);
 
         // Side twig snow
-        qp_rect(display, base_x - 15, base_y - trunk_height - 7, base_x - 11, base_y - trunk_height - 5, 170, 40, 255, true);
-        qp_rect(display, base_x + 11, base_y - trunk_height - 7, base_x + 15, base_y - trunk_height - 5, 170, 40, 255, true);
+        fb_rect_hsv(base_x - 15, base_y - trunk_height - 7, base_x - 11, base_y - trunk_height - 5, 170, 40, 255, true);
+        fb_rect_hsv(base_x + 11, base_y - trunk_height - 7, base_x + 15, base_y - trunk_height - 5, 170, 40, 255, true);
     } else if (season == 1) { // Spring - green leaves with pink blossoms
         // Tree shape with green base
-        qp_circle(display, base_x, base_y - trunk_height - 7, 15, 85, 220, 200, true); // Light green
+        fb_circle_hsv(base_x, base_y - trunk_height - 7, 15, 85, 220, 200, true); // Light green
         // Add leaf and blossom dots (smaller, mostly pink blossoms)
         for (uint8_t i = 0; i < 9; i++) {
             int8_t offset_x = (i % 3 - 1) * 7;
             int8_t offset_y = (i / 3 - 1) * 7;
             // Make 8 dots pink blossoms, only dot 4 (center) is green leaf
             if (i != 4) {
-                qp_circle(display, base_x + offset_x, base_y - trunk_height - 7 + offset_y, 2, 234, 255, 220, true); // Pink blossom (smaller)
+                fb_circle_hsv(base_x + offset_x, base_y - trunk_height - 7 + offset_y, 2, 234, 255, 220, true); // Pink blossom (smaller)
             } else {
-                qp_circle(display, base_x + offset_x, base_y - trunk_height - 7 + offset_y, 2, 85, 255, 180, true); // Green leaf (smaller)
+                fb_circle_hsv(base_x + offset_x, base_y - trunk_height - 7 + offset_y, 2, 85, 255, 180, true); // Green leaf (smaller)
             }
         }
     } else if (season == 2) { // Summer - cherry tree with cherries
         // Dense green canopy
-        qp_circle(display, base_x, base_y - trunk_height - 7, 16, 85, 255, 200, true);       // Center
-        qp_circle(display, base_x - 9, base_y - trunk_height - 4, 11, 85, 255, 180, true);  // Left
-        qp_circle(display, base_x + 9, base_y - trunk_height - 4, 11, 85, 255, 180, true);  // Right
+        fb_circle_hsv(base_x, base_y - trunk_height - 7, 16, 85, 255, 200, true);       // Center
+        fb_circle_hsv(base_x - 9, base_y - trunk_height - 4, 11, 85, 255, 180, true);  // Left
+        fb_circle_hsv(base_x + 9, base_y - trunk_height - 4, 11, 85, 255, 180, true);  // Right
 
         // Add red cherries scattered throughout the entire canopy
         // Cherry positions relative to canopy center at (base_x, base_y - trunk_height - 7)
@@ -367,15 +371,15 @@ void draw_tree(uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, ui
 
         for (uint8_t i = 0; i < 16; i++) {
             // Draw cherries (bright red, small circles)
-            qp_circle(display, base_x + cherry_offsets[i][0],
+            fb_circle_hsv(base_x + cherry_offsets[i][0],
                      base_y - trunk_height - 7 + cherry_offsets[i][1],
                      2, 0, 255, 220, true);
         }
     } else { // Fall - orange/red/yellow leaves
         // Tree shape with autumn colors
-        qp_circle(display, base_x, base_y - trunk_height - 7, 15, 20, 255, 200, true);      // Orange
-        qp_circle(display, base_x - 8, base_y - trunk_height - 4, 10, 10, 255, 220, true);  // Red-orange
-        qp_circle(display, base_x + 8, base_y - trunk_height - 4, 10, 30, 255, 200, true);  // Yellow-orange
+        fb_circle_hsv(base_x, base_y - trunk_height - 7, 15, 20, 255, 200, true);      // Orange
+        fb_circle_hsv(base_x - 8, base_y - trunk_height - 4, 10, 10, 255, 220, true);  // Red-orange
+        fb_circle_hsv(base_x + 8, base_y - trunk_height - 4, 10, 30, 255, 200, true);  // Yellow-orange
     }
 }
 
@@ -387,7 +391,7 @@ void draw_cabin(uint16_t base_x, uint16_t base_y, uint8_t season) {
     uint8_t roof_height = 10;
 
     // Main cabin body (brown wood)
-    qp_rect(display, base_x - cabin_width/2, base_y - cabin_height,
+    fb_rect_hsv(base_x - cabin_width/2, base_y - cabin_height,
             base_x + cabin_width/2, base_y, 20, 200, 120, true);
 
     // Roof (darker brown/grey triangular roof using rectangles)
@@ -396,47 +400,47 @@ void draw_cabin(uint16_t base_x, uint16_t base_y, uint8_t season) {
         uint8_t roof_y = base_y - cabin_height - i;
         uint8_t roof_left = base_x - (cabin_width/2 + roof_height - i);
         uint8_t roof_right = base_x - (cabin_width/2 - i);
-        qp_rect(display, roof_left, roof_y, roof_right, roof_y + 1, 15, 180, 80, true);
+        fb_rect_hsv(roof_left, roof_y, roof_right, roof_y + 1, 15, 180, 80, true);
     }
     // Right side of roof
     for (uint8_t i = 0; i < roof_height; i++) {
         uint8_t roof_y = base_y - cabin_height - i;
         uint8_t roof_left = base_x + (cabin_width/2 - i);
         uint8_t roof_right = base_x + (cabin_width/2 + roof_height - i);
-        qp_rect(display, roof_left, roof_y, roof_right, roof_y + 1, 15, 180, 80, true);
+        fb_rect_hsv(roof_left, roof_y, roof_right, roof_y + 1, 15, 180, 80, true);
     }
     // Fill the peak gap with a center line
-    qp_rect(display, base_x - 7, base_y - cabin_height - roof_height,
+    fb_rect_hsv(base_x - 7, base_y - cabin_height - roof_height,
             base_x + 7, base_y - cabin_height, 15, 180, 80, true);
 
     // Door (darker brown)
     uint8_t door_width = 7;
     uint8_t door_height = 10;
-    qp_rect(display, base_x - door_width/2, base_y - door_height,
+    fb_rect_hsv(base_x - door_width/2, base_y - door_height,
             base_x + door_width/2, base_y, 15, 220, 60, true);
 
     // Window (light yellow - lit window)
     uint8_t window_size = 6;
-    qp_rect(display, base_x + 5, base_y - cabin_height + 5,
+    fb_rect_hsv(base_x + 5, base_y - cabin_height + 5,
             base_x + 5 + window_size, base_y - cabin_height + 5 + window_size, 42, 150, 255, true);
 
     // Window frame cross (dark brown)
-    qp_rect(display, base_x + 7, base_y - cabin_height + 5,
+    fb_rect_hsv(base_x + 7, base_y - cabin_height + 5,
             base_x + 8, base_y - cabin_height + 5 + window_size, 20, 200, 80, true);
-    qp_rect(display, base_x + 5, base_y - cabin_height + 8,
+    fb_rect_hsv(base_x + 5, base_y - cabin_height + 8,
             base_x + 5 + window_size, base_y - cabin_height + 9, 20, 200, 80, true);
 
     // Chimney on roof (brick red/brown)
     uint8_t chimney_width = 4;
     uint8_t chimney_height = 8;
-    qp_rect(display, base_x + 5, base_y - cabin_height - roof_height - chimney_height + 2,
+    fb_rect_hsv(base_x + 5, base_y - cabin_height - roof_height - chimney_height + 2,
             base_x + 5 + chimney_width, base_y - cabin_height - roof_height + 3, 10, 200, 100, true);
 
     // Smoke from chimney (light grey puffs) - only if not summer
     if (season != 2) {
-        qp_circle(display, base_x + 6, base_y - cabin_height - roof_height - chimney_height - 2, 2, 0, 0, 180, true);
-        qp_circle(display, base_x + 7, base_y - cabin_height - roof_height - chimney_height - 5, 2, 0, 0, 160, true);
-        qp_circle(display, base_x + 8, base_y - cabin_height - roof_height - chimney_height - 8, 2, 0, 0, 140, true);
+        fb_circle_hsv(base_x + 6, base_y - cabin_height - roof_height - chimney_height - 2, 2, 0, 0, 180, true);
+        fb_circle_hsv(base_x + 7, base_y - cabin_height - roof_height - chimney_height - 5, 2, 0, 0, 160, true);
+        fb_circle_hsv(base_x + 8, base_y - cabin_height - roof_height - chimney_height - 8, 2, 0, 0, 140, true);
     }
 
     // Add snow on roof in winter
@@ -446,14 +450,14 @@ void draw_cabin(uint16_t base_x, uint16_t base_y, uint8_t season) {
             uint8_t roof_y = base_y - cabin_height - i;
             uint8_t roof_left = base_x - (cabin_width/2 + roof_height - i);
             uint8_t roof_right = base_x - (cabin_width/2 - i);
-            qp_rect(display, roof_left, roof_y - 2, roof_right, roof_y - 1, 170, 40, 255, true);
+            fb_rect_hsv(roof_left, roof_y - 2, roof_right, roof_y - 1, 170, 40, 255, true);
         }
         // Snow on right side of roof
         for (uint8_t i = 0; i < roof_height; i++) {
             uint8_t roof_y = base_y - cabin_height - i;
             uint8_t roof_left = base_x + (cabin_width/2 - i);
             uint8_t roof_right = base_x + (cabin_width/2 + roof_height - i);
-            qp_rect(display, roof_left, roof_y - 2, roof_right, roof_y - 1, 170, 40, 255, true);
+            fb_rect_hsv(roof_left, roof_y - 2, roof_right, roof_y - 1, 170, 40, 255, true);
         }
     }
 }
@@ -543,7 +547,7 @@ void draw_seasonal_animation(void) {
         uint8_t moon_phase = (moon_day * 29) / 31; // Map day 1-31 to phase 0-29
 
         // Draw full moon circle first (pale yellow/white base)
-        qp_circle(display, celestial_x, celestial_y, 8, 42, 100, 255, true);
+        fb_circle_hsv(celestial_x, celestial_y, 8, 42, 100, 255, true);
 
         // Add shadow to create moon phase effect
         if (moon_phase < 14) {
@@ -553,13 +557,13 @@ void draw_seasonal_animation(void) {
                 // New moon to first quarter: shadow covers most/half of left side
                 int8_t shadow_offset = -8 + (moon_phase * 2); // -8 to 6
                 uint8_t shadow_radius = 8 - (moon_phase / 2); // 8 to 4
-                qp_circle(display, celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
+                fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
             } else {
                 // First quarter to full: small shadow on left, disappearing
                 int8_t shadow_offset = 6 - ((moon_phase - 7) * 2); // 6 to -8
                 uint8_t shadow_radius = 5 - ((moon_phase - 7) / 2); // 4 to 0
                 if (shadow_radius > 0) {
-                    qp_circle(display, celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
+                    fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
                 }
             }
         } else if (moon_phase > 14) {
@@ -570,13 +574,13 @@ void draw_seasonal_animation(void) {
                 int8_t shadow_offset = -6 + (waning_phase * 2); // -6 to 8
                 uint8_t shadow_radius = (waning_phase / 2); // 0 to 3
                 if (shadow_radius > 0) {
-                    qp_circle(display, celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
+                    fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
                 }
             } else {
                 // Last quarter to new: shadow covers half/most of right side
                 int8_t shadow_offset = 8 - ((waning_phase - 7) * 2); // 8 to -6
                 uint8_t shadow_radius = 5 + ((waning_phase - 7) / 2); // 4 to 7
-                qp_circle(display, celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
+                fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
             }
         }
         // Phase 14-15 is full moon - no shadow applied
@@ -589,7 +593,7 @@ void draw_seasonal_animation(void) {
             {85, 8}, {70, 25}, {60, 15}                         // Row 4
         };
         for (uint8_t i = 0; i < 13; i++) {
-            qp_rect(display, star_positions[i][0], star_positions[i][1],
+            fb_rect_hsv(star_positions[i][0], star_positions[i][1],
                     star_positions[i][0] + 2, star_positions[i][1] + 2, 42, 50, 255, true);
         }
     } else {
@@ -606,7 +610,7 @@ void draw_seasonal_animation(void) {
         }
 
         // Draw sun with rays
-        qp_circle(display, celestial_x, celestial_y, 9, sun_hue, sun_sat, 255, true);
+        fb_circle_hsv(celestial_x, celestial_y, 9, sun_hue, sun_sat, 255, true);
 
         // Add sun rays (8 rays around sun)
         for (uint8_t i = 0; i < 8; i++) {
@@ -622,7 +626,7 @@ void draw_seasonal_animation(void) {
             else if (i == 6) { ray_x = 0; ray_y = 12; }  // Down
             else if (i == 7) { ray_x = 9; ray_y = 9; }   // Down-right
 
-            qp_rect(display, celestial_x + ray_x - 1, celestial_y + ray_y - 1,
+            fb_rect_hsv(celestial_x + ray_x - 1, celestial_y + ray_y - 1,
                     celestial_x + ray_x + 1, celestial_y + ray_y + 1, sun_hue, sun_sat, 200, true);
         }
     }
@@ -631,7 +635,7 @@ void draw_seasonal_animation(void) {
 
     // Draw ground line
     uint16_t ground_y = 150;
-    qp_rect(display, 0, ground_y, 134, ground_y + 1, 85, 180, 100, true); // Green-brown ground
+    fb_rect_hsv(0, ground_y, 134, ground_y + 1, 85, 180, 100, true); // Green-brown ground
 
     // Draw trees at different positions
     uint8_t layer = get_highest_layer(layer_state);
@@ -651,10 +655,10 @@ void draw_seasonal_animation(void) {
         };
         for (uint8_t i = 0; i < 3; i++) {
             // Main cloud body (light gray)
-            qp_circle(display, cloud_positions[i][0], cloud_positions[i][1], 8, 0, 0, 160, true);
-            qp_circle(display, cloud_positions[i][0] + 9, cloud_positions[i][1] + 2, 6, 0, 0, 160, true);
-            qp_circle(display, cloud_positions[i][0] - 7, cloud_positions[i][1] + 2, 6, 0, 0, 160, true);
-            qp_circle(display, cloud_positions[i][0] + 4, cloud_positions[i][1] - 3, 5, 0, 0, 150, true);
+            fb_circle_hsv(cloud_positions[i][0], cloud_positions[i][1], 8, 0, 0, 160, true);
+            fb_circle_hsv(cloud_positions[i][0] + 9, cloud_positions[i][1] + 2, 6, 0, 0, 160, true);
+            fb_circle_hsv(cloud_positions[i][0] - 7, cloud_positions[i][1] + 2, 6, 0, 0, 160, true);
+            fb_circle_hsv(cloud_positions[i][0] + 4, cloud_positions[i][1] - 3, 5, 0, 0, 150, true);
         }
 
         // Draw snowflakes
@@ -664,21 +668,21 @@ void draw_seasonal_animation(void) {
         };
         for (uint8_t i = 0; i < 21; i++) {
             // Simple snowflake with cross pattern
-            qp_rect(display, snow_positions[i][0], snow_positions[i][1], snow_positions[i][0] + 2, snow_positions[i][1] + 2, 170, 80, 255, true);
-            qp_rect(display, snow_positions[i][0] - 2, snow_positions[i][1] + 1, snow_positions[i][0] + 4, snow_positions[i][1] + 1, 170, 80, 255, true);
-            qp_rect(display, snow_positions[i][0] + 1, snow_positions[i][1] - 2, snow_positions[i][0] + 1, snow_positions[i][1] + 4, 170, 80, 255, true);
+            fb_rect_hsv(snow_positions[i][0], snow_positions[i][1], snow_positions[i][0] + 2, snow_positions[i][1] + 2, 170, 80, 255, true);
+            fb_rect_hsv(snow_positions[i][0] - 2, snow_positions[i][1] + 1, snow_positions[i][0] + 4, snow_positions[i][1] + 1, 170, 80, 255, true);
+            fb_rect_hsv(snow_positions[i][0] + 1, snow_positions[i][1] - 2, snow_positions[i][0] + 1, snow_positions[i][1] + 4, 170, 80, 255, true);
         }
 
         // Draw snow on the ground
         // Create uneven snow drifts using overlapping shapes
-        qp_rect(display, 0, ground_y - 2, 134, ground_y, 0, 0, 240, true); // Base snow layer
+        fb_rect_hsv(0, ground_y - 2, 134, ground_y, 0, 0, 240, true); // Base snow layer
 
         // Add snow drifts with varying heights for natural look (extending upward from ground)
         struct { uint16_t x; uint8_t height; } snow_drifts[] = {
             {0, 2}, {20, 4}, {45, 3}, {70, 5}, {95, 3}, {115, 4}
         };
         for (uint8_t i = 0; i < 6; i++) {
-            qp_rect(display, snow_drifts[i].x, ground_y - snow_drifts[i].height, snow_drifts[i].x + 20, ground_y, 170, 40, 255, true);
+            fb_rect_hsv(snow_drifts[i].x, ground_y - snow_drifts[i].height, snow_drifts[i].x + 20, ground_y, 170, 40, 255, true);
         }
     } else if (season == 1) { // Spring - butterflies, flowers, and birds
         // Draw birds in the sky (larger V shapes) - 7 birds
@@ -687,9 +691,9 @@ void draw_seasonal_animation(void) {
         };
         for (uint8_t i = 0; i < 6; i++) {
             // Left wing (larger)
-            qp_rect(display, bird_positions[i][0] - 5, bird_positions[i][1], bird_positions[i][0] - 1, bird_positions[i][1] - 3, 0, 0, 100, true);
+            fb_rect_hsv(bird_positions[i][0] - 5, bird_positions[i][1], bird_positions[i][0] - 1, bird_positions[i][1] - 3, 0, 0, 100, true);
             // Right wing (larger)
-            qp_rect(display, bird_positions[i][0] + 1, bird_positions[i][1] - 3, bird_positions[i][0] + 5, bird_positions[i][1], 0, 0, 100, true);
+            fb_rect_hsv(bird_positions[i][0] + 1, bird_positions[i][1] - 3, bird_positions[i][0] + 5, bird_positions[i][1], 0, 0, 100, true);
         }
 
         // More butterflies, lower to the ground
@@ -699,8 +703,8 @@ void draw_seasonal_animation(void) {
             // Pink, cyan, yellow, magenta, red, pink, green, yellow, cyan
         };
         for (uint8_t i = 0; i < 9; i++) {
-            qp_circle(display, butterflies[i].x - 2, butterflies[i].y, 2, butterflies[i].hue, 255, 200, true);
-            qp_circle(display, butterflies[i].x + 2, butterflies[i].y, 2, butterflies[i].hue, 255, 200, true);
+            fb_circle_hsv(butterflies[i].x - 2, butterflies[i].y, 2, butterflies[i].hue, 255, 200, true);
+            fb_circle_hsv(butterflies[i].x + 2, butterflies[i].y, 2, butterflies[i].hue, 255, 200, true);
         }
 
         // Draw flowers on the ground (various colors and sizes)
@@ -712,11 +716,11 @@ void draw_seasonal_animation(void) {
         };
         for (uint8_t i = 0; i < 15; i++) {
             // Flower stem (green)
-            qp_rect(display, flowers[i].x, ground_y - flowers[i].stem_height, flowers[i].x + 1, ground_y, 85, 200, 150, true);
+            fb_rect_hsv(flowers[i].x, ground_y - flowers[i].stem_height, flowers[i].x + 1, ground_y, 85, 200, 150, true);
             // Flower petals (colorful circles with varying sizes)
-            qp_circle(display, flowers[i].x, ground_y - flowers[i].stem_height - 2, flowers[i].size, flowers[i].hue, 255, 220, true);
+            fb_circle_hsv(flowers[i].x, ground_y - flowers[i].stem_height - 2, flowers[i].size, flowers[i].hue, 255, 220, true);
             // Flower center (yellow, size varies with flower)
-            qp_circle(display, flowers[i].x, ground_y - flowers[i].stem_height - 2, flowers[i].size / 3, 42, 255, 255, true);
+            fb_circle_hsv(flowers[i].x, ground_y - flowers[i].stem_height - 2, flowers[i].size / 3, 42, 255, 255, true);
         }
     } else if (season == 2) { // Summer - sunflowers and airplane
         // Draw airplane in top left (more realistic side view)
@@ -724,27 +728,27 @@ void draw_seasonal_animation(void) {
         uint16_t plane_y = 25;
 
         // Main fuselage (body) - tapered at nose
-        qp_rect(display, plane_x + 3, plane_y + 1, plane_x + 25, plane_y + 4, 0, 0, 180, true);
+        fb_rect_hsv(plane_x + 3, plane_y + 1, plane_x + 25, plane_y + 4, 0, 0, 180, true);
 
         // Nose (pointed front)
-        qp_rect(display, plane_x + 1, plane_y + 2, plane_x + 3, plane_y + 3, 0, 0, 180, true);
+        fb_rect_hsv(plane_x + 1, plane_y + 2, plane_x + 3, plane_y + 3, 0, 0, 180, true);
 
         // Cockpit windows (series of light windows)
-        qp_rect(display, plane_x + 20, plane_y + 2, plane_x + 22, plane_y + 3, 170, 80, 240, true);
-        qp_rect(display, plane_x + 17, plane_y + 2, plane_x + 19, plane_y + 3, 170, 80, 240, true);
+        fb_rect_hsv(plane_x + 20, plane_y + 2, plane_x + 22, plane_y + 3, 170, 80, 240, true);
+        fb_rect_hsv(plane_x + 17, plane_y + 2, plane_x + 19, plane_y + 3, 170, 80, 240, true);
 
         // Main wings (swept back)
-        qp_rect(display, plane_x + 10, plane_y - 3, plane_x + 18, plane_y + 1, 0, 0, 180, true);
-        qp_rect(display, plane_x + 10, plane_y + 4, plane_x + 18, plane_y + 8, 0, 0, 180, true);
+        fb_rect_hsv(plane_x + 10, plane_y - 3, plane_x + 18, plane_y + 1, 0, 0, 180, true);
+        fb_rect_hsv(plane_x + 10, plane_y + 4, plane_x + 18, plane_y + 8, 0, 0, 180, true);
 
         // Tail section
         // Vertical stabilizer (tail fin)
-        qp_rect(display, plane_x + 3, plane_y - 3, plane_x + 6, plane_y + 1, 0, 0, 180, true);
+        fb_rect_hsv(plane_x + 3, plane_y - 3, plane_x + 6, plane_y + 1, 0, 0, 180, true);
         // Horizontal stabilizer
-        qp_rect(display, plane_x + 3, plane_y + 4, plane_x + 8, plane_y + 6, 0, 0, 180, true);
+        fb_rect_hsv(plane_x + 3, plane_y + 4, plane_x + 8, plane_y + 6, 0, 0, 180, true);
 
         // Engine under wing (optional detail)
-        qp_circle(display, plane_x + 13, plane_y + 7, 2, 0, 0, 160, true);
+        fb_circle_hsv(plane_x + 13, plane_y + 7, 2, 0, 0, 160, true);
 
         // Draw sunflowers on the ground (tall with large yellow heads)
         struct { uint16_t x; uint8_t stem_height; } sunflowers[] = {
@@ -752,13 +756,13 @@ void draw_seasonal_animation(void) {
         };
         for (uint8_t i = 0; i < 5; i++) {
             // Sunflower stem (green)
-            qp_rect(display, sunflowers[i].x, ground_y - sunflowers[i].stem_height, sunflowers[i].x + 2, ground_y, 85, 200, 150, true);
+            fb_rect_hsv(sunflowers[i].x, ground_y - sunflowers[i].stem_height, sunflowers[i].x + 2, ground_y, 85, 200, 150, true);
 
             // Large sunflower head (bright yellow)
-            qp_circle(display, sunflowers[i].x + 1, ground_y - sunflowers[i].stem_height - 3, 5, 42, 255, 255, true);
+            fb_circle_hsv(sunflowers[i].x + 1, ground_y - sunflowers[i].stem_height - 3, 5, 42, 255, 255, true);
 
             // Dark center (brown)
-            qp_circle(display, sunflowers[i].x + 1, ground_y - sunflowers[i].stem_height - 3, 2, 20, 200, 100, true);
+            fb_circle_hsv(sunflowers[i].x + 1, ground_y - sunflowers[i].stem_height - 3, 2, 20, 200, 100, true);
         }
     } else { // Fall - rain and clouds
         // Draw rain clouds (darker gray clouds)
@@ -767,10 +771,10 @@ void draw_seasonal_animation(void) {
         };
         for (uint8_t i = 0; i < 3; i++) {
             // Main cloud body (dark gray)
-            qp_circle(display, cloud_positions[i][0], cloud_positions[i][1], 9, 0, 0, 120, true);
-            qp_circle(display, cloud_positions[i][0] + 10, cloud_positions[i][1] + 2, 7, 0, 0, 120, true);
-            qp_circle(display, cloud_positions[i][0] - 8, cloud_positions[i][1] + 2, 7, 0, 0, 120, true);
-            qp_circle(display, cloud_positions[i][0] + 5, cloud_positions[i][1] - 4, 6, 0, 0, 110, true);
+            fb_circle_hsv(cloud_positions[i][0], cloud_positions[i][1], 9, 0, 0, 120, true);
+            fb_circle_hsv(cloud_positions[i][0] + 10, cloud_positions[i][1] + 2, 7, 0, 0, 120, true);
+            fb_circle_hsv(cloud_positions[i][0] - 8, cloud_positions[i][1] + 2, 7, 0, 0, 120, true);
+            fb_circle_hsv(cloud_positions[i][0] + 5, cloud_positions[i][1] - 4, 6, 0, 0, 110, true);
         }
 
         // Draw rain drops scattered throughout the scene
@@ -789,7 +793,7 @@ void draw_seasonal_animation(void) {
             // Draw raindrops (2 pixels wide, 4 pixels tall)
             uint8_t drop_height = 4;
             if (y_pos < 150) {
-                qp_rect(display, rain_positions[i][0], y_pos, rain_positions[i][0] + 1, y_pos + drop_height, 170, 150, 200, true);
+                fb_rect_hsv(rain_positions[i][0], y_pos, rain_positions[i][0] + 1, y_pos + drop_height, 170, 150, 200, true);
             }
         }
         rain_initialized = true;
@@ -802,7 +806,7 @@ void draw_seasonal_animation(void) {
         };
         for (uint8_t i = 0; i < 15; i++) {
             // Small leaves on ground (small circles just above ground line)
-            qp_circle(display, fallen_leaves[i].x, 146, 2, fallen_leaves[i].hue, 255, 220, true);
+            fb_circle_hsv(fallen_leaves[i].x, 146, 2, fallen_leaves[i].hue, 255, 220, true);
         }
     }
 
@@ -835,39 +839,39 @@ void draw_pumpkin(int16_t x, int16_t y, uint8_t size) {
     if (x < -size || x > 135 + size || y < -size || y > 152 + size) return;
 
     // Pumpkin body (orange circle)
-    qp_circle(display, x, y, size, 20, 255, 255, true);  // Bright orange
+    fb_circle_hsv(x, y, size, 20, 255, 255, true);  // Bright orange
 
     // Darker orange shading on bottom
-    qp_circle(display, x, y + size/3, size - 2, 16, 255, 220, true);
+    fb_circle_hsv(x, y + size/3, size - 2, 16, 255, 220, true);
 
     // Draw jack-o-lantern face (scale with size)
     uint8_t eye_offset = size / 3;
     uint8_t eye_size = size / 4;
 
     // Left eye (triangle)
-    qp_rect(display, x - eye_offset - eye_size, y - eye_offset,
+    fb_rect_hsv(x - eye_offset - eye_size, y - eye_offset,
             x - eye_offset + eye_size, y - eye_offset + eye_size, 0, 0, 0, true);
 
     // Right eye (triangle)
-    qp_rect(display, x + eye_offset - eye_size, y - eye_offset,
+    fb_rect_hsv(x + eye_offset - eye_size, y - eye_offset,
             x + eye_offset + eye_size, y - eye_offset + eye_size, 0, 0, 0, true);
 
     // Nose (small triangle)
-    qp_rect(display, x - eye_size/2, y,
+    fb_rect_hsv(x - eye_size/2, y,
             x + eye_size/2, y + eye_size, 0, 0, 0, true);
 
     // Mouth (jagged grin)
-    qp_rect(display, x - size/2, y + size/3,
+    fb_rect_hsv(x - size/2, y + size/3,
             x + size/2, y + size/2, 0, 0, 0, true);
 
     // Teeth (make gaps in the mouth)
     for (int8_t i = -size/3; i < size/3; i += size/4) {
-        qp_rect(display, x + i, y + size/3,
+        fb_rect_hsv(x + i, y + size/3,
                 x + i + size/6, y + size/2 - 1, 20, 255, 255, true);
     }
 
     // Stem (brown/green)
-    qp_rect(display, x - 2, y - size - 3, x + 2, y - size + 1, 85, 200, 100, true);
+    fb_rect_hsv(x - 2, y - size - 3, x + 2, y - size + 1, 85, 200, 100, true);
 }
 
 // Draw a ghost (static)
@@ -876,23 +880,23 @@ void draw_ghost(int16_t x, int16_t y) {
 
     // Ghost body (white rounded shape)
     // Head (circle)
-    qp_circle(display, x, y, 7, 0, 0, 240, true);  // Light grey-white
+    fb_circle_hsv(x, y, 7, 0, 0, 240, true);  // Light grey-white
 
     // Body (rounded rectangle)
-    qp_rect(display, x - 7, y, x + 7, y + 12, 0, 0, 240, true);
+    fb_rect_hsv(x - 7, y, x + 7, y + 12, 0, 0, 240, true);
 
     // Wavy bottom edge (static)
-    qp_rect(display, x - 7, y + 10, x - 4, y + 13, 0, 0, 240, true);
-    qp_rect(display, x - 3, y + 10, x + 0, y + 12, 0, 0, 240, true);
-    qp_rect(display, x + 1, y + 10, x + 4, y + 13, 0, 0, 240, true);
-    qp_rect(display, x + 5, y + 10, x + 7, y + 12, 0, 0, 240, true);
+    fb_rect_hsv(x - 7, y + 10, x - 4, y + 13, 0, 0, 240, true);
+    fb_rect_hsv(x - 3, y + 10, x + 0, y + 12, 0, 0, 240, true);
+    fb_rect_hsv(x + 1, y + 10, x + 4, y + 13, 0, 0, 240, true);
+    fb_rect_hsv(x + 5, y + 10, x + 7, y + 12, 0, 0, 240, true);
 
     // Eyes (black dots)
-    qp_rect(display, x - 3, y - 2, x - 1, y, 0, 0, 0, true);  // Left eye
-    qp_rect(display, x + 1, y - 2, x + 3, y, 0, 0, 0, true);  // Right eye
+    fb_rect_hsv(x - 3, y - 2, x - 1, y, 0, 0, 0, true);  // Left eye
+    fb_rect_hsv(x + 1, y - 2, x + 3, y, 0, 0, 0, true);  // Right eye
 
     // Mouth (small O shape)
-    qp_circle(display, x, y + 3, 2, 0, 0, 0, false);
+    fb_circle_hsv(x, y + 3, 2, 0, 0, 0, false);
 }
 
 // Draw all Halloween elements (static decorations)
@@ -964,26 +968,26 @@ void draw_christmas_item(christmas_item_type_t type, int16_t x, int16_t y) {
         case XMAS_PRESENT_BLUE: {
             // Gift box with bow
             uint8_t hue = (type == XMAS_PRESENT_RED) ? 0 : (type == XMAS_PRESENT_GREEN) ? 85 : 170;
-            qp_rect(display, x - 4, y - 4, x + 4, y + 4, hue, 255, 200, true);  // Box
-            qp_rect(display, x - 4, y - 1, x + 4, y + 1, 42, 200, 255, true);   // Ribbon horizontal
-            qp_rect(display, x - 1, y - 4, x + 1, y + 4, 42, 200, 255, true);   // Ribbon vertical
-            qp_rect(display, x - 2, y - 6, x + 2, y - 4, 42, 200, 255, true);   // Bow
+            fb_rect_hsv(x - 4, y - 4, x + 4, y + 4, hue, 255, 200, true);  // Box
+            fb_rect_hsv(x - 4, y - 1, x + 4, y + 1, 42, 200, 255, true);   // Ribbon horizontal
+            fb_rect_hsv(x - 1, y - 4, x + 1, y + 4, 42, 200, 255, true);   // Ribbon vertical
+            fb_rect_hsv(x - 2, y - 6, x + 2, y - 4, 42, 200, 255, true);   // Bow
             break;
         }
         case XMAS_CANDY_CANE: {
             // Red and white striped candy cane
-            qp_rect(display, x, y - 8, x + 2, y, 0, 255, 255, true);            // Stick (red)
-            qp_rect(display, x, y - 11, x + 5, y - 9, 0, 255, 255, true);       // Hook (red)
-            qp_rect(display, x, y - 6, x + 2, y - 4, 0, 0, 255, true);          // White stripe 1
-            qp_rect(display, x, y - 2, x + 2, y, 0, 0, 255, true);              // White stripe 2
-            qp_rect(display, x + 3, y - 11, x + 5, y - 10, 0, 0, 255, true);    // White stripe on hook
+            fb_rect_hsv(x, y - 8, x + 2, y, 0, 255, 255, true);            // Stick (red)
+            fb_rect_hsv(x, y - 11, x + 5, y - 9, 0, 255, 255, true);       // Hook (red)
+            fb_rect_hsv(x, y - 6, x + 2, y - 4, 0, 0, 255, true);          // White stripe 1
+            fb_rect_hsv(x, y - 2, x + 2, y, 0, 0, 255, true);              // White stripe 2
+            fb_rect_hsv(x + 3, y - 11, x + 5, y - 10, 0, 0, 255, true);    // White stripe on hook
             break;
         }
         case XMAS_STOCKING: {
             // Christmas stocking
-            qp_rect(display, x - 3, y - 8, x + 2, y - 2, 0, 255, 220, true);    // Stocking body (red)
-            qp_rect(display, x - 2, y - 2, x + 4, y, 0, 255, 220, true);        // Foot
-            qp_rect(display, x - 3, y - 9, x + 2, y - 8, 0, 0, 255, true);      // White trim
+            fb_rect_hsv(x - 3, y - 8, x + 2, y - 2, 0, 255, 220, true);    // Stocking body (red)
+            fb_rect_hsv(x - 2, y - 2, x + 4, y, 0, 255, 220, true);        // Foot
+            fb_rect_hsv(x - 3, y - 9, x + 2, y - 8, 0, 0, 255, true);      // White trim
             break;
         }
         case XMAS_ORNAMENT_RED:
@@ -991,132 +995,132 @@ void draw_christmas_item(christmas_item_type_t type, int16_t x, int16_t y) {
         case XMAS_ORNAMENT_BLUE: {
             // Christmas ornament ball
             uint8_t hue = (type == XMAS_ORNAMENT_RED) ? 0 : (type == XMAS_ORNAMENT_GOLD) ? 42 : 170;
-            qp_circle(display, x, y, 4, hue, 255, 255, true);                   // Ball
-            qp_rect(display, x - 1, y - 5, x + 1, y - 4, 0, 0, 180, true);      // Hanger
+            fb_circle_hsv(x, y, 4, hue, 255, 255, true);                   // Ball
+            fb_rect_hsv(x - 1, y - 5, x + 1, y - 4, 0, 0, 180, true);      // Hanger
             break;
         }
         case XMAS_BELL: {
             // Golden bell
-            qp_rect(display, x - 3, y - 2, x + 3, y + 2, 42, 255, 255, true);   // Bell body
-            qp_rect(display, x - 4, y - 3, x + 4, y - 2, 42, 255, 255, true);   // Bell top
-            qp_circle(display, x, y + 3, 1, 42, 255, 200, true);                // Clapper
+            fb_rect_hsv(x - 3, y - 2, x + 3, y + 2, 42, 255, 255, true);   // Bell body
+            fb_rect_hsv(x - 4, y - 3, x + 4, y - 2, 42, 255, 255, true);   // Bell top
+            fb_circle_hsv(x, y + 3, 1, 42, 255, 200, true);                // Clapper
             break;
         }
         case XMAS_HOLLY: {
             // Holly leaves with berries
-            qp_rect(display, x - 4, y - 1, x + 4, y + 1, 85, 255, 180, true);   // Leaves
-            qp_circle(display, x - 3, y - 2, 1, 0, 255, 255, true);             // Berry 1
-            qp_circle(display, x + 3, y - 2, 1, 0, 255, 255, true);             // Berry 2
+            fb_rect_hsv(x - 4, y - 1, x + 4, y + 1, 85, 255, 180, true);   // Leaves
+            fb_circle_hsv(x - 3, y - 2, 1, 0, 255, 255, true);             // Berry 1
+            fb_circle_hsv(x + 3, y - 2, 1, 0, 255, 255, true);             // Berry 2
             break;
         }
         case XMAS_STAR_SMALL: {
             // 5-pointed star (gold)
-            qp_rect(display, x - 1, y - 3, x + 1, y + 3, 42, 255, 255, true);   // Vertical
-            qp_rect(display, x - 3, y - 1, x + 3, y + 1, 42, 255, 255, true);   // Horizontal
-            qp_rect(display, x - 2, y - 2, x + 2, y + 2, 42, 255, 255, true);   // Diagonal cross
+            fb_rect_hsv(x - 1, y - 3, x + 1, y + 3, 42, 255, 255, true);   // Vertical
+            fb_rect_hsv(x - 3, y - 1, x + 3, y + 1, 42, 255, 255, true);   // Horizontal
+            fb_rect_hsv(x - 2, y - 2, x + 2, y + 2, 42, 255, 255, true);   // Diagonal cross
             break;
         }
         case XMAS_SNOWFLAKE: {
             // Snowflake
-            qp_rect(display, x, y - 4, x, y + 4, 170, 100, 255, true);          // Vertical
-            qp_rect(display, x - 4, y, x + 4, y, 170, 100, 255, true);          // Horizontal
-            qp_rect(display, x - 3, y - 3, x + 3, y + 3, 170, 100, 255, true);  // Diagonal
-            qp_rect(display, x - 3, y + 3, x + 3, y - 3, 170, 100, 255, true);  // Diagonal
+            fb_rect_hsv(x, y - 4, x, y + 4, 170, 100, 255, true);          // Vertical
+            fb_rect_hsv(x - 4, y, x + 4, y, 170, 100, 255, true);          // Horizontal
+            fb_rect_hsv(x - 3, y - 3, x + 3, y + 3, 170, 100, 255, true);  // Diagonal
+            fb_rect_hsv(x - 3, y + 3, x + 3, y - 3, 170, 100, 255, true);  // Diagonal
             break;
         }
         case XMAS_CANDLE: {
             // Candle with flame
-            qp_rect(display, x - 2, y - 8, x + 2, y, 0, 255, 200, true);        // Candle (red)
-            qp_rect(display, x - 1, y - 11, x + 1, y - 8, 42, 255, 255, true);  // Flame
+            fb_rect_hsv(x - 2, y - 8, x + 2, y, 0, 255, 200, true);        // Candle (red)
+            fb_rect_hsv(x - 1, y - 11, x + 1, y - 8, 42, 255, 255, true);  // Flame
             break;
         }
         case XMAS_TREE_SMALL: {
             // Small decorated tree
-            qp_rect(display, x - 1, y - 2, x + 1, y, 20, 200, 120, true);       // Trunk
-            qp_circle(display, x, y - 5, 4, 85, 255, 180, true);                // Foliage
-            qp_circle(display, x - 2, y - 4, 1, 0, 255, 255, true);             // Red ornament
-            qp_circle(display, x + 2, y - 6, 1, 42, 255, 255, true);            // Gold ornament
+            fb_rect_hsv(x - 1, y - 2, x + 1, y, 20, 200, 120, true);       // Trunk
+            fb_circle_hsv(x, y - 5, 4, 85, 255, 180, true);                // Foliage
+            fb_circle_hsv(x - 2, y - 4, 1, 0, 255, 255, true);             // Red ornament
+            fb_circle_hsv(x + 2, y - 6, 1, 42, 255, 255, true);            // Gold ornament
             break;
         }
         case XMAS_GINGERBREAD: {
             // Gingerbread man
-            qp_circle(display, x, y - 6, 2, 20, 200, 150, true);                // Head
-            qp_rect(display, x - 2, y - 4, x + 2, y + 2, 20, 200, 150, true);   // Body
-            qp_rect(display, x - 4, y - 2, x - 2, y, 20, 200, 150, true);       // Left arm
-            qp_rect(display, x + 2, y - 2, x + 4, y, 20, 200, 150, true);       // Right arm
-            qp_rect(display, x - 2, y + 2, x, y + 4, 20, 200, 150, true);       // Left leg
-            qp_rect(display, x, y + 2, x + 2, y + 4, 20, 200, 150, true);       // Right leg
+            fb_circle_hsv(x, y - 6, 2, 20, 200, 150, true);                // Head
+            fb_rect_hsv(x - 2, y - 4, x + 2, y + 2, 20, 200, 150, true);   // Body
+            fb_rect_hsv(x - 4, y - 2, x - 2, y, 20, 200, 150, true);       // Left arm
+            fb_rect_hsv(x + 2, y - 2, x + 4, y, 20, 200, 150, true);       // Right arm
+            fb_rect_hsv(x - 2, y + 2, x, y + 4, 20, 200, 150, true);       // Left leg
+            fb_rect_hsv(x, y + 2, x + 2, y + 4, 20, 200, 150, true);       // Right leg
             break;
         }
         case XMAS_WREATH: {
             // Christmas wreath
-            qp_circle(display, x, y, 5, 85, 255, 180, false);                   // Green circle
-            qp_circle(display, x, y, 4, 85, 255, 180, false);                   // Double outline
-            qp_rect(display, x - 2, y + 5, x + 2, y + 7, 0, 255, 255, true);    // Red bow
+            fb_circle_hsv(x, y, 5, 85, 255, 180, false);                   // Green circle
+            fb_circle_hsv(x, y, 4, 85, 255, 180, false);                   // Double outline
+            fb_rect_hsv(x - 2, y + 5, x + 2, y + 7, 0, 255, 255, true);    // Red bow
             break;
         }
         case XMAS_ANGEL: {
             // Angel
-            qp_circle(display, x, y - 5, 2, 42, 100, 255, true);                // Halo (gold)
-            qp_circle(display, x, y - 2, 2, 0, 0, 240, true);                   // Head (white)
-            qp_rect(display, x - 3, y, x + 3, y + 4, 0, 0, 240, true);          // Body (white)
-            qp_rect(display, x - 5, y + 1, x - 3, y + 3, 0, 0, 220, true);      // Left wing
-            qp_rect(display, x + 3, y + 1, x + 5, y + 3, 0, 0, 220, true);      // Right wing
+            fb_circle_hsv(x, y - 5, 2, 42, 100, 255, true);                // Halo (gold)
+            fb_circle_hsv(x, y - 2, 2, 0, 0, 240, true);                   // Head (white)
+            fb_rect_hsv(x - 3, y, x + 3, y + 4, 0, 0, 240, true);          // Body (white)
+            fb_rect_hsv(x - 5, y + 1, x - 3, y + 3, 0, 0, 220, true);      // Left wing
+            fb_rect_hsv(x + 3, y + 1, x + 5, y + 3, 0, 0, 220, true);      // Right wing
             break;
         }
         case XMAS_REINDEER_SMALL: {
             // Small reindeer
-            qp_circle(display, x, y, 2, 20, 200, 150, true);                    // Body (brown)
-            qp_circle(display, x + 2, y - 2, 1, 20, 200, 150, true);            // Head
-            qp_rect(display, x + 1, y - 4, x + 2, y - 3, 20, 200, 120, true);   // Antler
-            qp_rect(display, x + 3, y - 1, x + 3, y, 0, 255, 255, true);        // Red nose
+            fb_circle_hsv(x, y, 2, 20, 200, 150, true);                    // Body (brown)
+            fb_circle_hsv(x + 2, y - 2, 1, 20, 200, 150, true);            // Head
+            fb_rect_hsv(x + 1, y - 4, x + 2, y - 3, 20, 200, 120, true);   // Antler
+            fb_rect_hsv(x + 3, y - 1, x + 3, y, 0, 255, 255, true);        // Red nose
             break;
         }
         case XMAS_SNOWMAN_SMALL: {
             // Small snowman
-            qp_circle(display, x, y - 5, 2, 0, 0, 240, true);                   // Head
-            qp_circle(display, x, y - 1, 3, 0, 0, 240, true);                   // Body
-            qp_rect(display, x - 1, y - 5, x + 1, y - 5, 0, 0, 0, true);        // Eyes
-            qp_rect(display, x - 3, y - 6, x + 3, y - 6, 20, 200, 100, true);   // Hat
+            fb_circle_hsv(x, y - 5, 2, 0, 0, 240, true);                   // Head
+            fb_circle_hsv(x, y - 1, 3, 0, 0, 240, true);                   // Body
+            fb_rect_hsv(x - 1, y - 5, x + 1, y - 5, 0, 0, 0, true);        // Eyes
+            fb_rect_hsv(x - 3, y - 6, x + 3, y - 6, 20, 200, 100, true);   // Hat
             break;
         }
         case XMAS_LIGHTS: {
             // String of Christmas lights
-            qp_rect(display, x, y, x + 15, y, 0, 0, 100, true);                 // String
-            qp_circle(display, x + 2, y + 1, 1, 0, 255, 255, true);             // Red bulb
-            qp_circle(display, x + 6, y + 1, 1, 85, 255, 255, true);            // Green bulb
-            qp_circle(display, x + 10, y + 1, 1, 170, 255, 255, true);          // Blue bulb
-            qp_circle(display, x + 14, y + 1, 1, 42, 255, 255, true);           // Yellow bulb
+            fb_rect_hsv(x, y, x + 15, y, 0, 0, 100, true);                 // String
+            fb_circle_hsv(x + 2, y + 1, 1, 0, 255, 255, true);             // Red bulb
+            fb_circle_hsv(x + 6, y + 1, 1, 85, 255, 255, true);            // Green bulb
+            fb_circle_hsv(x + 10, y + 1, 1, 170, 255, 255, true);          // Blue bulb
+            fb_circle_hsv(x + 14, y + 1, 1, 42, 255, 255, true);           // Yellow bulb
             break;
         }
         case XMAS_MISTLETOE: {
             // Mistletoe
-            qp_circle(display, x, y, 3, 85, 200, 150, true);                    // Green leaves
-            qp_circle(display, x - 2, y - 1, 1, 0, 0, 255, true);               // White berry
-            qp_circle(display, x + 2, y - 1, 1, 0, 0, 255, true);               // White berry
+            fb_circle_hsv(x, y, 3, 85, 200, 150, true);                    // Green leaves
+            fb_circle_hsv(x - 2, y - 1, 1, 0, 0, 255, true);               // White berry
+            fb_circle_hsv(x + 2, y - 1, 1, 0, 0, 255, true);               // White berry
             break;
         }
         case XMAS_NORTH_STAR: {
             // Large North Star (bright)
-            qp_rect(display, x - 1, y - 5, x + 1, y + 5, 42, 255, 255, true);   // Vertical
-            qp_rect(display, x - 5, y - 1, x + 5, y + 1, 42, 255, 255, true);   // Horizontal
-            qp_rect(display, x - 3, y - 3, x + 3, y + 3, 42, 255, 255, true);   // Diagonal 1
-            qp_rect(display, x - 3, y + 3, x + 3, y - 3, 42, 255, 255, true);   // Diagonal 2
+            fb_rect_hsv(x - 1, y - 5, x + 1, y + 5, 42, 255, 255, true);   // Vertical
+            fb_rect_hsv(x - 5, y - 1, x + 5, y + 1, 42, 255, 255, true);   // Horizontal
+            fb_rect_hsv(x - 3, y - 3, x + 3, y + 3, 42, 255, 255, true);   // Diagonal 1
+            fb_rect_hsv(x - 3, y + 3, x + 3, y - 3, 42, 255, 255, true);   // Diagonal 2
             // Add glow
-            qp_circle(display, x, y, 6, 42, 150, 200, false);                   // Glow ring
+            fb_circle_hsv(x, y, 6, 42, 150, 200, false);                   // Glow ring
             break;
         }
         case XMAS_SLEIGH_BELL: {
             // Small sleigh bell (gold)
-            qp_circle(display, x, y, 2, 42, 255, 255, true);                    // Bell
-            qp_rect(display, x - 1, y - 3, x + 1, y - 2, 42, 200, 200, true);   // Top
+            fb_circle_hsv(x, y, 2, 42, 255, 255, true);                    // Bell
+            fb_rect_hsv(x - 1, y - 3, x + 1, y - 2, 42, 200, 200, true);   // Top
             break;
         }
         case XMAS_HEART: {
             // Heart ornament (red)
-            qp_circle(display, x - 2, y - 2, 2, 0, 255, 255, true);             // Left circle
-            qp_circle(display, x + 2, y - 2, 2, 0, 255, 255, true);             // Right circle
-            qp_rect(display, x - 3, y - 1, x + 3, y + 2, 0, 255, 255, true);    // Bottom triangle
+            fb_circle_hsv(x - 2, y - 2, 2, 0, 255, 255, true);             // Left circle
+            fb_circle_hsv(x + 2, y - 2, 2, 0, 255, 255, true);             // Right circle
+            fb_rect_hsv(x - 3, y - 1, x + 3, y + 2, 0, 255, 255, true);    // Bottom triangle
             break;
         }
     }
@@ -1136,34 +1140,34 @@ void draw_santa_sleigh(int16_t x, int16_t y) {
 
     // Reindeer (simplified - 2 reindeer)
     // Leading reindeer
-    qp_circle(display, x + 40, y, 3, 20, 200, 150, true);                       // Body
-    qp_circle(display, x + 43, y - 2, 2, 20, 200, 150, true);                   // Head
-    qp_rect(display, x + 42, y - 5, x + 43, y - 3, 20, 180, 120, true);         // Antler left
-    qp_rect(display, x + 44, y - 5, x + 45, y - 3, 20, 180, 120, true);         // Antler right
-    qp_circle(display, x + 45, y - 2, 1, 0, 255, 255, true);                    // Red nose (Rudolph!)
-    qp_rect(display, x + 38, y + 2, x + 39, y + 4, 20, 200, 130, true);         // Legs
-    qp_rect(display, x + 42, y + 2, x + 43, y + 4, 20, 200, 130, true);
+    fb_circle_hsv(x + 40, y, 3, 20, 200, 150, true);                       // Body
+    fb_circle_hsv(x + 43, y - 2, 2, 20, 200, 150, true);                   // Head
+    fb_rect_hsv(x + 42, y - 5, x + 43, y - 3, 20, 180, 120, true);         // Antler left
+    fb_rect_hsv(x + 44, y - 5, x + 45, y - 3, 20, 180, 120, true);         // Antler right
+    fb_circle_hsv(x + 45, y - 2, 1, 0, 255, 255, true);                    // Red nose (Rudolph!)
+    fb_rect_hsv(x + 38, y + 2, x + 39, y + 4, 20, 200, 130, true);         // Legs
+    fb_rect_hsv(x + 42, y + 2, x + 43, y + 4, 20, 200, 130, true);
 
     // Second reindeer
-    qp_circle(display, x + 25, y + 1, 3, 20, 200, 150, true);                   // Body
-    qp_circle(display, x + 28, y - 1, 2, 20, 200, 150, true);                   // Head
-    qp_rect(display, x + 27, y - 4, x + 28, y - 2, 20, 180, 120, true);         // Antler
-    qp_rect(display, x + 29, y - 4, x + 30, y - 2, 20, 180, 120, true);
+    fb_circle_hsv(x + 25, y + 1, 3, 20, 200, 150, true);                   // Body
+    fb_circle_hsv(x + 28, y - 1, 2, 20, 200, 150, true);                   // Head
+    fb_rect_hsv(x + 27, y - 4, x + 28, y - 2, 20, 180, 120, true);         // Antler
+    fb_rect_hsv(x + 29, y - 4, x + 30, y - 2, 20, 180, 120, true);
 
     // Reins (connecting reindeer to sleigh)
-    qp_rect(display, x + 20, y + 2, x + 40, y + 2, 20, 180, 100, true);         // Rein line
+    fb_rect_hsv(x + 20, y + 2, x + 40, y + 2, 20, 180, 100, true);         // Rein line
 
     // Sleigh
-    qp_rect(display, x + 5, y + 2, x + 20, y + 8, 0, 255, 220, true);           // Sleigh body (red)
-    qp_rect(display, x + 5, y + 8, x + 20, y + 10, 42, 200, 200, true);         // Sleigh runners (gold)
-    qp_rect(display, x + 8, y - 2, x + 17, y + 2, 0, 200, 180, true);           // Gift sack
+    fb_rect_hsv(x + 5, y + 2, x + 20, y + 8, 0, 255, 220, true);           // Sleigh body (red)
+    fb_rect_hsv(x + 5, y + 8, x + 20, y + 10, 42, 200, 200, true);         // Sleigh runners (gold)
+    fb_rect_hsv(x + 8, y - 2, x + 17, y + 2, 0, 200, 180, true);           // Gift sack
 
     // Santa
-    qp_circle(display, x + 12, y - 2, 2, 20, 150, 255, true);                   // Head (peach)
-    qp_rect(display, x + 10, y, x + 14, y + 4, 0, 255, 220, true);              // Body (red suit)
-    qp_rect(display, x + 10, y - 1, x + 14, y, 0, 0, 255, true);                // White trim
-    qp_circle(display, x + 12, y - 4, 2, 0, 255, 255, true);                    // Hat
-    qp_rect(display, x + 11, y - 5, x + 13, y - 4, 0, 0, 255, true);            // Hat pom-pom
+    fb_circle_hsv(x + 12, y - 2, 2, 20, 150, 255, true);                   // Head (peach)
+    fb_rect_hsv(x + 10, y, x + 14, y + 4, 0, 255, 220, true);              // Body (red suit)
+    fb_rect_hsv(x + 10, y - 1, x + 14, y, 0, 0, 255, true);                // White trim
+    fb_circle_hsv(x + 12, y - 4, 2, 0, 255, 255, true);                    // Hat
+    fb_rect_hsv(x + 11, y - 5, x + 13, y - 4, 0, 0, 255, true);            // Hat pom-pom
 }
 
 // Update Santa's sleigh position
@@ -1211,7 +1215,7 @@ bool is_new_years_eve(void) {
 // Draw a single static firework burst
 void draw_static_firework(int16_t x, int16_t y, uint8_t hue, uint8_t size) {
     // Draw center bright spot
-    qp_circle(display, x, y, size / 2, hue, 255, 255, true);
+    fb_circle_hsv(x, y, size / 2, hue, 255, 255, true);
 
     // Draw burst particles in 8 directions
     for (uint8_t angle = 0; angle < 8; angle++) {
@@ -1232,14 +1236,14 @@ void draw_static_firework(int16_t x, int16_t y, uint8_t hue, uint8_t size) {
 
         // Draw particle
         if (px >= 0 && px < 135 && py >= 0 && py < 152) {
-            qp_circle(display, px, py, 2, hue, 255, 220, true);
+            fb_circle_hsv(px, py, 2, hue, 255, 220, true);
         }
 
         // Draw trail between center and particle
         int16_t mid_x = x + (dx / 2);
         int16_t mid_y = y + (dy / 2);
         if (mid_x >= 0 && mid_x < 135 && mid_y >= 0 && mid_y < 152) {
-            qp_circle(display, mid_x, mid_y, 1, hue, 200, 180, true);
+            fb_circle_hsv(mid_x, mid_y, 1, hue, 200, 180, true);
         }
     }
 }
@@ -1267,22 +1271,22 @@ void draw_fireworks_scene(void) {
     uint16_t text_y = 130;
 
     // H
-    qp_rect(display, text_x, text_y, text_x + 2, text_y + 12, 42, 255, 255, true);
-    qp_rect(display, text_x + 8, text_y, text_x + 10, text_y + 12, 42, 255, 255, true);
-    qp_rect(display, text_x, text_y + 5, text_x + 10, text_y + 7, 42, 255, 255, true);
+    fb_rect_hsv(text_x, text_y, text_x + 2, text_y + 12, 42, 255, 255, true);
+    fb_rect_hsv(text_x + 8, text_y, text_x + 10, text_y + 12, 42, 255, 255, true);
+    fb_rect_hsv(text_x, text_y + 5, text_x + 10, text_y + 7, 42, 255, 255, true);
 
     // N
     text_x += 15;
-    qp_rect(display, text_x, text_y, text_x + 2, text_y + 12, 42, 255, 255, true);
-    qp_rect(display, text_x + 8, text_y, text_x + 10, text_y + 12, 42, 255, 255, true);
-    qp_rect(display, text_x + 2, text_y + 4, text_x + 8, text_y + 8, 42, 255, 255, true);
+    fb_rect_hsv(text_x, text_y, text_x + 2, text_y + 12, 42, 255, 255, true);
+    fb_rect_hsv(text_x + 8, text_y, text_x + 10, text_y + 12, 42, 255, 255, true);
+    fb_rect_hsv(text_x + 2, text_y + 4, text_x + 8, text_y + 8, 42, 255, 255, true);
 
     // Y
     text_x += 15;
-    qp_rect(display, text_x, text_y, text_x + 2, text_y + 6, 42, 255, 255, true);
-    qp_rect(display, text_x + 8, text_y, text_x + 10, text_y + 6, 42, 255, 255, true);
-    qp_rect(display, text_x + 2, text_y + 6, text_x + 8, text_y + 8, 42, 255, 255, true);
-    qp_rect(display, text_x + 4, text_y + 8, text_x + 6, text_y + 12, 42, 255, 255, true);
+    fb_rect_hsv(text_x, text_y, text_x + 2, text_y + 6, 42, 255, 255, true);
+    fb_rect_hsv(text_x + 8, text_y, text_x + 10, text_y + 6, 42, 255, 255, true);
+    fb_rect_hsv(text_x + 2, text_y + 6, text_x + 8, text_y + 8, 42, 255, 255, true);
+    fb_rect_hsv(text_x + 4, text_y + 8, text_x + 6, text_y + 12, 42, 255, 255, true);
 }
 
 // Function to draw logo with color based on layer
@@ -1303,10 +1307,10 @@ void set_layer_background(uint8_t layer) {
     // If full redraw is forced, clear screen and redraw everything
     if (force_full_redraw) {
         // Clear entire screen
-        qp_rect(display, 0, 0, 134, 239, 0, 0, 0, true);
+        fb_rect_hsv(0, 0, 134, 239, 0, 0, 0, true);
 
         // Draw the logo in teal (always the same color)
-        draw_amboss_logo(display, 7, 10, 128, 255, 255);
+        draw_amboss_logo(7, 10, 128, 255, 255);
 
         // Draw seasonal animation between logo and date
         draw_seasonal_animation();
@@ -1324,7 +1328,9 @@ void set_layer_background(uint8_t layer) {
     // Redraw volume bar with the same color at the bottom
     draw_volume_bar(hue, sat, val);
 
-    qp_flush(display);
+    // Flush both framebuffer (upper) and QP (lower)
+    fb_flush(display);   // Flush framebuffer scenic area
+    qp_flush(display);   // Flush QP info area
 }
 
 // Update display based on current layer state
@@ -1361,34 +1367,34 @@ void draw_brightness_indicator(void) {
     uint16_t box_h = 40;
 
     // Draw dark grey background box with lighter border
-    qp_rect(display, box_x, box_y, box_x + box_w, box_y + box_h, 0, 0, 40, true);
-    qp_rect(display, box_x, box_y, box_x + box_w, box_y + box_h, 0, 0, 150, false);
+    fb_rect_hsv(box_x, box_y, box_x + box_w, box_y + box_h, 0, 0, 40, true);
+    fb_rect_hsv(box_x, box_y, box_x + box_w, box_y + box_h, 0, 0, 150, false);
 
     // Draw "BRI" text using simple rectangles at top of box
     uint16_t text_y = box_y + 6;
     uint16_t text_x = box_x + 8;
 
     // B (white text)
-    qp_rect(display, text_x, text_y, text_x + 1, text_y + 9, 0, 0, 255, true);
-    qp_rect(display, text_x, text_y, text_x + 6, text_y + 1, 0, 0, 255, true);
-    qp_rect(display, text_x, text_y + 4, text_x + 5, text_y + 5, 0, 0, 255, true);
-    qp_rect(display, text_x, text_y + 9, text_x + 6, text_y + 10, 0, 0, 255, true);
-    qp_rect(display, text_x + 5, text_y + 1, text_x + 7, text_y + 4, 0, 0, 255, true);
-    qp_rect(display, text_x + 5, text_y + 5, text_x + 7, text_y + 9, 0, 0, 255, true);
+    fb_rect_hsv(text_x, text_y, text_x + 1, text_y + 9, 0, 0, 255, true);
+    fb_rect_hsv(text_x, text_y, text_x + 6, text_y + 1, 0, 0, 255, true);
+    fb_rect_hsv(text_x, text_y + 4, text_x + 5, text_y + 5, 0, 0, 255, true);
+    fb_rect_hsv(text_x, text_y + 9, text_x + 6, text_y + 10, 0, 0, 255, true);
+    fb_rect_hsv(text_x + 5, text_y + 1, text_x + 7, text_y + 4, 0, 0, 255, true);
+    fb_rect_hsv(text_x + 5, text_y + 5, text_x + 7, text_y + 9, 0, 0, 255, true);
 
     // R (white text)
     text_x += 10;
-    qp_rect(display, text_x, text_y, text_x + 1, text_y + 9, 0, 0, 255, true);
-    qp_rect(display, text_x, text_y, text_x + 6, text_y + 1, 0, 0, 255, true);
-    qp_rect(display, text_x, text_y + 4, text_x + 5, text_y + 5, 0, 0, 255, true);
-    qp_rect(display, text_x + 5, text_y + 1, text_x + 7, text_y + 4, 0, 0, 255, true);
-    qp_rect(display, text_x + 4, text_y + 5, text_x + 7, text_y + 9, 0, 0, 255, true);
+    fb_rect_hsv(text_x, text_y, text_x + 1, text_y + 9, 0, 0, 255, true);
+    fb_rect_hsv(text_x, text_y, text_x + 6, text_y + 1, 0, 0, 255, true);
+    fb_rect_hsv(text_x, text_y + 4, text_x + 5, text_y + 5, 0, 0, 255, true);
+    fb_rect_hsv(text_x + 5, text_y + 1, text_x + 7, text_y + 4, 0, 0, 255, true);
+    fb_rect_hsv(text_x + 4, text_y + 5, text_x + 7, text_y + 9, 0, 0, 255, true);
 
     // I (white text)
     text_x += 10;
-    qp_rect(display, text_x, text_y, text_x + 5, text_y + 1, 0, 0, 255, true);
-    qp_rect(display, text_x + 2, text_y + 1, text_x + 3, text_y + 9, 0, 0, 255, true);
-    qp_rect(display, text_x, text_y + 9, text_x + 5, text_y + 10, 0, 0, 255, true);
+    fb_rect_hsv(text_x, text_y, text_x + 5, text_y + 1, 0, 0, 255, true);
+    fb_rect_hsv(text_x + 2, text_y + 1, text_x + 3, text_y + 9, 0, 0, 255, true);
+    fb_rect_hsv(text_x, text_y + 9, text_x + 5, text_y + 10, 0, 0, 255, true);
 
     // Draw percentage using 7-segment digits
     uint16_t digit_x = box_x + 36;
@@ -1421,13 +1427,13 @@ void draw_brightness_indicator(void) {
     digit_x += 14;
 
     // Draw "%" symbol
-    qp_rect(display, digit_x + 2, digit_y + 2, digit_x + 4, digit_y + 4, hue, sat, val, true);
-    qp_rect(display, digit_x + 4, digit_y + 5, digit_x + 6, digit_y + 7, hue, sat, val, true);
-    qp_rect(display, digit_x + 5, digit_y + 8, digit_x + 7, digit_y + 10, hue, sat, val, true);
-    qp_rect(display, digit_x + 7, digit_y + 12, digit_x + 9, digit_y + 14, hue, sat, val, true);
-    qp_rect(display, digit_x + 2, digit_y + 16, digit_x + 4, digit_y + 18, hue, sat, val, true);
+    fb_rect_hsv(digit_x + 2, digit_y + 2, digit_x + 4, digit_y + 4, hue, sat, val, true);
+    fb_rect_hsv(digit_x + 4, digit_y + 5, digit_x + 6, digit_y + 7, hue, sat, val, true);
+    fb_rect_hsv(digit_x + 5, digit_y + 8, digit_x + 7, digit_y + 10, hue, sat, val, true);
+    fb_rect_hsv(digit_x + 7, digit_y + 12, digit_x + 9, digit_y + 14, hue, sat, val, true);
+    fb_rect_hsv(digit_x + 2, digit_y + 16, digit_x + 4, digit_y + 18, hue, sat, val, true);
 
-    qp_flush(display);
+    fb_flush(display);
 }
 
 // Draw media text using Quantum Painter's text rendering with scrolling
@@ -1509,6 +1515,44 @@ void set_backlight_brightness(uint8_t brightness) {
     draw_brightness_indicator();
 }
 
+#if FRAMEBUFFER_TEST
+// Framebuffer quick test - displays test pattern for 2 seconds
+static void fb_quick_test(void) {
+    // Clear screen to black
+    fb_clear(FB_COLOR_BLACK);
+
+    // Draw three colored rectangles at top
+    fb_rect_hsv(5, 5, 35, 35, 0, 255, 255, true);        // Red (hue 0)
+    fb_rect_hsv(45, 5, 75, 35, 85, 255, 255, true);      // Green (hue 85)
+    fb_rect_hsv(85, 5, 115, 35, 170, 255, 255, true);    // Blue (hue 170)
+
+    // Draw three circles below squares
+    fb_circle_hsv(20, 60, 12, 128, 255, 255, true);      // Teal (hue 128)
+    fb_circle_hsv(60, 60, 12, 43, 255, 255, true);       // Yellow (hue 43)
+    fb_circle_hsv(100, 60, 12, 213, 255, 255, true);     // Magenta (hue 213)
+
+    // Draw a white crosshair in center
+    int16_t cx = FB_WIDTH / 2;
+    int16_t cy = FB_HEIGHT / 2;
+    fb_line(cx - 20, cy, cx + 20, cy, FB_COLOR_WHITE);   // Horizontal line
+    fb_line(cx, cy - 20, cx, cy + 20, FB_COLOR_WHITE);   // Vertical line
+
+    // Draw border around screen
+    fb_rect(0, 0, FB_WIDTH - 1, FB_HEIGHT - 1, FB_COLOR_WHITE, false);
+
+    // Draw some diagonal lines in bottom corner
+    fb_line(0, 220, 20, 239, FB_COLOR_YELLOW);
+    fb_line(20, 220, 40, 239, FB_COLOR_CYAN);
+    fb_line(40, 220, 60, 239, FB_COLOR_MAGENTA);
+
+    // Flush everything to display
+    fb_flush(display);
+
+    // Wait 2 seconds to see the test pattern
+    wait_ms(2000);
+}
+#endif
+
 // Initialize the ST7789 display
 static void init_display(void) {
     // CRITICAL: Enable display power on GP22 (LILYGO board power enable)
@@ -1537,6 +1581,14 @@ static void init_display(void) {
 
     // Wait for display to stabilize
     wait_ms(50);
+
+    // Initialize framebuffer system
+    fb_init();
+
+#if FRAMEBUFFER_TEST
+    // Run framebuffer quick test (shows test pattern for 2 seconds)
+    fb_quick_test();
+#endif
 
     // Load font for media text (20px Helvetica)
     media_font = qp_load_font_mem(font_helvetica20);
@@ -1569,12 +1621,12 @@ static void init_display(void) {
     *(volatile uint32_t*)(0x40050028 + 0x00) = 0x01;     // CSR: enable
 
     // Fill screen with black background (135x240 portrait)
-    qp_rect(display, 0, 0, 134, 239, 0, 0, 0, true);
+    fb_rect_hsv(0, 0, 134, 239, 0, 0, 0, true);
     wait_ms(50);
 
     // Draw the Amboss logo at the top in teal using line-by-line rendering
     // Logo is 120x120, centered horizontally (135-120)/2 = 7.5, positioned at top (y=10)
-    draw_amboss_logo(display, 7, 10, 128, 255, 255);  // Teal color
+    draw_amboss_logo(7, 10, 128, 255, 255);  // Teal color
 
     // Update brightness variable to match the PWM setting
     backlight_brightness = 102;
@@ -1593,7 +1645,8 @@ static void init_display(void) {
     draw_volume_bar(128, 255, 255);
 
     // Force flush to ensure everything is drawn
-    qp_flush(display);
+    fb_flush(display);   // Flush framebuffer scenic area
+    qp_flush(display);   // Flush QP info area
 }
 
 void keyboard_post_init_kb(void) {
@@ -1626,7 +1679,7 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
             uint8_t hue, sat, val;
             get_layer_color(layer, &hue, &sat, &val);
             draw_volume_bar(hue, sat, val);
-            qp_flush(display);
+            qp_flush(display);  // Flush QP info area only
             break;
 
         case 0x02:  // Media text update
@@ -1663,7 +1716,7 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
                     needs_scroll = false;
                     scroll_timer = timer_read32();
                     draw_media_text();
-                    qp_flush(display);
+                    qp_flush(display);  // Flush QP info area only
                 }
             }
             break;
@@ -1969,7 +2022,7 @@ void housekeeping_task_user(void) {
 
     // Single flush at the end to batch all updates
     if (needs_flush) {
-        qp_flush(display);
+        fb_flush(display);
     }
 }
 
