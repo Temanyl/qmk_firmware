@@ -1114,13 +1114,50 @@ void animate_ghosts(void) {
         // Horizontal movement
         ghosts[i].x += ghosts[i].vx;
 
-        // Floating motion (sine wave)
-        ghosts[i].phase = (ghosts[i].phase + 1) % 160;  // Full cycle every 160 frames
-        // Small vertical oscillation (±2 pixels)
-        int16_t base_y = (i == 0) ? 90 : (i == 1) ? 50 : 70;  // Base height
-        ghosts[i].y = base_y + ((ghosts[i].phase < 80) ?
-                                (ghosts[i].phase / 40) :
-                                (2 - (ghosts[i].phase - 80) / 40));
+        // Floating motion (sine wave approximation)
+        ghosts[i].phase = (ghosts[i].phase + 1) % 160;  // Full cycle every 160 frames (~12.8 seconds at 80ms)
+
+        // Different base heights and oscillation amplitudes for each ghost
+        int16_t base_y, amplitude;
+        switch(i) {
+            case 0:
+                base_y = 90;
+                amplitude = 8;  // ±8 pixels
+                break;
+            case 1:
+                base_y = 50;
+                amplitude = 6;  // ±6 pixels
+                break;
+            case 2:
+            default:
+                base_y = 70;
+                amplitude = 10; // ±10 pixels
+                break;
+        }
+
+        // Smooth sine wave approximation using piecewise linear interpolation
+        // Divide 160-frame cycle into 4 quarters for smoother motion
+        int16_t offset;
+        uint8_t quarter = ghosts[i].phase / 40;  // 0, 1, 2, or 3
+        uint8_t phase_in_quarter = ghosts[i].phase % 40;
+
+        switch(quarter) {
+            case 0: // Rising: 0 to +amplitude
+                offset = (amplitude * phase_in_quarter) / 40;
+                break;
+            case 1: // Peak to middle: +amplitude to 0
+                offset = amplitude - (amplitude * phase_in_quarter) / 40;
+                break;
+            case 2: // Falling: 0 to -amplitude
+                offset = -(amplitude * phase_in_quarter) / 40;
+                break;
+            case 3: // Trough to middle: -amplitude to 0
+            default:
+                offset = -amplitude + (amplitude * phase_in_quarter) / 40;
+                break;
+        }
+
+        ghosts[i].y = base_y + offset;
 
         // Bounce off screen edges
         if (ghosts[i].x <= 8 || ghosts[i].x >= FB_WIDTH - 8) {
@@ -1535,9 +1572,11 @@ void set_layer_background(uint8_t layer) {
 
     // If full redraw is forced, clear screen and redraw everything
     if (force_full_redraw) {
-        // Reset rain animation state to allow background to be re-saved
+        // Reset animation states to allow background to be re-saved
         rain_initialized = false;
         rain_background_saved = false;
+        ghost_initialized = false;
+        ghost_background_saved = false;
 
         // Clear entire screen
         fb_rect_hsv(0, 0, 134, 239, 0, 0, 0, true);
@@ -2265,6 +2304,11 @@ void housekeeping_task_user(void) {
 
     // Redraw seasonal animation when hour or day changes (sun/moon position, moon phase)
     if (hour_changed || day_changed) {
+        // Reset background flags to force re-saving with updated scene
+        // (sun/moon positions change, so background buffer must be updated)
+        rain_background_saved = false;
+        ghost_background_saved = false;
+
         draw_seasonal_animation();
         last_hour = current_hour;
         last_day = current_day;
