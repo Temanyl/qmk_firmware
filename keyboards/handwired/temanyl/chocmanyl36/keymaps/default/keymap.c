@@ -78,9 +78,25 @@ typedef struct {
 static raindrop_t raindrops[NUM_RAINDROPS];
 static uint32_t rain_animation_timer = 0;
 
-// Halloween event (Oct 28 - Nov 3) - static decorations
+// Halloween event (Oct 28 - Nov 3)
 #define NUM_PUMPKINS 4
-#define NUM_GHOSTS 2
+#define NUM_GHOSTS 3
+#define GHOST_WIDTH 16
+#define GHOST_HEIGHT 16
+#define GHOST_ANIMATION_SPEED 80  // Update every 80ms for smooth floating motion
+
+typedef struct {
+    int16_t x;
+    int16_t y;
+    int8_t  vx;  // Horizontal velocity
+    int8_t  vy;  // Vertical velocity (for floating effect)
+    uint8_t phase; // Animation phase for floating
+} ghost_t;
+
+static ghost_t ghosts[NUM_GHOSTS];
+static bool ghost_initialized = false;
+static bool ghost_background_saved = false;
+static uint32_t ghost_animation_timer = 0;
 
 // Christmas advent calendar (Dec 1-31)
 #define NUM_CHRISTMAS_ITEMS 24
@@ -147,6 +163,10 @@ bool is_halloween_event(void);
 void draw_pumpkin(int16_t x, int16_t y, uint8_t size);
 void draw_ghost(int16_t x, int16_t y);
 void draw_halloween_elements(void);
+void init_ghosts(void);
+void animate_ghosts(void);
+bool is_pixel_in_ghost(int16_t px, int16_t py, uint8_t ghost_idx);
+void redraw_ghosts_in_region(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
 // Christmas advent calendar functions
 bool is_christmas_season(void);
@@ -817,16 +837,20 @@ void draw_seasonal_animation(void) {
         draw_christmas_scene();
     }
 
-    // === SAVE BACKGROUND AND DRAW RAINDROPS ===
-    // Save background AFTER all static elements (including Halloween/Christmas) are drawn
-    // This must be done after Halloween/Christmas overlays so they're included in the background
-    if (season == 3) { // Fall season - draw rain
-        // Save background (scene without raindrops) for animation
-        if (!rain_background_saved) {
-            fb_save_to_background();
-            rain_background_saved = true;
-        }
+    // === SAVE BACKGROUND FOR ANIMATED ELEMENTS ===
+    // Save background ONCE, AFTER all static elements but BEFORE any animated elements
+    // This background is shared by both raindrops and ghosts
+    bool need_background = (season == 3) || is_halloween_event();
 
+    if (need_background && !rain_background_saved && !ghost_background_saved) {
+        fb_save_to_background();
+        // Set both flags since they share the same background buffer
+        rain_background_saved = true;
+        ghost_background_saved = true;
+    }
+
+    // === DRAW RAINDROPS ===
+    if (season == 3) { // Fall season - draw rain
         // Initialize raindrop positions if needed
         if (!rain_initialized) {
             // Initial raindrop positions - random distribution from clouds to near ground (50 drops)
@@ -852,6 +876,31 @@ void draw_seasonal_animation(void) {
                            raindrops[i].y + RAINDROP_HEIGHT - 1,
                            170, 150, 200, true);
             }
+        }
+    } else {
+        // Reset rain state when not fall season
+        if (rain_initialized) {
+            rain_initialized = false;
+            rain_background_saved = false;
+        }
+    }
+
+    // === DRAW GHOSTS ===
+    if (is_halloween_event()) {
+        // Initialize ghost positions if needed
+        if (!ghost_initialized) {
+            init_ghosts();
+        }
+
+        // Draw ghosts at current positions
+        for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
+            draw_ghost(ghosts[i].x, ghosts[i].y);
+        }
+    } else {
+        // Reset ghost state when not Halloween event
+        if (ghost_initialized) {
+            ghost_initialized = false;
+            ghost_background_saved = false;
         }
     }
 
@@ -934,15 +983,162 @@ void draw_ghost(int16_t x, int16_t y) {
 
 // Draw all Halloween elements (static decorations)
 void draw_halloween_elements(void) {
-    // Draw 2 ghosts in the sky at fixed positions
-    draw_ghost(20, 90);   // Left ghost
-    draw_ghost(40, 50);   // middle ghost
-    draw_ghost(95, 60);   // Right ghost
+    // Note: Ghosts are now animated, not drawn here as static elements
 
     // Draw 4 pumpkins on the ground (y=150 is ground level)
     draw_pumpkin(25, 145, 8);   // Left pumpkin (small)
     draw_pumpkin(55, 143, 10);  // Left-center pumpkin (medium)
     draw_pumpkin(90, 144, 9);  // Right pumpkin (medium-small)
+}
+
+// Initialize ghost positions for animation
+void init_ghosts(void) {
+    if (ghost_initialized) return;
+
+    // Initialize 3 ghosts with different starting positions and velocities
+    ghosts[0].x = 20;
+    ghosts[0].y = 90;
+    ghosts[0].vx = 1;   // Moving right slowly
+    ghosts[0].vy = 0;
+    ghosts[0].phase = 0;
+
+    ghosts[1].x = 60;
+    ghosts[1].y = 50;
+    ghosts[1].vx = -1;  // Moving left slowly
+    ghosts[1].vy = 0;
+    ghosts[1].phase = 40;  // Offset phase for variety
+
+    ghosts[2].x = 100;
+    ghosts[2].y = 70;
+    ghosts[2].vx = 1;   // Moving right slowly
+    ghosts[2].vy = 0;
+    ghosts[2].phase = 80;  // Different phase offset
+
+    ghost_initialized = true;
+}
+
+// Check if a pixel is inside a ghost's shape
+// This is used to determine layering when restoring old pixels
+bool is_pixel_in_ghost(int16_t px, int16_t py, uint8_t ghost_idx) {
+    if (ghost_idx >= NUM_GHOSTS) return false;
+
+    int16_t gx = ghosts[ghost_idx].x;
+    int16_t gy = ghosts[ghost_idx].y;
+
+    // Ghost dimensions from draw_ghost function:
+    // Head: circle at (gx, gy) radius 7
+    // Body: rect from (gx-7, gy) to (gx+7, gy+12)
+    // Wavy bottom: various rects from y+10 to y+13
+
+    // Simple bounding box check for now (can be refined for exact shape)
+    return (px >= gx - 7 && px <= gx + 7 &&
+            py >= gy - 7 && py <= gy + 13);
+}
+
+// Redraw ghosts that overlap with a given region
+// Used when raindrops move and need to restore ghost pixels underneath
+void redraw_ghosts_in_region(int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+    if (!ghost_initialized) return;
+
+    for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
+        int16_t gx = ghosts[i].x;
+        int16_t gy = ghosts[i].y;
+
+        // Check if this ghost overlaps with the region
+        int16_t ghost_x1 = gx - 7;
+        int16_t ghost_y1 = gy - 7;
+        int16_t ghost_x2 = gx + 7;
+        int16_t ghost_y2 = gy + 13;
+
+        // Check for overlap
+        if (ghost_x2 >= x1 && ghost_x1 <= x2 && ghost_y2 >= y1 && ghost_y1 <= y2) {
+            // This ghost overlaps, redraw it
+            draw_ghost(gx, gy);
+        }
+    }
+}
+
+// Animate ghosts by moving them horizontally with floating motion
+void animate_ghosts(void) {
+    if (!ghost_initialized || !ghost_background_saved) {
+        return;
+    }
+
+    // Only animate during Halloween event
+    if (!is_halloween_event()) {
+        return;
+    }
+
+    // Animate each ghost
+    for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
+        // Store old position
+        int16_t old_x = ghosts[i].x;
+        int16_t old_y = ghosts[i].y;
+
+        // Calculate bounding box for old position
+        int16_t old_x1 = old_x - 8;  // Ghost extends 7 pixels left, plus 1 margin
+        int16_t old_y1 = old_y - 8;  // Ghost extends 7 pixels up, plus 1 margin
+        int16_t old_x2 = old_x + 8;  // Ghost extends 7 pixels right, plus 1 margin
+        int16_t old_y2 = old_y + 14; // Ghost extends to y+13, plus 1 margin
+
+        // Restore old ghost position from background
+        // BUT: need to check if other ghosts or raindrops overlap this area
+        for (int16_t py = old_y1; py <= old_y2; py++) {
+            for (int16_t px = old_x1; px <= old_x2; px++) {
+                if (px < 0 || px >= FB_WIDTH || py < 0 || py >= FB_SPLIT_Y) continue;
+
+                // Check if this pixel is covered by another ghost
+                bool covered_by_other_ghost = false;
+                for (uint8_t j = 0; j < NUM_GHOSTS; j++) {
+                    if (j != i && is_pixel_in_ghost(px, py, j)) {
+                        covered_by_other_ghost = true;
+                        break;
+                    }
+                }
+
+                if (!covered_by_other_ghost) {
+                    // Restore from background
+                    uint16_t bg_color = fb_background.pixels[py][px];
+                    fb.pixels[py][px] = bg_color;
+                } else {
+                    // Another ghost is here, need to redraw that ghost's pixel
+                    // For now, we'll let the ghost drawing handle this
+                }
+            }
+        }
+
+        // Flush the old ghost region to erase it from display
+        fb_flush_region(display, old_x1, old_y1, old_x2, old_y2);
+
+        // Update ghost position with floating motion
+        // Horizontal movement
+        ghosts[i].x += ghosts[i].vx;
+
+        // Floating motion (sine wave)
+        ghosts[i].phase = (ghosts[i].phase + 1) % 160;  // Full cycle every 160 frames
+        // Small vertical oscillation (±2 pixels)
+        int16_t base_y = (i == 0) ? 90 : (i == 1) ? 50 : 70;  // Base height
+        ghosts[i].y = base_y + ((ghosts[i].phase < 80) ?
+                                (ghosts[i].phase / 40) :
+                                (2 - (ghosts[i].phase - 80) / 40));
+
+        // Bounce off screen edges
+        if (ghosts[i].x <= 8 || ghosts[i].x >= FB_WIDTH - 8) {
+            ghosts[i].vx = -ghosts[i].vx;
+        }
+
+        // Draw ghost at new position
+        draw_ghost(ghosts[i].x, ghosts[i].y);
+
+        // Calculate bounding box for new position
+        int16_t new_x1 = ghosts[i].x - 8;
+        int16_t new_y1 = ghosts[i].y - 8;
+        int16_t new_x2 = ghosts[i].x + 8;
+        int16_t new_y2 = ghosts[i].y + 14;
+
+        // Flush the new ghost region to draw it on display
+        fb_flush_region(display, new_x1, new_y1, new_x2, new_y2);
+    }
 }
 
 // === CHRISTMAS ADVENT CALENDAR FUNCTIONS ===
@@ -1965,10 +2161,17 @@ void animate_raindrops(void) {
         int16_t old_x = raindrops[i].x;
         int16_t old_y = raindrops[i].y;
 
-        // Restore old raindrop position from background buffer
+        // Restore old raindrop position from background
         fb_restore_from_background(old_x, old_y,
                                    old_x + RAINDROP_WIDTH - 1,
                                    old_y + RAINDROP_HEIGHT - 1);
+
+        // If ghosts are active and might be underneath, redraw them
+        if (is_halloween_event() && ghost_initialized) {
+            redraw_ghosts_in_region(old_x, old_y,
+                                   old_x + RAINDROP_WIDTH - 1,
+                                   old_y + RAINDROP_HEIGHT - 1);
+        }
 
         // Flush the old raindrop region to erase it from display
         fb_flush_region(display, old_x, old_y,
@@ -2107,6 +2310,18 @@ void housekeeping_task_user(void) {
                 rain_animation_timer = current_time;
                 animate_raindrops();
                 // No needs_flush = true here - raindrops flush their own regions
+            }
+        }
+    }
+
+    // Handle ghost animation (during Halloween event)
+    // Note: animate_ghosts() handles its own region-based flushing
+    if (ghost_initialized && ghost_background_saved) {
+        if (is_halloween_event()) {
+            if (current_time - ghost_animation_timer >= GHOST_ANIMATION_SPEED) {
+                ghost_animation_timer = current_time;
+                animate_ghosts();
+                // No needs_flush = true here - ghosts flush their own regions
             }
         }
     }
