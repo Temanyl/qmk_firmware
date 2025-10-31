@@ -22,6 +22,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "display.h"
 #include "framebuffer.h"
 
+// Cloud animation state
+cloud_t clouds[NUM_CLOUDS];
+bool cloud_initialized = false;
+bool cloud_background_saved = false;
+uint32_t cloud_animation_timer = 0;
+
 // Rain animation state
 bool rain_initialized = false;
 bool rain_background_saved = false;
@@ -74,10 +80,230 @@ static const christmas_item_t advent_items[NUM_CHRISTMAS_ITEMS] = {
 
 // Reset all scene animation states
 void reset_scene_animations(void) {
+    cloud_initialized = false;
+    cloud_background_saved = false;
     rain_initialized = false;
     rain_background_saved = false;
     ghost_initialized = false;
     ghost_background_saved = false;
+}
+
+// Initialize clouds
+void init_clouds(void) {
+    if (cloud_initialized) return;
+
+    // Initialize 5 clouds evenly spaced across the screen
+    // All clouds move at same speed to prevent overlap artifacts
+    // Spacing: ~50 pixels apart to cover the full width (135 pixels + margins)
+
+    // Cloud 0
+    clouds[0].x = 25;
+    clouds[0].y = 35;
+    clouds[0].vx = -1;
+
+    // Cloud 1
+    clouds[1].x = 70;
+    clouds[1].y = 28;
+    clouds[1].vx = -1;
+
+    // Cloud 2
+    clouds[2].x = 115;
+    clouds[2].y = 42;
+    clouds[2].vx = -1;
+
+    // Cloud 3
+    clouds[3].x = 160;
+    clouds[3].y = 32;
+    clouds[3].vx = -1;
+
+    // Cloud 4
+    clouds[4].x = 205;
+    clouds[4].y = 38;
+    clouds[4].vx = -1;
+
+    cloud_initialized = true;
+}
+
+// Draw a single cloud
+void draw_cloud(int16_t x, int16_t y) {
+    // Don't draw clouds that are completely off-screen
+    if (x < -30 || x > 165) return;
+
+    // Cloud shape using circles (gray/white)
+    // Bounds: x-13 to x+15, y-8 to y+8
+    fb_circle_hsv(x, y, 8, 0, 0, 160, true);          // Main body
+    fb_circle_hsv(x + 9, y + 2, 6, 0, 0, 160, true);  // Right bump
+    fb_circle_hsv(x - 7, y + 2, 6, 0, 0, 160, true);  // Left bump
+    fb_circle_hsv(x + 4, y - 3, 5, 0, 0, 150, true);  // Top bump
+}
+
+// Forward declarations for celestial redrawing
+extern uint8_t current_hour;
+extern uint8_t current_day;
+
+// Animate clouds (right to left movement with batched rendering)
+void animate_clouds(void) {
+    if (!cloud_initialized || !cloud_background_saved) {
+        return;
+    }
+
+    // Get current season to determine cloud style
+    uint8_t season = get_season(current_month);
+    bool is_fall = (season == 3);
+    bool is_winter = (season == 0);
+
+    // Only animate clouds in winter and fall
+    if (!is_winter && !is_fall) {
+        return;
+    }
+
+    // Determine how many clouds to animate based on season
+    uint8_t num_active_clouds = is_fall ? 5 : 3;  // 5 clouds in fall, 3 in winter
+
+    // STEP 1: Clear all old cloud positions by restoring from background
+    for (uint8_t i = 0; i < num_active_clouds; i++) {
+        int16_t old_x = clouds[i].x;
+        int16_t old_y = clouds[i].y;
+
+        // Calculate bounding box for old position
+        // Fall clouds extend: x-15 to x+17, y-10 to y+9
+        // Winter clouds extend: x-13 to x+15, y-8 to y+8
+        // Use conservative bounds to fully cover both types
+        int16_t old_x1 = old_x - 16;
+        int16_t old_y1 = old_y - 11;
+        int16_t old_x2 = old_x + 18;
+        int16_t old_y2 = old_y + 10;
+
+        // Restore from background (only updates framebuffer, doesn't flush)
+        fb_restore_from_background(old_x1, old_y1, old_x2, old_y2);
+    }
+
+    // STEP 2: Redraw celestial objects that may have been erased
+    bool is_night = (current_hour >= 20 || current_hour < 6);
+    uint16_t celestial_x, celestial_y;
+    get_celestial_position(current_hour, &celestial_x, &celestial_y);
+
+    if (is_night) {
+        // Redraw moon if in cloud area (y=15-50)
+        if (celestial_y >= 15 && celestial_y <= 50) {
+            uint8_t moon_day = (current_hour < 6) ? ((current_day > 1) ? (current_day - 1) : 31) : current_day;
+            uint8_t moon_phase = (moon_day * 29) / 31;
+
+            fb_circle_hsv(celestial_x, celestial_y, 8, 42, 100, 255, true);
+
+            if (moon_phase < 14) {
+                if (moon_phase < 7) {
+                    int8_t shadow_offset = -8 + (moon_phase * 2);
+                    uint8_t shadow_radius = 8 - (moon_phase / 2);
+                    fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
+                } else {
+                    int8_t shadow_offset = 6 - ((moon_phase - 7) * 2);
+                    uint8_t shadow_radius = 5 - ((moon_phase - 7) / 2);
+                    if (shadow_radius > 0) {
+                        fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
+                    }
+                }
+            } else if (moon_phase > 14) {
+                uint8_t waning_phase = moon_phase - 15;
+                if (waning_phase < 7) {
+                    int8_t shadow_offset = -6 + (waning_phase * 2);
+                    uint8_t shadow_radius = (waning_phase / 2);
+                    if (shadow_radius > 0) {
+                        fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
+                    }
+                } else {
+                    int8_t shadow_offset = 8 - ((waning_phase - 7) * 2);
+                    uint8_t shadow_radius = 5 + ((waning_phase - 7) / 2);
+                    fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
+                }
+            }
+        }
+
+        // Redraw stars in cloud area
+        uint16_t star_positions[][2] = {
+            {20, 15}, {50, 25}, {90, 18}, {110, 30},
+            {65, 12}, {100, 22}, {80, 30},
+            {120, 15}, {10, 25}, {28, 20},
+            {85, 8}, {70, 25}, {60, 15}
+        };
+        for (uint8_t i = 0; i < 13; i++) {
+            if (star_positions[i][1] >= 15 && star_positions[i][1] <= 50) {
+                fb_rect_hsv(star_positions[i][0], star_positions[i][1],
+                        star_positions[i][0] + 2, star_positions[i][1] + 2, 42, 50, 255, true);
+            }
+        }
+    } else {
+        // Redraw sun if in cloud area (y=15-50)
+        if (celestial_y >= 15 && celestial_y <= 50) {
+            uint8_t sun_hue = (current_hour < 8 || current_hour > 17) ? 10 : 42;
+            uint8_t sun_sat = 255;
+
+            fb_circle_hsv(celestial_x, celestial_y, 9, sun_hue, sun_sat, 255, true);
+
+            // Sun rays
+            for (uint8_t i = 0; i < 8; i++) {
+                int16_t ray_x = 0, ray_y = 0;
+                if (i == 0) { ray_x = 12; ray_y = 0; }
+                else if (i == 1) { ray_x = 9; ray_y = -9; }
+                else if (i == 2) { ray_x = 0; ray_y = -12; }
+                else if (i == 3) { ray_x = -9; ray_y = -9; }
+                else if (i == 4) { ray_x = -12; ray_y = 0; }
+                else if (i == 5) { ray_x = -9; ray_y = 9; }
+                else if (i == 6) { ray_x = 0; ray_y = 12; }
+                else if (i == 7) { ray_x = 9; ray_y = 9; }
+
+                fb_rect_hsv(celestial_x + ray_x - 1, celestial_y + ray_y - 1,
+                        celestial_x + ray_x + 1, celestial_y + ray_y + 1, sun_hue, sun_sat, 200, true);
+            }
+        }
+    }
+
+    // STEP 3: Update cloud positions
+    for (uint8_t i = 0; i < num_active_clouds; i++) {
+        // Move cloud left
+        clouds[i].x += clouds[i].vx;
+
+        // Check if cloud has moved completely off the left side
+        if (clouds[i].x < -20) {
+            // Respawn on the right side, maintaining spacing
+            // Since all clouds move at same speed, find the rightmost cloud
+            int16_t rightmost_x = -100;
+            for (uint8_t j = 0; j < NUM_CLOUDS; j++) {
+                if (j != i && clouds[j].x > rightmost_x) {
+                    rightmost_x = clouds[j].x;
+                }
+            }
+            // Place this cloud 45 pixels to the right of the rightmost cloud
+            clouds[i].x = rightmost_x + 45;
+            // Vary y position slightly (between 25-45)
+            clouds[i].y = 25 + ((i * 7) % 20);
+        }
+    }
+
+    // STEP 4: Draw all clouds at new positions
+    for (uint8_t i = 0; i < num_active_clouds; i++) {
+        int16_t x = clouds[i].x;
+        int16_t y = clouds[i].y;
+
+        if (x >= -30 && x <= 165) {
+            if (is_fall) {
+                // Draw darker rain clouds
+                // Bounds: x-15 to x+17, y-10 to y+9
+                fb_circle_hsv(x, y, 9, 0, 0, 120, true);
+                fb_circle_hsv(x + 10, y + 2, 7, 0, 0, 120, true);
+                fb_circle_hsv(x - 8, y + 2, 7, 0, 0, 120, true);
+                fb_circle_hsv(x + 5, y - 4, 6, 0, 0, 110, true);
+            } else {
+                // Draw lighter winter clouds
+                draw_cloud(x, y);
+            }
+        }
+    }
+
+    // STEP 5: Single flush for entire animation area (from top clouds to bottom)
+    // This eliminates flicker by doing one atomic update
+    // Clouds are at y=25-45, extend ±11 vertically, so flush y=14-56 to be safe
+    fb_flush_region(display, 0, 12, 134, 58);
 }
 
 // Get season based on month
@@ -461,13 +687,9 @@ void draw_seasonal_animation(void) {
     // === SEASONAL WEATHER EFFECTS ===
 
     if (season == 0) { // Winter
-        // Winter clouds, snowflakes, and snow on ground
-        uint16_t cloud_positions[][2] = {{25, 35}, {85, 40}, {110, 30}};
-        for (uint8_t i = 0; i < 3; i++) {
-            fb_circle_hsv(cloud_positions[i][0], cloud_positions[i][1], 8, 0, 0, 160, true);
-            fb_circle_hsv(cloud_positions[i][0] + 9, cloud_positions[i][1] + 2, 6, 0, 0, 160, true);
-            fb_circle_hsv(cloud_positions[i][0] - 7, cloud_positions[i][1] + 2, 6, 0, 0, 160, true);
-            fb_circle_hsv(cloud_positions[i][0] + 4, cloud_positions[i][1] - 3, 5, 0, 0, 150, true);
+        // Winter clouds - animated (will be drawn after background is saved)
+        if (!cloud_initialized) {
+            init_clouds();
         }
 
         // Snowflakes (21 total)
@@ -568,16 +790,9 @@ void draw_seasonal_animation(void) {
             fb_circle_hsv(sunflowers[i].x + 1, ground_y - sunflowers[i].stem_height - 3, 2, 20, 200, 100, true);
         }
     } else { // Fall - rain and clouds
-        // Draw rain clouds (darker gray clouds)
-        uint16_t cloud_positions[][2] = {
-            {25, 30}, {70, 40}, {120, 35}
-        };
-        for (uint8_t i = 0; i < 3; i++) {
-            // Main cloud body (dark gray)
-            fb_circle_hsv(cloud_positions[i][0], cloud_positions[i][1], 9, 0, 0, 120, true);
-            fb_circle_hsv(cloud_positions[i][0] + 10, cloud_positions[i][1] + 2, 7, 0, 0, 120, true);
-            fb_circle_hsv(cloud_positions[i][0] - 8, cloud_positions[i][1] + 2, 7, 0, 0, 120, true);
-            fb_circle_hsv(cloud_positions[i][0] + 5, cloud_positions[i][1] - 4, 6, 0, 0, 110, true);
+        // Draw rain clouds - animated (will be drawn after background is saved)
+        if (!cloud_initialized) {
+            init_clouds();
         }
 
         // Draw fallen leaves on the ground (just above ground line at y=150)
@@ -601,11 +816,34 @@ void draw_seasonal_animation(void) {
     }
 
     // === SAVE BACKGROUND FOR ANIMATIONS ===
-    bool need_background = (season == 3) || is_halloween_event();
-    if (need_background && !rain_background_saved && !ghost_background_saved) {
+    bool need_background = (season == 0) || (season == 3) || is_halloween_event();
+    if (need_background && !rain_background_saved && !ghost_background_saved && !cloud_background_saved) {
         fb_save_to_background();
         rain_background_saved = true;
         ghost_background_saved = true;
+        cloud_background_saved = true;
+    }
+
+    // === DRAW CLOUDS (after background is saved) ===
+    if ((season == 0 || season == 3) && cloud_initialized) {
+        // Draw 5 clouds in fall, 3 in winter
+        uint8_t num_clouds_to_draw = (season == 3) ? 5 : 3;
+        for (uint8_t i = 0; i < num_clouds_to_draw; i++) {
+            int16_t x = clouds[i].x;
+            int16_t y = clouds[i].y;
+            if (x >= -30 && x <= 165) {
+                if (season == 3) {
+                    // Draw darker rain clouds
+                    fb_circle_hsv(x, y, 9, 0, 0, 120, true);
+                    fb_circle_hsv(x + 10, y + 2, 7, 0, 0, 120, true);
+                    fb_circle_hsv(x - 8, y + 2, 7, 0, 0, 120, true);
+                    fb_circle_hsv(x + 5, y - 4, 6, 0, 0, 110, true);
+                } else {
+                    // Draw lighter winter clouds
+                    draw_cloud(x, y);
+                }
+            }
+        }
     }
 
     // === DRAW RAINDROPS (if fall season) ===
