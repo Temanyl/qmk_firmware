@@ -26,6 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../graphics/helvetica20.qff.c"
 #include "../objects/weather/cloud.h"
 #include "../seasons/winter/seasons_winter.h"
+#include "../seasons/spring/seasons_spring.h"
 #include "../seasons/fall/seasons_fall.h"
 #include "../seasons/halloween/seasons_halloween.h"
 #include "../seasons/christmas/seasons_christmas.h"
@@ -613,6 +614,7 @@ void display_housekeeping_task(void) {
     if (hour_changed || day_changed) {
         // Reset background flags to force re-saving with updated scene
         // (sun/moon positions change, so background buffer must be updated)
+        spring_background_saved = false;
         rain_background_saved = false;
         ghost_background_saved = false;
         smoke_background_saved = false;
@@ -654,10 +656,24 @@ void display_housekeeping_task(void) {
         }
     }
 
+    // Get current season for animation handling
+    uint8_t season = get_season(current_month);
+
+    // Handle spring animations (birds and butterflies)
+    // Note: animate_spring() handles its own region-based flushing
+    if (spring_initialized && spring_background_saved) {
+        if (season == 1) { // Spring season
+            if (current_time - spring_animation_timer >= SPRING_ANIMATION_SPEED) {
+                spring_animation_timer = current_time;
+                animate_spring();
+                // No needs_flush = true here - spring animation flushes its own regions
+            }
+        }
+    }
+
     // Handle rain animation (during fall season)
     // Note: animate_raindrops() handles its own region-based flushing
     if (rain_initialized && rain_background_saved) {
-        uint8_t season = get_season(current_month);
         if (season == 3) { // Fall season
             if (current_time - rain_animation_timer >= RAIN_ANIMATION_SPEED) {
                 rain_animation_timer = current_time;
@@ -673,7 +689,6 @@ void display_housekeeping_task(void) {
     ghost_t old_ghosts[NUM_GHOSTS];
     bool clouds_updated = false;
     bool ghosts_updated = false;
-    uint8_t season = get_season(current_month);
     uint8_t num_active_clouds = (season == 3) ? 5 : 3;
 
     // Update cloud positions if timer elapsed

@@ -20,6 +20,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdbool.h>
 
+// Spring animation timing
+#define SPRING_ANIMATION_SPEED 50  // Update every 50ms for smooth animation
+
+// External state
+extern bool spring_initialized;
+extern bool spring_background_saved;
+extern uint32_t spring_animation_timer;
+
 // Spring functions
+void init_spring_animations(void);
+void animate_spring(void);
 void draw_spring_scene_elements(void);
 void reset_spring_animations(void);
