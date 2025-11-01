@@ -995,45 +995,25 @@ void animate_ghosts(void) {
         return;
     }
 
-    // Animate each ghost
+    // STEP 1: Clear all old ghost positions by restoring from background
     for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
-        // Store old position
         int16_t old_x = ghosts[i].x;
         int16_t old_y = ghosts[i].y;
 
         // Calculate bounding box for old position
-        int16_t old_x1 = old_x - 8;  // Ghost extends 7 pixels left, plus 1 margin
-        int16_t old_y1 = old_y - 8;  // Ghost extends 7 pixels up, plus 1 margin
-        int16_t old_x2 = old_x + 8;  // Ghost extends 7 pixels right, plus 1 margin
-        int16_t old_y2 = old_y + 14; // Ghost extends to y+13, plus 1 margin
+        // Ghost extends: x-7 to x+7, y-7 to y+13
+        // Add 1 pixel margin for safety
+        int16_t old_x1 = old_x - 8;
+        int16_t old_y1 = old_y - 8;
+        int16_t old_x2 = old_x + 8;
+        int16_t old_y2 = old_y + 14;
 
-        // Restore old ghost position from background
-        // BUT: need to check if other ghosts or raindrops overlap this area
-        for (int16_t py = old_y1; py <= old_y2; py++) {
-            for (int16_t px = old_x1; px <= old_x2; px++) {
-                if (px < 0 || px >= FB_WIDTH || py < 0 || py >= FB_SPLIT_Y) continue;
+        // Restore from background (only updates framebuffer, doesn't flush)
+        fb_restore_from_background(old_x1, old_y1, old_x2, old_y2);
+    }
 
-                // Check if this pixel is covered by another ghost
-                bool covered_by_other_ghost = false;
-                for (uint8_t j = 0; j < NUM_GHOSTS; j++) {
-                    if (j != i && is_pixel_in_ghost(px, py, j)) {
-                        covered_by_other_ghost = true;
-                        break;
-                    }
-                }
-
-                if (!covered_by_other_ghost) {
-                    // Restore from background
-                    uint16_t bg_color = fb_background.pixels[py][px];
-                    fb.pixels[py][px] = bg_color;
-                }
-            }
-        }
-
-        // Flush the old ghost region to erase it from display
-        fb_flush_region(display, old_x1, old_y1, old_x2, old_y2);
-
-        // Update ghost position with floating motion
+    // STEP 2: Update all ghost positions with floating motion
+    for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
         // Horizontal movement
         ghosts[i].x += ghosts[i].vx;
 
@@ -1085,19 +1065,19 @@ void animate_ghosts(void) {
         if (ghosts[i].x <= 8 || ghosts[i].x >= FB_WIDTH - 8) {
             ghosts[i].vx = -ghosts[i].vx;
         }
-
-        // Draw ghost at new position
-        draw_ghost(ghosts[i].x, ghosts[i].y);
-
-        // Calculate bounding box for new position
-        int16_t new_x1 = ghosts[i].x - 8;
-        int16_t new_y1 = ghosts[i].y - 8;
-        int16_t new_x2 = ghosts[i].x + 8;
-        int16_t new_y2 = ghosts[i].y + 14;
-
-        // Flush the new ghost region to draw it on display
-        fb_flush_region(display, new_x1, new_y1, new_x2, new_y2);
     }
+
+    // STEP 3: Draw all ghosts at new positions
+    for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
+        draw_ghost(ghosts[i].x, ghosts[i].y);
+    }
+
+    // STEP 4: Single flush for entire ghost animation area
+    // This eliminates flicker by doing one atomic update
+    // Ghosts move in range: x=8 to x=126, y=42 to y=108 (approximate)
+    // Ghost dimensions: 15px wide (x-7 to x+7), 21px tall (y-7 to y+13)
+    // Safe flush area: y=35 to y=121 to cover all possible ghost positions
+    fb_flush_region(display, 0, 35, 134, 121);
 }
 
 // Animate raindrops
