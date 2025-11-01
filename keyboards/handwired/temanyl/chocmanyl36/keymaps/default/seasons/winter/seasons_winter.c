@@ -90,12 +90,14 @@ void animate_clouds(void) {
         // Move cloud left
         clouds[i].x += clouds[i].vx;
 
-        // Check if cloud has moved completely off the left side
-        if (clouds[i].x < -20) {
+        // Respawn cloud when it starts to leave the left edge of the display
+        // Cloud left edge is at x-16, so when x < 0, the cloud is starting to disappear
+        // Respawn earlier (at x=0) to maintain constant cloud coverage
+        if (clouds[i].x < 0) {
             // Respawn on the right side, maintaining spacing
             // Since all clouds move at same speed, find the rightmost cloud
             int16_t rightmost_x = -100;
-            for (uint8_t j = 0; j < NUM_CLOUDS; j++) {
+            for (uint8_t j = 0; j < num_active_clouds; j++) {
                 if (j != i && clouds[j].x > rightmost_x) {
                     rightmost_x = clouds[j].x;
                 }
