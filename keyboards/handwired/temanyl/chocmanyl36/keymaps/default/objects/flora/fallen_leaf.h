@@ -15,28 +15,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include QMK_KEYBOARD_H
-#include "seasons_spring.h"
-#include "framebuffer.h"
-#include "objects/fauna/bird.h"
-#include "objects/fauna/butterfly.h"
-#include "objects/flora/flower.h"
+#pragma once
 
-// Reset spring animations
-void reset_spring_animations(void) {
-    // No animations to reset for spring (static elements only)
-}
+#include <stdint.h>
 
-// Draw spring-specific scene elements
-void draw_spring_scene_elements(void) {
-    uint16_t ground_y = 150;
+#define NUM_FALL_LEAVES 15
 
-    // Draw birds in the sky
-    birds_draw_all();
-
-    // Draw butterflies
-    butterflies_draw_all();
-
-    // Draw flowers on the ground
-    flowers_draw_all(ground_y);
-}
+// Draw all fallen leaves on ground
+void fallen_leaves_draw_all(void);

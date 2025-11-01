@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "framebuffer.h"
 #include "display.h"
 #include "objects/weather/raindrop.h"
+#include "objects/flora/fallen_leaf.h"
 
 // Rain animation state
 bool rain_initialized = false;
@@ -111,15 +112,8 @@ void draw_fall_scene_elements(void) {
         init_clouds();
     }
 
-    // Draw fallen leaves on the ground (just above ground line at y=150)
-    struct { uint16_t x; uint8_t hue; } fallen_leaves[] = {
-        {18, 10}, {35, 0}, {52, 25}, {68, 15}, {82, 8}, {95, 20}, {108, 5}, {122, 30},
-        {25, 12}, {45, 18}, {62, 22}, {78, 28}, {92, 15}, {105, 10}, {118, 25}
-    };
-    for (uint8_t i = 0; i < 15; i++) {
-        // Small leaves on ground (small circles just above ground line)
-        fb_circle_hsv(fallen_leaves[i].x, 146, 2, fallen_leaves[i].hue, 255, 220, true);
-    }
+    // Draw fallen leaves on the ground
+    fallen_leaves_draw_all();
 
     // Initialize rain if not already done (but don't draw yet - draw after background is saved)
     if (!rain_initialized) {

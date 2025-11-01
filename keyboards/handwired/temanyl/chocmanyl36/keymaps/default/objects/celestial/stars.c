@@ -15,28 +15,21 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include QMK_KEYBOARD_H
-#include "seasons_spring.h"
+#include "stars.h"
 #include "framebuffer.h"
-#include "objects/fauna/bird.h"
-#include "objects/fauna/butterfly.h"
-#include "objects/flora/flower.h"
 
-// Reset spring animations
-void reset_spring_animations(void) {
-    // No animations to reset for spring (static elements only)
-}
+// Star positions
+static const uint16_t star_positions[NUM_STARS][2] = {
+    {20, 15}, {50, 25}, {90, 18}, {110, 30},
+    {65, 12}, {100, 22}, {80, 30},
+    {120, 15}, {10, 25}, {28, 20},
+    {85, 8}, {70, 25}, {60, 15}
+};
 
-// Draw spring-specific scene elements
-void draw_spring_scene_elements(void) {
-    uint16_t ground_y = 150;
-
-    // Draw birds in the sky
-    birds_draw_all();
-
-    // Draw butterflies
-    butterflies_draw_all();
-
-    // Draw flowers on the ground
-    flowers_draw_all(ground_y);
+// Draw all stars
+void stars_draw(void) {
+    for (uint8_t i = 0; i < NUM_STARS; i++) {
+        fb_rect_hsv(star_positions[i][0], star_positions[i][1],
+                star_positions[i][0] + 2, star_positions[i][1] + 2, 42, 50, 255, true);
+    }
 }

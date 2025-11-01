@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // Ghost color configuration (HSV)
 #define GHOST_HUE 0        // 0=red, 42=yellow, 85=green, 170=blue, 234=pink
-#define GHOST_SAT 255      // 0=white, 255=fully saturated color
+#define GHOST_SAT 0        // 0=white, 255=fully saturated color
 #define GHOST_VAL 240      // 0=black, 255=maximum brightness
 
 // Initialize a ghost object with position and initial velocity

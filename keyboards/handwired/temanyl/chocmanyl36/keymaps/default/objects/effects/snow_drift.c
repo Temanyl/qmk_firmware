@@ -15,28 +15,22 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include QMK_KEYBOARD_H
-#include "seasons_spring.h"
+#include "snow_drift.h"
 #include "framebuffer.h"
-#include "objects/fauna/bird.h"
-#include "objects/fauna/butterfly.h"
-#include "objects/flora/flower.h"
 
-// Reset spring animations
-void reset_spring_animations(void) {
-    // No animations to reset for spring (static elements only)
-}
+// Snow drift data (x position, height)
+static const struct { uint16_t x; uint8_t height; } snow_drifts[] = {
+    {0, 2}, {20, 4}, {45, 3}, {70, 5}, {95, 3}, {115, 4}
+};
 
-// Draw spring-specific scene elements
-void draw_spring_scene_elements(void) {
-    uint16_t ground_y = 150;
+// Draw snow on ground with drifts
+void snow_drifts_draw(uint16_t ground_y) {
+    // Base snow layer
+    fb_rect_hsv(0, ground_y - 2, 134, ground_y, 0, 0, 240, true);
 
-    // Draw birds in the sky
-    birds_draw_all();
-
-    // Draw butterflies
-    butterflies_draw_all();
-
-    // Draw flowers on the ground
-    flowers_draw_all(ground_y);
+    // Snow drifts
+    for (uint8_t i = 0; i < 6; i++) {
+        fb_rect_hsv(snow_drifts[i].x, ground_y - snow_drifts[i].height,
+                    snow_drifts[i].x + 20, ground_y, 170, 40, 255, true);
+    }
 }

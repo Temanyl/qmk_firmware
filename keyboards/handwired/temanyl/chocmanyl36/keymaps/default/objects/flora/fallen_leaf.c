@@ -15,28 +15,19 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include QMK_KEYBOARD_H
-#include "seasons_spring.h"
+#include "fallen_leaf.h"
 #include "framebuffer.h"
-#include "objects/fauna/bird.h"
-#include "objects/fauna/butterfly.h"
-#include "objects/flora/flower.h"
 
-// Reset spring animations
-void reset_spring_animations(void) {
-    // No animations to reset for spring (static elements only)
-}
+// Fallen leaf data (x position, hue color)
+static const struct { uint16_t x; uint8_t hue; } fallen_leaves[NUM_FALL_LEAVES] = {
+    {18, 10}, {35, 0}, {52, 25}, {68, 15}, {82, 8}, {95, 20}, {108, 5}, {122, 30},
+    {25, 12}, {45, 18}, {62, 22}, {78, 28}, {92, 15}, {105, 10}, {118, 25}
+};
 
-// Draw spring-specific scene elements
-void draw_spring_scene_elements(void) {
-    uint16_t ground_y = 150;
-
-    // Draw birds in the sky
-    birds_draw_all();
-
-    // Draw butterflies
-    butterflies_draw_all();
-
-    // Draw flowers on the ground
-    flowers_draw_all(ground_y);
+// Draw all fallen leaves
+void fallen_leaves_draw_all(void) {
+    for (uint8_t i = 0; i < NUM_FALL_LEAVES; i++) {
+        // Small leaves on ground (small circles just above ground line at y=146)
+        fb_circle_hsv(fallen_leaves[i].x, 146, 2, fallen_leaves[i].hue, 255, 220, true);
+    }
 }

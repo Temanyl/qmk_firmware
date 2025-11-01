@@ -15,28 +15,19 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include QMK_KEYBOARD_H
-#include "seasons_spring.h"
-#include "framebuffer.h"
-#include "objects/fauna/bird.h"
-#include "objects/fauna/butterfly.h"
-#include "objects/flora/flower.h"
+#pragma once
 
-// Reset spring animations
-void reset_spring_animations(void) {
-    // No animations to reset for spring (static elements only)
-}
+#include <stdint.h>
 
-// Draw spring-specific scene elements
-void draw_spring_scene_elements(void) {
-    uint16_t ground_y = 150;
+// Cabin structure
+typedef struct {
+    uint16_t base_x;
+    uint16_t base_y;
+    uint8_t season;  // 0=Winter, 1=Spring, 2=Summer, 3=Fall
+} cabin_t;
 
-    // Draw birds in the sky
-    birds_draw_all();
+// Initialize cabin
+void cabin_init(cabin_t *cabin, uint16_t base_x, uint16_t base_y, uint8_t season);
 
-    // Draw butterflies
-    butterflies_draw_all();
-
-    // Draw flowers on the ground
-    flowers_draw_all(ground_y);
-}
+// Draw cabin with seasonal variations
+void cabin_draw(const cabin_t *cabin);

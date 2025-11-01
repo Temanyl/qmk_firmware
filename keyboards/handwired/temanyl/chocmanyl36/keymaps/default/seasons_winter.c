@@ -20,6 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "display.h"
 #include "framebuffer.h"
 #include "objects/weather/cloud.h"
+#include "objects/effects/snowflake.h"
+#include "objects/effects/snow_drift.h"
 
 // Cloud animation state
 cloud_t clouds[NUM_CLOUDS];
@@ -114,24 +116,10 @@ void draw_winter_scene_elements(void) {
         init_clouds();
     }
 
-    // Snowflakes (21 total)
-    uint16_t snow_positions[][2] = {
-        {15, 50}, {40, 70}, {65, 90}, {85, 60}, {110, 80}, {25, 100}, {55, 120}, {95, 110}, {120, 65}, {10, 45}, {32, 85},
-        {48, 105}, {72, 55}, {90, 75}, {105, 95}, {125, 115}, {18, 130}, {35, 62}, {62, 88}, {78, 108}, {98, 72}
-    };
-    for (uint8_t i = 0; i < 21; i++) {
-        fb_rect_hsv(snow_positions[i][0], snow_positions[i][1], snow_positions[i][0] + 2, snow_positions[i][1] + 2, 170, 80, 255, true);
-        fb_rect_hsv(snow_positions[i][0] - 2, snow_positions[i][1] + 1, snow_positions[i][0] + 4, snow_positions[i][1] + 1, 170, 80, 255, true);
-        fb_rect_hsv(snow_positions[i][0] + 1, snow_positions[i][1] - 2, snow_positions[i][0] + 1, snow_positions[i][1] + 4, 170, 80, 255, true);
-    }
+    // Snowflakes
+    snowflakes_draw_all();
 
-    // Snow on ground
+    // Snow on ground with drifts
     uint16_t ground_y = 150;
-    fb_rect_hsv(0, ground_y - 2, 134, ground_y, 0, 0, 240, true);
-    struct { uint16_t x; uint8_t height; } snow_drifts[] = {
-        {0, 2}, {20, 4}, {45, 3}, {70, 5}, {95, 3}, {115, 4}
-    };
-    for (uint8_t i = 0; i < 6; i++) {
-        fb_rect_hsv(snow_drifts[i].x, ground_y - snow_drifts[i].height, snow_drifts[i].x + 20, ground_y, 170, 40, 255, true);
-    }
+    snow_drifts_draw(ground_y);
 }

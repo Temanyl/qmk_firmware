@@ -33,6 +33,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // Include drawable objects
 #include "objects/weather/smoke.h"
 #include "objects/weather/raindrop.h"
+#include "objects/celestial/sun.h"
+#include "objects/celestial/moon.h"
+#include "objects/celestial/stars.h"
+#include "objects/structures/tree.h"
+#include "objects/structures/cabin.h"
 
 // Smoke animation state (shared across seasons)
 bool smoke_initialized = false;
@@ -70,200 +75,23 @@ uint8_t get_season(uint8_t month) {
 // Forward declaration from display.h
 extern void get_layer_color(uint8_t layer, uint8_t *hue, uint8_t *sat, uint8_t *val);
 
-// Draw a tree with seasonal variations
+// Draw a tree with seasonal variations (wrapper for compatibility)
 void draw_tree(uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, uint8_t sat, uint8_t val) {
-    // Tree structure: trunk + canopy
-    // Trunk (brown)
-    uint8_t trunk_width = 6;
-    uint8_t trunk_height = (season == 1) ? 28 : 22; // Spring trees are taller
-    fb_rect_hsv(base_x - trunk_width/2, base_y - trunk_height,
-            base_x + trunk_width/2, base_y, 20, 200, 100, true);
-
-    // Canopy changes by season
-    if (season == 0) { // Winter - bare branches with more detail
-        // Draw main upward-reaching branches
-        // Left upward branch
-        fb_rect_hsv(base_x - 8, base_y - trunk_height - 10, base_x - 6, base_y - trunk_height - 2, 20, 150, 80, true);
-        fb_rect_hsv(base_x - 12, base_y - trunk_height - 8, base_x - 8, base_y - trunk_height - 6, 20, 150, 80, true);
-        // Right upward branch
-        fb_rect_hsv(base_x + 6, base_y - trunk_height - 10, base_x + 8, base_y - trunk_height - 2, 20, 150, 80, true);
-        fb_rect_hsv(base_x + 8, base_y - trunk_height - 8, base_x + 12, base_y - trunk_height - 6, 20, 150, 80, true);
-
-        // Middle upward branches (from mid-trunk)
-        fb_rect_hsv(base_x - 6, base_y - trunk_height - 6, base_x - 4, base_y - trunk_height + 2, 20, 150, 80, true);
-        fb_rect_hsv(base_x + 4, base_y - trunk_height - 6, base_x + 6, base_y - trunk_height + 2, 20, 150, 80, true);
-
-        // Outward angled branches (lower)
-        fb_rect_hsv(base_x - 10, base_y - trunk_height + 4, base_x - 8, base_y - trunk_height + 8, 20, 150, 80, true);
-        fb_rect_hsv(base_x + 8, base_y - trunk_height + 4, base_x + 10, base_y - trunk_height + 8, 20, 150, 80, true);
-
-        // Smaller upward twigs
-        fb_rect_hsv(base_x - 10, base_y - trunk_height - 12, base_x - 9, base_y - trunk_height - 9, 20, 120, 70, true);
-        fb_rect_hsv(base_x + 9, base_y - trunk_height - 12, base_x + 10, base_y - trunk_height - 9, 20, 120, 70, true);
-        fb_rect_hsv(base_x - 3, base_y - trunk_height - 13, base_x - 2, base_y - trunk_height - 10, 20, 120, 70, true);
-        fb_rect_hsv(base_x + 2, base_y - trunk_height - 13, base_x + 3, base_y - trunk_height - 10, 20, 120, 70, true);
-
-        // Side twigs extending from main branches
-        fb_rect_hsv(base_x - 14, base_y - trunk_height - 6, base_x - 12, base_y - trunk_height - 4, 20, 120, 70, true);
-        fb_rect_hsv(base_x + 12, base_y - trunk_height - 6, base_x + 14, base_y - trunk_height - 4, 20, 120, 70, true);
-
-        // Add snow accumulation on branches (thicker and more coverage)
-        // Snow on main upward branches (thicker patches)
-        fb_rect_hsv(base_x - 9, base_y - trunk_height - 11, base_x - 5, base_y - trunk_height - 9, 170, 40, 255, true);
-        fb_rect_hsv(base_x + 5, base_y - trunk_height - 11, base_x + 9, base_y - trunk_height - 9, 170, 40, 255, true);
-
-        // Snow on horizontal/angled branch sections (larger)
-        fb_rect_hsv(base_x - 13, base_y - trunk_height - 9, base_x - 7, base_y - trunk_height - 7, 170, 40, 255, true);
-        fb_rect_hsv(base_x + 7, base_y - trunk_height - 9, base_x + 13, base_y - trunk_height - 7, 170, 40, 255, true);
-
-        // Snow on middle branches (thicker)
-        fb_rect_hsv(base_x - 7, base_y - trunk_height - 7, base_x - 3, base_y - trunk_height - 5, 170, 40, 255, true);
-        fb_rect_hsv(base_x + 3, base_y - trunk_height - 7, base_x + 7, base_y - trunk_height - 5, 170, 40, 255, true);
-
-        // Additional snow on mid-trunk branches
-        fb_rect_hsv(base_x - 6, base_y - trunk_height - 3, base_x - 3, base_y - trunk_height - 1, 170, 40, 255, true);
-        fb_rect_hsv(base_x + 3, base_y - trunk_height - 3, base_x + 6, base_y - trunk_height - 1, 170, 40, 255, true);
-
-        // Snow on lower outward branches (larger)
-        fb_rect_hsv(base_x - 11, base_y - trunk_height + 3, base_x - 7, base_y - trunk_height + 5, 170, 40, 255, true);
-        fb_rect_hsv(base_x + 7, base_y - trunk_height + 3, base_x + 11, base_y - trunk_height + 5, 170, 40, 255, true);
-
-        // Additional snow lower down
-        fb_rect_hsv(base_x - 9, base_y - trunk_height + 6, base_x - 7, base_y - trunk_height + 8, 170, 40, 255, true);
-        fb_rect_hsv(base_x + 7, base_y - trunk_height + 6, base_x + 9, base_y - trunk_height + 8, 170, 40, 255, true);
-
-        // Snow patches on twigs (larger and brighter)
-        fb_rect_hsv(base_x - 11, base_y - trunk_height - 13, base_x - 8, base_y - trunk_height - 11, 0, 0, 255, true);
-        fb_rect_hsv(base_x + 8, base_y - trunk_height - 13, base_x + 11, base_y - trunk_height - 11, 0, 0, 255, true);
-        fb_rect_hsv(base_x - 4, base_y - trunk_height - 14, base_x - 1, base_y - trunk_height - 12, 0, 0, 255, true);
-        fb_rect_hsv(base_x + 1, base_y - trunk_height - 14, base_x + 4, base_y - trunk_height - 12, 0, 0, 255, true);
-
-        // Side twig snow
-        fb_rect_hsv(base_x - 15, base_y - trunk_height - 7, base_x - 11, base_y - trunk_height - 5, 170, 40, 255, true);
-        fb_rect_hsv(base_x + 11, base_y - trunk_height - 7, base_x + 15, base_y - trunk_height - 5, 170, 40, 255, true);
-    } else if (season == 1) { // Spring - green leaves with pink blossoms
-        // Tree shape with green base
-        fb_circle_hsv(base_x, base_y - trunk_height - 7, 15, 85, 220, 200, true); // Light green
-        // Add leaf and blossom dots (smaller, mostly pink blossoms)
-        for (uint8_t i = 0; i < 9; i++) {
-            int8_t offset_x = (i % 3 - 1) * 7;
-            int8_t offset_y = (i / 3 - 1) * 7;
-            // Make 8 dots pink blossoms, only dot 4 (center) is green leaf
-            if (i != 4) {
-                fb_circle_hsv(base_x + offset_x, base_y - trunk_height - 7 + offset_y, 2, 234, 255, 220, true); // Pink blossom (smaller)
-            } else {
-                fb_circle_hsv(base_x + offset_x, base_y - trunk_height - 7 + offset_y, 2, 85, 255, 180, true); // Green leaf (smaller)
-            }
-        }
-    } else if (season == 2) { // Summer - cherry tree with cherries
-        // Dense green canopy
-        fb_circle_hsv(base_x, base_y - trunk_height - 7, 16, 85, 255, 200, true);       // Center
-        fb_circle_hsv(base_x - 9, base_y - trunk_height - 4, 11, 85, 255, 180, true);  // Left
-        fb_circle_hsv(base_x + 9, base_y - trunk_height - 4, 11, 85, 255, 180, true);  // Right
-
-        // Add red cherries scattered throughout the entire canopy
-        // Cherry positions relative to canopy center at (base_x, base_y - trunk_height - 7)
-        // Canopy extends from y=-16 (top) to y=+14 (bottom on sides)
-        int8_t cherry_offsets[][2] = {
-            // Top area (y: -16 to -9)
-            {-4, -14}, {2, -13}, {-9, -11}, {6, -12}, {-1, -10},
-            // Middle area (y: -8 to -1)
-            {-12, -5}, {-6, -3}, {0, -4}, {8, -2}, {13, -6},
-            // Lower area (y: 0 to +12)
-            {-14, 3}, {-8, 8}, {-2, 10}, {4, 9}, {10, 6}, {15, 4}
-        };
-
-        for (uint8_t i = 0; i < 16; i++) {
-            // Draw cherries (bright red, small circles)
-            fb_circle_hsv(base_x + cherry_offsets[i][0],
-                     base_y - trunk_height - 7 + cherry_offsets[i][1],
-                     2, 0, 255, 220, true);
-        }
-    } else { // Fall - orange/red/yellow leaves
-        // Tree shape with autumn colors
-        fb_circle_hsv(base_x, base_y - trunk_height - 7, 15, 20, 255, 200, true);      // Orange
-        fb_circle_hsv(base_x - 8, base_y - trunk_height - 4, 10, 10, 255, 220, true);  // Red-orange
-        fb_circle_hsv(base_x + 8, base_y - trunk_height - 4, 10, 30, 255, 200, true);  // Yellow-orange
-    }
+    tree_t tree;
+    tree_init(&tree, base_x, base_y, season, hue, sat, val);
+    tree_draw(&tree);
 }
 
-// Draw a cabin with seasonal variations
+// Draw a cabin with seasonal variations (wrapper for compatibility)
 void draw_cabin(uint16_t base_x, uint16_t base_y, uint8_t season) {
-    // Cabin dimensions
-    uint8_t cabin_width = 24;
-    uint8_t cabin_height = 18;
-    uint8_t roof_height = 10;
+    cabin_t cabin;
+    cabin_init(&cabin, base_x, base_y, season);
+    cabin_draw(&cabin);
 
-    // Main cabin body (brown wood)
-    fb_rect_hsv(base_x - cabin_width/2, base_y - cabin_height,
-            base_x + cabin_width/2, base_y, 20, 200, 120, true);
-
-    // Roof (darker brown/grey triangular roof using rectangles)
-    // Left side of roof
-    for (uint8_t i = 0; i < roof_height; i++) {
-        uint8_t roof_y = base_y - cabin_height - i;
-        uint8_t roof_left = base_x - (cabin_width/2 + roof_height - i);
-        uint8_t roof_right = base_x - (cabin_width/2 - i);
-        fb_rect_hsv(roof_left, roof_y, roof_right, roof_y + 1, 15, 180, 80, true);
-    }
-    // Right side of roof
-    for (uint8_t i = 0; i < roof_height; i++) {
-        uint8_t roof_y = base_y - cabin_height - i;
-        uint8_t roof_left = base_x + (cabin_width/2 - i);
-        uint8_t roof_right = base_x + (cabin_width/2 + roof_height - i);
-        fb_rect_hsv(roof_left, roof_y, roof_right, roof_y + 1, 15, 180, 80, true);
-    }
-    // Fill the peak gap with a center line
-    fb_rect_hsv(base_x - 7, base_y - cabin_height - roof_height,
-            base_x + 7, base_y - cabin_height, 15, 180, 80, true);
-
-    // Door (darker brown)
-    uint8_t door_width = 7;
-    uint8_t door_height = 10;
-    fb_rect_hsv(base_x - door_width/2, base_y - door_height,
-            base_x + door_width/2, base_y, 15, 220, 60, true);
-
-    // Window (light yellow - lit window)
-    uint8_t window_size = 6;
-    fb_rect_hsv(base_x + 5, base_y - cabin_height + 5,
-            base_x + 5 + window_size, base_y - cabin_height + 5 + window_size, 42, 150, 255, true);
-
-    // Window frame cross (dark brown)
-    fb_rect_hsv(base_x + 7, base_y - cabin_height + 5,
-            base_x + 8, base_y - cabin_height + 5 + window_size, 20, 200, 80, true);
-    fb_rect_hsv(base_x + 5, base_y - cabin_height + 8,
-            base_x + 5 + window_size, base_y - cabin_height + 9, 20, 200, 80, true);
-
-    // Chimney on roof (brick red/brown)
-    uint8_t chimney_width = 4;
-    uint8_t chimney_height = 8;
-    fb_rect_hsv(base_x + 5, base_y - cabin_height - roof_height - chimney_height + 2,
-            base_x + 5 + chimney_width, base_y - cabin_height - roof_height + 3, 10, 200, 100, true);
-
-    // Smoke is now animated separately (see animate_smoke function)
-    // Static smoke removed - only if not summer
+    // Initialize smoke animation if not summer
     if (season != 2) {
-        // Initialize smoke animation if not already initialized
         if (!smoke_initialized) {
             init_smoke();
-        }
-    }
-
-    // Add snow on roof in winter
-    if (season == 0) {
-        // Snow on left side of roof
-        for (uint8_t i = 0; i < roof_height; i++) {
-            uint8_t roof_y = base_y - cabin_height - i;
-            uint8_t roof_left = base_x - (cabin_width/2 + roof_height - i);
-            uint8_t roof_right = base_x - (cabin_width/2 - i);
-            fb_rect_hsv(roof_left, roof_y - 2, roof_right, roof_y - 1, 170, 40, 255, true);
-        }
-        // Snow on right side of roof
-        for (uint8_t i = 0; i < roof_height; i++) {
-            uint8_t roof_y = base_y - cabin_height - i;
-            uint8_t roof_left = base_x + (cabin_width/2 - i);
-            uint8_t roof_right = base_x + (cabin_width/2 + roof_height - i);
-            fb_rect_hsv(roof_left, roof_y - 2, roof_right, roof_y - 1, 170, 40, 255, true);
         }
     }
 }
@@ -516,97 +344,18 @@ void draw_seasonal_animation(void) {
 
     // Draw sun or moon with appropriate coloring based on time
     if (is_night) {
-        // Draw moon with phase based on day of month (waxing/waning cycle)
-        uint8_t moon_day;
-        if (current_hour < 6) {
-            // Early morning: this is the end of yesterday's night
-            moon_day = (current_day > 1) ? (current_day - 1) : 31;
-        } else {
-            // Evening (hours 20-23): this is the start of today's night
-            moon_day = current_day;
-        }
-        uint8_t moon_phase = (moon_day * 29) / 31; // Map day 1-31 to phase 0-29
-
-        // Draw full moon circle first (pale yellow/white base)
-        fb_circle_hsv(celestial_x, celestial_y, 8, 42, 100, 255, true);
-
-        // Add shadow to create moon phase effect
-        if (moon_phase < 14) {
-            // Waxing moon (new -> full): shadow on left side, shrinking
-            if (moon_phase < 7) {
-                // New moon to first quarter: shadow covers most/half of left side
-                int8_t shadow_offset = -8 + (moon_phase * 2); // -8 to 6
-                uint8_t shadow_radius = 8 - (moon_phase / 2); // 8 to 4
-                fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
-            } else {
-                // First quarter to full: small shadow on left, disappearing
-                int8_t shadow_offset = 6 - ((moon_phase - 7) * 2); // 6 to -8
-                uint8_t shadow_radius = 5 - ((moon_phase - 7) / 2); // 4 to 0
-                if (shadow_radius > 0) {
-                    fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
-                }
-            }
-        } else if (moon_phase > 14) {
-            // Waning moon (full -> new): shadow on right side, growing
-            uint8_t waning_phase = moon_phase - 15; // 0 to 14
-            if (waning_phase < 7) {
-                // Full to last quarter: small shadow on right, growing
-                int8_t shadow_offset = -6 + (waning_phase * 2); // -6 to 8
-                uint8_t shadow_radius = (waning_phase / 2); // 0 to 3
-                if (shadow_radius > 0) {
-                    fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
-                }
-            } else {
-                // Last quarter to new: shadow covers half/most of right side
-                int8_t shadow_offset = 8 - ((waning_phase - 7) * 2); // 8 to -6
-                uint8_t shadow_radius = 5 + ((waning_phase - 7) / 2); // 4 to 7
-                fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
-            }
-        }
+        // Draw moon with phase
+        moon_t moon;
+        moon_init(&moon, celestial_x, celestial_y, current_day, current_hour);
+        moon_draw(&moon);
 
         // Add stars scattered across the night sky
-        uint16_t star_positions[][2] = {
-            {20, 15}, {50, 25}, {90, 18}, {110, 30},
-            {65, 12}, {100, 22}, {80, 30},
-            {120, 15}, {10, 25}, {28, 20},
-            {85, 8}, {70, 25}, {60, 15}
-        };
-        for (uint8_t i = 0; i < 13; i++) {
-            fb_rect_hsv(star_positions[i][0], star_positions[i][1],
-                    star_positions[i][0] + 2, star_positions[i][1] + 2, 42, 50, 255, true);
-        }
+        stars_draw();
     } else {
         // Draw sun with color based on time of day
-        uint8_t sun_hue, sun_sat;
-        if (current_hour < 8 || current_hour > 17) {
-            // Dawn/dusk - orange/red sun
-            sun_hue = 10;
-            sun_sat = 255;
-        } else {
-            // Midday - bright yellow sun
-            sun_hue = 42;
-            sun_sat = 255;
-        }
-
-        // Draw sun with rays
-        fb_circle_hsv(celestial_x, celestial_y, 9, sun_hue, sun_sat, 255, true);
-
-        // Add sun rays (8 rays around sun)
-        for (uint8_t i = 0; i < 8; i++) {
-            int16_t ray_x = 0, ray_y = 0;
-
-            if (i == 0) { ray_x = 12; ray_y = 0; }
-            else if (i == 1) { ray_x = 9; ray_y = -9; }
-            else if (i == 2) { ray_x = 0; ray_y = -12; }
-            else if (i == 3) { ray_x = -9; ray_y = -9; }
-            else if (i == 4) { ray_x = -12; ray_y = 0; }
-            else if (i == 5) { ray_x = -9; ray_y = 9; }
-            else if (i == 6) { ray_x = 0; ray_y = 12; }
-            else if (i == 7) { ray_x = 9; ray_y = 9; }
-
-            fb_rect_hsv(celestial_x + ray_x - 1, celestial_y + ray_y - 1,
-                    celestial_x + ray_x + 1, celestial_y + ray_y + 1, sun_hue, sun_sat, 200, true);
-        }
+        sun_t sun;
+        sun_init(&sun, celestial_x, celestial_y, current_hour);
+        sun_draw(&sun);
     }
 
     // === GROUND AND TREES ===
