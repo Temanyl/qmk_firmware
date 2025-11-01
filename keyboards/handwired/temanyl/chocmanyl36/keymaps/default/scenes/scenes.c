@@ -32,6 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // Include drawable objects
 #include "../objects/weather/smoke.h"
+#include "../objects/weather/cloud.h"
 #include "../objects/weather/raindrop.h"
 #include "../objects/celestial/sun.h"
 #include "../objects/celestial/moon.h"
@@ -482,9 +483,10 @@ void draw_seasonal_animation(void) {
 
     // === DRAW CLOUDS (winter and fall) ===
     if ((season == 0 || season == 3) && cloud_initialized) {
-        // Draw clouds
+        // Draw clouds with appropriate type based on season
+        cloud_type_t type = (season == 3) ? CLOUD_TYPE_DARK : CLOUD_TYPE_LIGHT;
         for (uint8_t i = 0; i < NUM_CLOUDS; i++) {
-            draw_cloud(clouds[i].x, clouds[i].y);
+            cloud_draw(&clouds[i], type);
         }
     } else if (season != 0 && season != 3) {
         // Not winter or fall - clean up cloud state
