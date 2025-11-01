@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <string.h>
 #include <stdlib.h>
 #include "display/display.h"
+#include "game_doodle.h"
 
 // Custom keycodes
 enum custom_keycodes {
@@ -33,7 +34,8 @@ enum layer_names {
     _MAC_COLEMAK_DH,
     _MAC_CODE,
     _MAC_NAV,
-    _MAC_NUM
+    _MAC_NUM,
+    _MAC_ARROW
 };
 
 // Tap Dance declarations
@@ -69,6 +71,12 @@ void osl_code_finished(tap_dance_state_t *state, void *user_data);
 void osl_code_reset(tap_dance_state_t *state, void *user_data);
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
+    [_MAC_COLEMAK_DH] = LAYOUT_ortho_3x10_6(
+         TD(TD_Q_ESC_EMOJI_RESET), KC_W,  KC_F,    KC_P,  KC_B,           KC_J,  KC_L,          KC_U,              KC_Y,           LT(0,KC_SCLN),
+         KC_A, LCTL_T(KC_R), LALT_T(KC_S), LGUI_T(KC_T),  KC_G,           KC_M,  LGUI_T(KC_N),  LALT_T(KC_E),      LCTL_T(KC_I),   KC_O,
+         KC_Z, KC_X,         KC_C,         KC_D,          KC_V,           KC_K,  KC_H,          KC_COMMA,          KC_DOT,         KC_SLSH,
+                MEH_T(KC_TAB), KC_LSFT, KC_SPC,      KC_BSPC, TD(TD_LAYER_NAV_NUM), OSL(_MAC_CODE)
+     ),
     [_MAC_CODE] = LAYOUT_ortho_3x10_6(
         KC_UNDS, KC_LT,   KC_GT,   KC_LCBR, KC_RCBR,        KC_PIPE,  KC_AT,   KC_BSLS, KC_GRAVE, KC_ENT,
         KC_EXLM, KC_MINS, KC_EQL,  KC_LPRN, KC_RPRN,        KC_AMPR,  KC_QUOT, KC_DOWN, KC_DQUO, KC_NO,
@@ -78,7 +86,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_MAC_NAV] = LAYOUT_ortho_3x10_6(
         KC_ESC,  MS_BTN1, MS_UP, MS_BTN2, KC_NO,          KC_VOLU, KC_PGUP, KC_UP,    KC_PGDN, KC_ENT,
         KC_NO,   KC_LCTL, KC_LALT, KC_LGUI, KC_MPLY,        KC_MUTE, KC_LEFT, KC_DOWN,  KC_RGHT, KC_NO,
-        KC_NO,   MS_LEFT, MS_DOWN, MS_RGHT, KC_NO,          KC_VOLD, KC_NO,   KC_NO,    KC_NO,   KC_NO,
+        KC_NO,   MS_LEFT, MS_DOWN, MS_RGHT, KC_NO,          KC_VOLD, TO(_MAC_ARROW), KC_NO,    KC_NO,   KC_NO,
                           KC_TAB, TD(TD_LAYER_DEFAULT_SHIFT), KC_SPC,          KC_BSPC, KC_NO, TO(_MAC_CODE)
     ),
     [_MAC_NUM] = LAYOUT_ortho_3x10_6(
@@ -87,12 +95,12 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
          KC_F11,  KC_F12,KC_LCTL, KC_LALT, KC_LGUI,        KC_0,     KC_1,   KC_2,  KC_3,   DISP_DN,
                          KC_TAB, TD(TD_LAYER_DEFAULT_SHIFT), KC_SPC,           KC_BSPC, TO(_MAC_NAV), KC_NO
     ),
-    [_MAC_COLEMAK_DH] = LAYOUT_ortho_3x10_6(
-         TD(TD_Q_ESC_EMOJI_RESET), KC_W,  KC_F,    KC_P,  KC_B,           KC_J,  KC_L,          KC_U,              KC_Y,           LT(0,KC_SCLN),
-         KC_A, LCTL_T(KC_R), LALT_T(KC_S), LGUI_T(KC_T),  KC_G,           KC_M,  LGUI_T(KC_N),  LALT_T(KC_E),      LCTL_T(KC_I),   KC_O,
-         KC_Z, KC_X,         KC_C,         KC_D,          KC_V,           KC_K,  KC_H,          KC_COMMA,          KC_DOT,         KC_SLSH,
-                MEH_T(KC_TAB), KC_LSFT, KC_SPC,      KC_BSPC, TD(TD_LAYER_NAV_NUM), OSL(_MAC_CODE)
-     )
+    [_MAC_ARROW] = LAYOUT_ortho_3x10_6(
+         KC_NO,   KC_NO,   KC_NO,   KC_NO,   KC_NO,          KC_NO,   KC_NO,   KC_UP,   KC_NO,   KC_NO,
+         KC_NO,   KC_LSFT, KC_NO,   KC_NO,   KC_NO,          KC_NO,   KC_LEFT, KC_DOWN, KC_RGHT, KC_NO,
+         KC_NO,   KC_NO,   KC_NO,   KC_NO,   KC_NO,          KC_NO,   KC_NO,   KC_NO,   KC_NO,   KC_NO,
+                           KC_NO,   KC_RSFT,  KC_NO,                  KC_NO,   KC_NO,   KC_NO
+    )
 };
 
 // tap dances again
@@ -248,6 +256,14 @@ uint8_t mod_state;
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     mod_state = get_mods();
+
+    // Handle game input on arrow layer
+    if (layer_state_is(_MAC_ARROW)) {
+        if (!game_process_record(keycode, record, &current_display_layer)) {
+            return false;  // Game handled the key
+        }
+    }
+
     switch (keycode) {
         case LT(0,KC_SCLN):
             if (!record->tap.count && record->event.pressed) {
@@ -312,6 +328,23 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 void keyboard_post_init_kb(void) {
     // Initialize the display
     init_display();
+}
+
+// Layer state change callback
+layer_state_t layer_state_set_user(layer_state_t state) {
+    // Check if entering arrow layer
+    if (layer_state_cmp(state, _MAC_ARROW) && !layer_state_cmp(layer_state, _MAC_ARROW)) {
+        // Entering arrow layer - initialize game
+        game_init();
+    }
+    // Check if exiting arrow layer
+    else if (!layer_state_cmp(state, _MAC_ARROW) && layer_state_cmp(layer_state, _MAC_ARROW)) {
+        // Exiting arrow layer - cleanup game and force display redraw
+        game_cleanup();
+        // Invalidate display cache to force full redraw
+        current_display_layer = 255;
+    }
+    return state;
 }
 
 // Raw HID receive callback - handles data from computer
@@ -418,6 +451,11 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
 
 // Periodically check and update display based on active layer
 void housekeeping_task_user(void) {
+    // Handle game when on arrow layer
+    if (game_housekeeping(display)) {
+        return;  // Game handled the update, skip normal display updates
+    }
+
     // Delegate all display-related housekeeping to the display module
     display_housekeeping_task();
 }
