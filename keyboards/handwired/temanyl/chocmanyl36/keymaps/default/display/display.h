@@ -21,6 +21,37 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdbool.h>
 
+// ============================================================================
+// DATE/TIME OVERRIDE CONFIGURATION FOR TESTING
+// ============================================================================
+// Uncomment HARDCODE_DATE_TIME to override date/time from HID with fixed values.
+// This is useful for testing seasonal displays without changing system time.
+// IMPORTANT: Comment out HARDCODE_DATE_TIME before merging to production!
+// ============================================================================
+
+#define HARDCODE_DATE_TIME
+
+#ifdef HARDCODE_DATE_TIME
+    // Set your test date/time here:
+    // Examples:
+    //   Halloween:  10, 28, 2025, 18, 30  (Oct 28, 2025, 6:30 PM)
+    //   Christmas:  12, 15, 2025, 10, 0   (Dec 15, 2025, 10:00 AM)
+    //   New Year's: 12, 31, 2025, 23, 45  (Dec 31, 2025, 11:45 PM)
+    //   Spring:     4, 15, 2025, 14, 0    (Apr 15, 2025, 2:00 PM)
+    //   Summer:     7, 20, 2025, 12, 0    (Jul 20, 2025, noon)
+    //   Fall:       10, 10, 2025, 16, 0   (Oct 10, 2025, 4:00 PM)
+    //   Winter:     1, 15, 2025, 8, 0     (Jan 15, 2025, 8:00 AM)
+
+    #define HARDCODED_MONTH     1
+    #define HARDCODED_DAY       5
+    #define HARDCODED_YEAR      2025
+    #define HARDCODED_HOUR      12
+    #define HARDCODED_MINUTE    0
+
+    // When 1, HID date/time updates will be ignored
+    #define IGNORE_HID_TIME_UPDATES 1
+#endif
+
 // Display device and font
 extern painter_device_t display;
 extern painter_font_handle_t media_font;
