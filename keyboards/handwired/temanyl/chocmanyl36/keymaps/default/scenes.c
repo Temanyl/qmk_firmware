@@ -1048,7 +1048,7 @@ void animate_smoke(void) {
                 // Spawn new particle at chimney with slight position variation
                 smoke_particles[i].x = chimney_x + ((current_time % 3) - 1);  // -1, 0, or +1
                 smoke_particles[i].y = chimney_top_y;
-                smoke_particles[i].size = 2;
+                smoke_particles[i].size = 4;  // Start at size 4
                 smoke_particles[i].brightness = 180;
                 smoke_particles[i].age = 0;
 
@@ -1110,9 +1110,10 @@ void animate_smoke(void) {
             smoke_particles[i].x += 1;  // Always drift right by 1 pixel
         }
 
-        // Grow size as it rises (max size 5)
-        if (smoke_particles[i].size < 5 && smoke_particles[i].age % 32 == 0) {
-            smoke_particles[i].size++;
+        // Shrink size as it rises (gets smaller as it gains height)
+        // Shrink more slowly - every 64 age-ticks instead of 32
+        if (smoke_particles[i].size > 2 && smoke_particles[i].age % 64 == 0) {
+            smoke_particles[i].size--;
         }
 
         // Fade out as it rises
@@ -1124,8 +1125,9 @@ void animate_smoke(void) {
 
         // DELETION: Deactivate particle when it goes off screen or fades out
         // This is INDEPENDENT of spawning - spawning is time-based
+        // Disappear around halfway up the screen (y=75, since ground is at y=150)
         if (smoke_particles[i].brightness == 0 ||
-            smoke_particles[i].y < 15 ||
+            smoke_particles[i].y < 75 ||
             smoke_particles[i].x > 135) {
             // Just deactivate - don't respawn here
             smoke_particles[i].brightness = 0;
