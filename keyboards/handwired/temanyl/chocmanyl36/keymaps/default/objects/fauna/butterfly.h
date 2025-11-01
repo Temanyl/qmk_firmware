@@ -21,8 +21,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdbool.h>
 
 #define NUM_SPRING_BUTTERFLIES 9
-#define BUTTERFLY_WIDTH 8   // Wing radius 3 on each side + body + margin
-#define BUTTERFLY_HEIGHT 8  // Vertical extent including wing animations
+#define BUTTERFLY_WIDTH 12  // Wing radius 3 on each side + body + margin + flutter range
+#define BUTTERFLY_HEIGHT 12 // Vertical extent including wing animations + flutter range
 
 // Butterfly animation state
 typedef struct {
@@ -32,6 +32,12 @@ typedef struct {
     float base_y;           // Base Y position for flutter
     float flutter_phase_x;  // Phase for horizontal flutter
     float flutter_phase_y;  // Phase for vertical flutter
+    float amplitude_x;      // Horizontal flutter amplitude (varies per butterfly)
+    float amplitude_y;      // Vertical flutter amplitude (varies per butterfly)
+    float wander_offset_x;  // Additional offset during wander mode
+    float wander_offset_y;  // Additional offset during wander mode
+    uint32_t wander_timer;  // Timer for wander state changes
+    bool is_wandering;      // Whether currently in wander mode
     uint8_t hue;            // Wing color
     uint8_t wing_frame;     // Wing animation frame (0-3)
     uint32_t last_update;   // Last update time
