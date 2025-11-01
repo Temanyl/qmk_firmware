@@ -648,6 +648,20 @@ void draw_seasonal_animation(void) {
         draw_christmas_scene();
     }
 
+    // === INITIALIZE GHOSTS (if Halloween) ===
+    // NOTE: This must happen BEFORE background save so the check can detect
+    // that ghosts need background saved. Ghosts are drawn AFTER background save.
+    if (is_halloween_event()) {
+        if (!ghost_initialized) {
+            init_ghosts();
+        }
+    } else {
+        if (ghost_initialized) {
+            ghost_initialized = false;
+            ghost_background_saved = false;
+        }
+    }
+
     // === SAVE BACKGROUND FOR ANIMATIONS ===
     // Check if we need to save background for any active animations
     bool need_background = false;
@@ -692,20 +706,9 @@ void draw_seasonal_animation(void) {
     }
 
     // === DRAW GHOSTS (if Halloween) ===
-    if (is_halloween_event()) {
-        if (!ghost_initialized) {
-            init_ghosts();
-        }
-
-        for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
-            draw_ghost(ghosts[i].x, ghosts[i].y);
-        }
-    } else {
-        if (ghost_initialized) {
-            ghost_initialized = false;
-            ghost_background_saved = false;
-        }
-    }
+    // NOTE: Ghosts are NOT drawn here - they are drawn only by the region-based
+    // animation system in keymap.c to avoid baking them into the background.
+    // Ghost initialization happens earlier, before background save.
 
     // === DRAW SMOKE (all seasons except summer) ===
     if (season != 2 && smoke_initialized) {

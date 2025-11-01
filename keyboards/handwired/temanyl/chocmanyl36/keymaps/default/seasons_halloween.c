@@ -17,6 +17,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include QMK_KEYBOARD_H
 #include "seasons_halloween.h"
+#include "objects/seasonal/pumpkin.h"
+#include "objects/seasonal/ghost.h"
 #include "framebuffer.h"
 
 // Halloween animation state
@@ -24,6 +26,10 @@ ghost_t ghosts[NUM_GHOSTS];
 bool ghost_initialized = false;
 bool ghost_background_saved = false;
 uint32_t ghost_animation_timer = 0;
+
+// Pumpkin instances
+static pumpkin_t pumpkins[NUM_PUMPKINS];
+static bool pumpkins_initialized = false;
 
 // Forward declarations
 extern uint8_t current_month;
@@ -35,59 +41,29 @@ bool is_halloween_event(void) {
            (current_month == 11 && current_day <= 3);
 }
 
-// Draw pumpkin
-void draw_pumpkin(int16_t x, int16_t y, uint8_t size) {
-    if (x < -size || x > 135 + size || y < -size || y > 152 + size) return;
-
-    fb_circle_hsv(x, y, size, 20, 255, 255, true);
-    fb_circle_hsv(x, y + size/3, size - 2, 16, 255, 220, true);
-
-    uint8_t eye_offset = size / 3;
-    uint8_t eye_size = size / 4;
-
-    fb_rect_hsv(x - eye_offset - eye_size, y - eye_offset,
-            x - eye_offset + eye_size, y - eye_offset + eye_size, 0, 0, 0, true);
-    fb_rect_hsv(x + eye_offset - eye_size, y - eye_offset,
-            x + eye_offset + eye_size, y - eye_offset + eye_size, 0, 0, 0, true);
-    fb_rect_hsv(x - eye_size/2, y, x + eye_size/2, y + eye_size, 0, 0, 0, true);
-    fb_rect_hsv(x - size/2, y + size/3, x + size/2, y + size/2, 0, 0, 0, true);
-
-    for (int8_t i = -size/3; i < size/3; i += size/4) {
-        fb_rect_hsv(x + i, y + size/3, x + i + size/6, y + size/2 - 1, 20, 255, 255, true);
-    }
-
-    fb_rect_hsv(x - 2, y - size - 3, x + 2, y - size + 1, 85, 200, 100, true);
-}
-
-// Draw ghost
-void draw_ghost(int16_t x, int16_t y) {
-    if (x < -15 || x > 150 || y < -20 || y > 172) return;
-
-    fb_circle_hsv(x, y, 7, 0, 0, 240, true);
-    fb_rect_hsv(x - 7, y, x + 7, y + 12, 0, 0, 240, true);
-    fb_rect_hsv(x - 7, y + 10, x - 4, y + 13, 0, 0, 240, true);
-    fb_rect_hsv(x - 3, y + 10, x + 0, y + 12, 0, 0, 240, true);
-    fb_rect_hsv(x + 1, y + 10, x + 4, y + 13, 0, 0, 240, true);
-    fb_rect_hsv(x + 5, y + 10, x + 7, y + 12, 0, 0, 240, true);
-    fb_rect_hsv(x - 3, y - 2, x - 1, y, 0, 0, 0, true);
-    fb_rect_hsv(x + 1, y - 2, x + 3, y, 0, 0, 0, true);
-    fb_circle_hsv(x, y + 3, 2, 0, 0, 0, false);
-}
-
 // Draw Halloween elements
 void draw_halloween_elements(void) {
-    draw_pumpkin(25, 145, 8);
-    draw_pumpkin(55, 143, 10);
-    draw_pumpkin(90, 144, 9);
+    // Initialize pumpkins on first draw
+    if (!pumpkins_initialized) {
+        pumpkin_init(&pumpkins[0], 25, 145, 8);
+        pumpkin_init(&pumpkins[1], 55, 143, 10);
+        pumpkin_init(&pumpkins[2], 90, 144, 9);
+        pumpkins_initialized = true;
+    }
+
+    // Draw all pumpkins
+    for (uint8_t i = 0; i < NUM_PUMPKINS; i++) {
+        pumpkin_draw(&pumpkins[i]);
+    }
 }
 
 // Initialize ghosts
 void init_ghosts(void) {
     if (ghost_initialized) return;
 
-    ghosts[0].x = 20; ghosts[0].y = 90; ghosts[0].vx = 1; ghosts[0].vy = 0; ghosts[0].phase = 0;
-    ghosts[1].x = 60; ghosts[1].y = 50; ghosts[1].vx = -1; ghosts[1].vy = 0; ghosts[1].phase = 40;
-    ghosts[2].x = 100; ghosts[2].y = 70; ghosts[2].vx = 1; ghosts[2].vy = 0; ghosts[2].phase = 80;
+    ghost_init(&ghosts[0], 20, 90, 1, 0);
+    ghost_init(&ghosts[1], 60, 50, -1, 40);
+    ghost_init(&ghosts[2], 100, 70, 1, 80);
 
     ghost_initialized = true;
 }
@@ -95,9 +71,7 @@ void init_ghosts(void) {
 // Check if pixel is in ghost
 bool is_pixel_in_ghost(int16_t px, int16_t py, uint8_t ghost_idx) {
     if (ghost_idx >= NUM_GHOSTS) return false;
-    int16_t gx = ghosts[ghost_idx].x;
-    int16_t gy = ghosts[ghost_idx].y;
-    return (px >= gx - 7 && px <= gx + 7 && py >= gy - 7 && py <= gy + 13);
+    return ghost_contains_point(&ghosts[ghost_idx], px, py);
 }
 
 // Redraw ghosts in region
@@ -105,13 +79,12 @@ void redraw_ghosts_in_region(int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
     if (!ghost_initialized) return;
 
     for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
-        int16_t gx = ghosts[i].x;
-        int16_t gy = ghosts[i].y;
-        int16_t ghost_x1 = gx - 7, ghost_y1 = gy - 7;
-        int16_t ghost_x2 = gx + 7, ghost_y2 = gy + 13;
+        int16_t ghost_x1, ghost_y1, ghost_x2, ghost_y2;
+        ghost_get_bounds(&ghosts[i], &ghost_x1, &ghost_y1, &ghost_x2, &ghost_y2);
 
+        // Check if ghost overlaps with the region
         if (ghost_x2 >= x1 && ghost_x1 <= x2 && ghost_y2 >= y1 && ghost_y1 <= y2) {
-            draw_ghost(gx, gy);
+            ghost_draw(&ghosts[i]);
         }
     }
 }
@@ -189,4 +162,5 @@ void animate_ghosts(void) {
 void reset_halloween_animations(void) {
     ghost_initialized = false;
     ghost_background_saved = false;
+    pumpkins_initialized = false;
 }

@@ -19,24 +19,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "objects/seasonal/ghost.h"
 
-// Halloween event (Oct 28 - Nov 3)
-#define NUM_PUMPKINS 3
-#define NUM_GHOSTS 3
-#define GHOST_ANIMATION_SPEED 80  // Update every 80ms for smooth floating motion
+// Pumpkin object represents a jack-o'-lantern
+typedef struct {
+    int16_t x;      // Center X position
+    int16_t y;      // Center Y position
+    uint8_t size;   // Radius of the pumpkin
+} pumpkin_t;
 
-// External state
-extern ghost_t ghosts[NUM_GHOSTS];
-extern bool ghost_initialized;
-extern bool ghost_background_saved;
-extern uint32_t ghost_animation_timer;
+// Initialize a pumpkin object with position and size
+void pumpkin_init(pumpkin_t* pumpkin, int16_t x, int16_t y, uint8_t size);
 
-// Halloween functions
-bool is_halloween_event(void);
-void draw_halloween_elements(void);
-void init_ghosts(void);
-void animate_ghosts(void);
-bool is_pixel_in_ghost(int16_t px, int16_t py, uint8_t ghost_idx);
-void redraw_ghosts_in_region(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
-void reset_halloween_animations(void);
+// Draw the pumpkin at its current position
+void pumpkin_draw(const pumpkin_t* pumpkin);

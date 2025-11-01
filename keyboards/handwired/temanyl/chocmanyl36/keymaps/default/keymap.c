@@ -614,10 +614,10 @@ void housekeeping_task_user(void) {
                 // Check if any ghosts overlap old cloud position
                 if (ghosts_active) {
                     for (uint8_t j = 0; j < NUM_GHOSTS; j++) {
-                        int16_t gx1 = ghosts[j].x - 8;
-                        int16_t gy1 = ghosts[j].y - 8;
-                        int16_t gx2 = ghosts[j].x + 8;
-                        int16_t gy2 = ghosts[j].y + 14;
+                        int16_t gx1 = ghosts[j].x - 7;
+                        int16_t gy1 = ghosts[j].y - 7;
+                        int16_t gx2 = ghosts[j].x + 7;
+                        int16_t gy2 = ghosts[j].y + 13;
                         if (RECTS_OVERLAP(old_x1, old_y1, old_x2, old_y2, gx1, gy1, gx2, gy2)) {
                             redraw_ghosts[j] = true;
                         }
@@ -629,11 +629,11 @@ void housekeeping_task_user(void) {
         // Process ghost updates
         if (ghosts_updated) {
             for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
-                // Ghost bounds: x-8 to x+8, y-8 to y+14
-                int16_t old_x1 = old_ghosts[i].x - 8;
-                int16_t old_y1 = old_ghosts[i].y - 8;
-                int16_t old_x2 = old_ghosts[i].x + 8;
-                int16_t old_y2 = old_ghosts[i].y + 14;
+                // Ghost bounds: x-7 to x+7, y-7 to y+13
+                int16_t old_x1 = old_ghosts[i].x - 7;
+                int16_t old_y1 = old_ghosts[i].y - 7;
+                int16_t old_x2 = old_ghosts[i].x + 7;
+                int16_t old_y2 = old_ghosts[i].y + 13;
 
                 // Restore old position
                 fb_restore_from_background(old_x1, old_y1, old_x2, old_y2);
@@ -688,8 +688,8 @@ void housekeeping_task_user(void) {
             for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
                 if (redraw_ghosts[i]) {
                     // Expand dirty region for new position
-                    EXPAND_DIRTY(ghosts[i].x - 8, ghosts[i].y - 8, ghosts[i].x + 8, ghosts[i].y + 14);
-                    draw_ghost(ghosts[i].x, ghosts[i].y);
+                    EXPAND_DIRTY(ghosts[i].x - 7, ghosts[i].y - 7, ghosts[i].x + 7, ghosts[i].y + 13);
+                    ghost_draw(&ghosts[i]);
                 }
             }
         }
