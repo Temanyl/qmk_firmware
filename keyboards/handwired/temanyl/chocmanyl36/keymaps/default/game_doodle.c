@@ -23,6 +23,7 @@ static void spawn_platform(uint8_t index, int16_t y) {
     g_game.platforms[index].y = y;
     g_game.platforms[index].width = PLATFORM_WIDTH;
     g_game.platforms[index].active = true;
+    g_game.platforms[index].scored = false;
 }
 
 // Initialize the game
@@ -52,6 +53,7 @@ void game_init(void) {
     g_game.platforms[0].y = GAME_HEIGHT - 30;  // Below player
     g_game.platforms[0].width = PLATFORM_WIDTH;
     g_game.platforms[0].active = true;
+    g_game.platforms[0].scored = false;
 
     // Other platforms can be random
     spawn_platform(1, GAME_HEIGHT - 60);  // Platform at player level
@@ -132,10 +134,27 @@ void game_update(void) {
         g_game.player.x = -PLAYER_SIZE;
     }
 
+    // Remove platforms that are off-screen (before collision detection)
+    for (uint8_t i = 0; i < MAX_PLATFORMS; i++) {
+        if (!g_game.platforms[i].active) continue;
+        int16_t platform_screen_y = g_game.platforms[i].y - g_game.camera_y;
+
+        // Remove platforms that scrolled off the bottom or top
+        if (platform_screen_y > GAME_HEIGHT + 20 || platform_screen_y < -PLATFORM_HEIGHT - 20) {
+            g_game.platforms[i].active = false;
+        }
+    }
+
     // Check platform collisions
     g_game.player.on_platform = false;
     for (uint8_t i = 0; i < MAX_PLATFORMS; i++) {
         if (!g_game.platforms[i].active) continue;
+
+        // Only check collision if platform is visible on screen
+        int16_t platform_screen_y = g_game.platforms[i].y - g_game.camera_y;
+        if (platform_screen_y < -PLATFORM_HEIGHT || platform_screen_y > GAME_HEIGHT) {
+            continue; // Skip collision check for off-screen platforms
+        }
 
         if (check_collision(g_game.player.x, g_game.player.y, &g_game.platforms[i])) {
             // Position player on top of platform (in world space)
@@ -143,6 +162,12 @@ void game_update(void) {
             // Make player jump
             g_game.player.vy = JUMP_VELOCITY;
             g_game.player.on_platform = true;
+
+            // Award point if this platform hasn't been scored yet
+            if (!g_game.platforms[i].scored) {
+                g_game.platforms[i].scored = true;
+                g_game.score++;
+            }
             break;
         }
     }
@@ -154,22 +179,10 @@ void game_update(void) {
     if (player_screen_y < target_y && g_game.player.vy < 0) {
         int16_t scroll = target_y - player_screen_y;
         g_game.camera_y -= scroll;
-
-        // Update score based on height
-        if (g_game.camera_y < 0) {
-            g_game.score = (uint16_t)(-g_game.camera_y / 10);
-        }
     }
 
     // Spawn new platforms as we scroll up
     for (uint8_t i = 0; i < MAX_PLATFORMS; i++) {
-        int16_t platform_screen_y = g_game.platforms[i].y - g_game.camera_y;
-
-        // Remove platforms that scrolled off the bottom
-        if (platform_screen_y > GAME_HEIGHT + 20) {
-            g_game.platforms[i].active = false;
-        }
-
         // Spawn new platforms at the top
         if (!g_game.platforms[i].active) {
             // Find the highest platform
@@ -221,6 +234,69 @@ static void draw_platform(platform_t *platform) {
             h, s, v, true);
 }
 
+// Draw a digit (0-9) at position (x, y) using a simple 3x5 pixel font with scaling
+static void draw_digit(int16_t x, int16_t y, uint8_t digit, uint8_t h, uint8_t s, uint8_t v, uint8_t scale) {
+    if (digit > 9) return;
+
+    // Simple 3x5 pixel font patterns (1 = pixel on)
+    const uint8_t font[10][5] = {
+        {0b111, 0b101, 0b101, 0b101, 0b111}, // 0
+        {0b010, 0b110, 0b010, 0b010, 0b111}, // 1
+        {0b111, 0b001, 0b111, 0b100, 0b111}, // 2
+        {0b111, 0b001, 0b111, 0b001, 0b111}, // 3
+        {0b101, 0b101, 0b111, 0b001, 0b001}, // 4
+        {0b111, 0b100, 0b111, 0b001, 0b111}, // 5
+        {0b111, 0b100, 0b111, 0b101, 0b111}, // 6
+        {0b111, 0b001, 0b001, 0b001, 0b001}, // 7
+        {0b111, 0b101, 0b111, 0b101, 0b111}, // 8
+        {0b111, 0b101, 0b111, 0b001, 0b111}, // 9
+    };
+
+    // Draw the digit pixel by pixel with scaling
+    for (uint8_t row = 0; row < 5; row++) {
+        for (uint8_t col = 0; col < 3; col++) {
+            if (font[digit][row] & (1 << (2 - col))) {
+                // Draw a scaled pixel as a filled rectangle
+                for (uint8_t sy = 0; sy < scale; sy++) {
+                    for (uint8_t sx = 0; sx < scale; sx++) {
+                        fb_set_pixel_hsv(x + col * scale + sx, y + row * scale + sy, h, s, v);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Draw the score in the top right corner
+static void draw_score(void) {
+    uint16_t score = g_game.score;
+    uint8_t h = 0, s = 255, v = 255;  // Red color (hue=0, full saturation)
+    uint8_t scale = 5;  // 5x scale makes digits 15x25 pixels
+
+    // Calculate number of digits
+    uint16_t temp = score;
+    uint8_t num_digits = 0;
+    if (score == 0) {        num_digits = 1;
+    } else {
+        while (temp > 0) {
+            num_digits++;
+            temp /= 10;
+        }
+    }
+
+    // Draw each digit from right to left
+    // Each digit is (3 * scale) pixels wide
+    int16_t digit_width = 3 * scale;
+    int16_t spacing = 2;  // Gap between digits
+    // Position from the left to avoid right edge clipping
+    int16_t x = 10;  // 10px left margin
+    for (uint8_t i = 0; i < num_digits; i++) {
+        uint8_t digit = score % 10;
+        draw_digit(x + (i * (digit_width + spacing)), 10, digit, h, s, v, scale);  // 10px top margin
+        score /= 10;
+    }
+}
+
 // Render the game
 void game_render(painter_device_t device) {
     if (!g_game.active) return;
@@ -239,6 +315,9 @@ void game_render(painter_device_t device) {
     // Draw player
     int16_t player_screen_y = g_game.player.y - g_game.camera_y;
     draw_player(g_game.player.x, player_screen_y);
+
+    // Draw score in top right corner
+    draw_score();
 
     // Draw game over text if needed
     if (g_game.game_over) {
