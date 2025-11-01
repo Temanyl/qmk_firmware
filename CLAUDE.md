@@ -135,6 +135,93 @@ Keymaps are defined in `keymaps/<name>/keymap.c` with:
 - Register in `tap_dance_actions[]` array
 - Use `TD()` macro in keymap definitions
 
+## Git Worktree Workflow
+
+This repository uses git worktrees for parallel development on multiple branches. A helper script `worktree-claude.sh` is provided to streamline the workflow.
+
+### Creating a new worktree
+
+Use the provided script to create a worktree and launch Claude Code:
+
+```bash
+# Create worktree from current HEAD
+./worktree-claude.sh <branch-name>
+
+# Create worktree from specific base branch
+./worktree-claude.sh <branch-name> <base-branch>
+
+# Examples:
+./worktree-claude.sh winter          # Creates 'winter' branch from HEAD
+./worktree-claude.sh winter master   # Creates 'winter' branch from master
+```
+
+The script will:
+1. Create a new branch and worktree directory at `<repo-root>/<branch-name>/`
+2. Change to the worktree directory
+3. Set the terminal title to the branch name
+4. Launch Claude Code in the worktree
+5. Return to the repository root when Claude exits
+
+### Working in a worktree
+
+Each worktree is a complete working directory with:
+- Its own checked-out branch
+- Independent working tree and index
+- Shared git history and objects (no duplication)
+- Independent submodule state (lib/ directories)
+
+**IMPORTANT**: This repository contains git submodules (lib/), which affects worktree operations.
+
+### Deleting a worktree (CRITICAL WORKFLOW)
+
+**WRONG WAY** (will break your terminal session):
+```bash
+# DON'T do this while inside the worktree directory!
+cd /path/to/repo/winter
+git worktree remove winter  # ❌ ERROR: You're still in the directory being deleted!
+```
+
+**CORRECT WAY**:
+```bash
+# 1. Exit the worktree directory FIRST
+cd /path/to/repo  # Go back to main repo or any other directory
+
+# 2. THEN remove the worktree (--force required due to submodules)
+git worktree remove --force winter
+
+# Note: --force is required because QMK contains git submodules,
+# and git refuses to remove worktrees with submodules by default
+```
+
+### Complete workflow example
+
+```bash
+# 1. Create worktree and work on feature
+./worktree-claude.sh winter master
+# ... make changes, commit ...
+# ... exit Claude Code ...
+
+# 2. Merge to master (from main repo, NOT from worktree)
+git checkout master
+git merge winter
+
+# 3. Delete worktree (MUST be outside worktree directory)
+git worktree remove --force winter
+```
+
+### Common worktree commands
+
+```bash
+# List all worktrees
+git worktree list
+
+# Remove a worktree (must be outside the worktree directory)
+git worktree remove --force <branch-name>
+
+# Prune stale worktree references (cleanup after manual deletion)
+git worktree prune
+```
+
 ## Important Notes
 
 - QMK CLI (`qmk` command) must be functional - checked by Makefile
