@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdbool.h>
 #include "objects/weather/cloud.h"
 #include "objects/effects/snowflake.h"
+#include "objects/seasonal/snowman.h"
 
 // Cloud animation
 #define NUM_CLOUDS 5  // 5 clouds total
@@ -29,6 +30,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // Snowflake animation
 #define NUM_SNOWFLAKES 40  // Number of animated snowflakes
 #define SNOWFLAKE_ANIMATION_SPEED 60  // Update every 60ms (~16fps)
+
+// Snowman
+#define NUM_SNOWMEN 1  // Number of snowmen in the scene
 
 // External state
 extern cloud_t clouds[NUM_CLOUDS];
@@ -40,6 +44,9 @@ extern snowflake_t snowflakes[NUM_SNOWFLAKES];
 extern bool snowflake_initialized;
 extern bool snowflake_background_saved;
 extern uint32_t snowflake_animation_timer;
+
+extern snowman_t snowmen[NUM_SNOWMEN];
+extern bool snowman_initialized;
 
 // Winter functions
 void init_clouds(void);

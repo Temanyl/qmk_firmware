@@ -15,7 +15,7 @@ SRC += game_doodle.c
 SRC += seasons/winter/seasons_winter.c seasons/spring/seasons_spring.c seasons/summer/seasons_summer.c seasons/fall/seasons_fall.c seasons/halloween/seasons_halloween.c seasons/christmas/seasons_christmas.c
 
 # Drawable objects
-SRC += objects/seasonal/pumpkin.c objects/seasonal/ghost.c
+SRC += objects/seasonal/pumpkin.c objects/seasonal/ghost.c objects/seasonal/snowman.c
 SRC += objects/weather/smoke.c objects/weather/cloud.c objects/weather/raindrop.c
 SRC += objects/celestial/sun.c objects/celestial/moon.c objects/celestial/stars.c
 SRC += objects/structures/tree.c objects/structures/cabin.c

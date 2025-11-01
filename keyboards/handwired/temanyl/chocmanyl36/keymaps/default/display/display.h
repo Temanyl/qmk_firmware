@@ -43,10 +43,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     //   Winter:     1, 15, 2025, 8, 0     (Jan 15, 2025, 8:00 AM)
 
     #define HARDCODED_MONTH     1
-    #define HARDCODED_DAY       5
+    #define HARDCODED_DAY       15
     #define HARDCODED_YEAR      2025
-    #define HARDCODED_HOUR      12
-    #define HARDCODED_MINUTE    0
+    #define HARDCODED_HOUR      14
+    #define HARDCODED_MINUTE    30
 
     // When 1, HID date/time updates will be ignored
     #define IGNORE_HID_TIME_UPDATES 1
