@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdbool.h>
 
-#define NUM_SPRING_BUTTERFLIES 9
+#define NUM_SPRING_BUTTERFLIES 8
 #define BUTTERFLY_WIDTH 12  // Wing radius 3 on each side + body + margin + flutter range
 #define BUTTERFLY_HEIGHT 12 // Vertical extent including wing animations + flutter range
 

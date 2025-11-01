@@ -37,7 +37,6 @@ static const struct {
     {45,  125, 170, 1.2f,  0.5f,  5.0f, 4.0f},   // Blue: larger movements
     {65,  120, 42,  2.4f,  1.0f,  4.0f, 3.0f},   // Yellow: medium flutter
     {85,  130, 200, 3.6f,  1.5f,  6.0f, 3.5f},   // Light blue: wide horizontal
-    {105, 118, 10,  0.8f,  2.0f,  3.5f, 4.5f},   // Orange: tall vertical
     {125, 135, 234, 2.0f,  2.5f,  4.5f, 2.0f},   // Purple: wide shallow
     {35,  128, 85,  1.5f,  0.8f,  5.5f, 3.5f},   // Green: large movements
     {75,  122, 42,  3.0f,  1.8f,  2.5f, 3.0f},   // Yellow: tight pattern
