@@ -134,10 +134,27 @@ void game_update(void) {
         g_game.player.x = -PLAYER_SIZE;
     }
 
+    // Remove platforms that are off-screen (before collision detection)
+    for (uint8_t i = 0; i < MAX_PLATFORMS; i++) {
+        if (!g_game.platforms[i].active) continue;
+        int16_t platform_screen_y = g_game.platforms[i].y - g_game.camera_y;
+
+        // Remove platforms that scrolled off the bottom or top
+        if (platform_screen_y > GAME_HEIGHT + 20 || platform_screen_y < -PLATFORM_HEIGHT - 20) {
+            g_game.platforms[i].active = false;
+        }
+    }
+
     // Check platform collisions
     g_game.player.on_platform = false;
     for (uint8_t i = 0; i < MAX_PLATFORMS; i++) {
         if (!g_game.platforms[i].active) continue;
+
+        // Only check collision if platform is visible on screen
+        int16_t platform_screen_y = g_game.platforms[i].y - g_game.camera_y;
+        if (platform_screen_y < -PLATFORM_HEIGHT || platform_screen_y > GAME_HEIGHT) {
+            continue; // Skip collision check for off-screen platforms
+        }
 
         if (check_collision(g_game.player.x, g_game.player.y, &g_game.platforms[i])) {
             // Position player on top of platform (in world space)
@@ -166,13 +183,6 @@ void game_update(void) {
 
     // Spawn new platforms as we scroll up
     for (uint8_t i = 0; i < MAX_PLATFORMS; i++) {
-        int16_t platform_screen_y = g_game.platforms[i].y - g_game.camera_y;
-
-        // Remove platforms that scrolled off the bottom
-        if (platform_screen_y > GAME_HEIGHT + 20) {
-            g_game.platforms[i].active = false;
-        }
-
         // Spawn new platforms at the top
         if (!g_game.platforms[i].active) {
             // Find the highest platform
