@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../../objects/weather/cloud.h"
 #include "../../objects/effects/snowflake.h"
 #include "../../objects/effects/snow_drift.h"
+#include "../../objects/seasonal/snowman.h"
 
 // Cloud animation state
 cloud_t clouds[NUM_CLOUDS];
@@ -34,6 +35,10 @@ snowflake_t snowflakes[NUM_SNOWFLAKES];
 bool snowflake_initialized = false;
 bool snowflake_background_saved = false;
 uint32_t snowflake_animation_timer = 0;
+
+// Snowman state
+snowman_t snowmen[NUM_SNOWMEN];
+bool snowman_initialized = false;
 
 // Forward declarations
 extern uint8_t current_month;
@@ -179,6 +184,7 @@ void reset_winter_animations(void) {
     cloud_background_saved = false;
     snowflake_initialized = false;
     snowflake_background_saved = false;
+    snowman_initialized = false;
 }
 
 // Draw winter-specific scene elements
@@ -206,6 +212,16 @@ void draw_winter_scene_elements(void) {
 
     // NOTE: Snowflakes are NOT drawn here - they're drawn after background is saved
     // to prevent them from being baked into the background image
+
+    // Initialize and draw snowman
+    if (!snowman_initialized) {
+        // Place snowman to the left of the first tree, on the ground
+        snowman_init(&snowmen[0], 15, 150, 6);
+        snowman_initialized = true;
+    }
+
+    // Draw snowman (static, part of background)
+    snowman_draw(&snowmen[0]);
 
     // Snow on ground with drifts
     uint16_t ground_y = 150;
