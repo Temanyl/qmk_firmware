@@ -39,6 +39,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../objects/celestial/stars.h"
 #include "../objects/structures/tree.h"
 #include "../objects/structures/cabin.h"
+#include "../objects/fauna/bird.h"
+#include "../objects/fauna/butterfly.h"
 
 // Smoke animation state (shared across seasons)
 bool smoke_initialized = false;
@@ -413,6 +415,11 @@ void draw_seasonal_animation(void) {
     // Check if we need to save background for any active animations
     bool need_background = false;
 
+    // Spring season needs background for birds and butterflies
+    if (season == 1 && spring_initialized && !spring_background_saved) {
+        need_background = true;
+    }
+
     // Fall season needs background for rain
     if (season == 3 && rain_initialized && !rain_background_saved) {
         need_background = true;
@@ -443,6 +450,9 @@ void draw_seasonal_animation(void) {
         fb_save_to_background();
 
         // Set the appropriate flags based on what's active
+        if (season == 1 && spring_initialized) {
+            spring_background_saved = true;
+        }
         if (season == 3 && rain_initialized) {
             rain_background_saved = true;
         }
@@ -478,6 +488,21 @@ void draw_seasonal_animation(void) {
         if (smoke_initialized) {
             smoke_initialized = false;
             smoke_background_saved = false;
+        }
+    }
+
+    // === DRAW BIRDS AND BUTTERFLIES (spring only) ===
+    // NOTE: Birds and butterflies are drawn AFTER background save to avoid
+    // baking them into the background. They are drawn here once, then animated
+    // by the region-based animation system in animate_spring().
+    if (season == 1 && spring_initialized) {
+        birds_draw_all();
+        butterflies_draw_all();
+    } else if (season != 1) {
+        // Not spring - clean up spring animation state
+        if (spring_initialized) {
+            spring_initialized = false;
+            spring_background_saved = false;
         }
     }
 
