@@ -45,13 +45,13 @@ void init_clouds(void) {
 
     // Initialize 5 clouds evenly spaced across the screen
     // All clouds move at same speed to prevent overlap artifacts
-    // Spacing: ~50 pixels apart to cover the full width (135 pixels + margins)
+    // Spacing: ~35 pixels apart for better coverage (135 pixels display width)
 
-    cloud_init(&clouds[0], 25, 35, -1);
-    cloud_init(&clouds[1], 70, 28, -1);
-    cloud_init(&clouds[2], 115, 42, -1);
-    cloud_init(&clouds[3], 160, 32, -1);
-    cloud_init(&clouds[4], 205, 38, -1);
+    cloud_init(&clouds[0], 20, 35, -1);
+    cloud_init(&clouds[1], 55, 28, -1);
+    cloud_init(&clouds[2], 90, 42, -1);
+    cloud_init(&clouds[3], 125, 32, -1);
+    cloud_init(&clouds[4], 160, 38, -1);
 
     cloud_initialized = true;
 }
@@ -101,8 +101,8 @@ void animate_clouds(void) {
                     rightmost_x = clouds[j].x;
                 }
             }
-            // Place this cloud 45 pixels to the right of the rightmost cloud
-            clouds[i].x = rightmost_x + 45;
+            // Place this cloud 35 pixels to the right of the rightmost cloud
+            clouds[i].x = rightmost_x + 35;
             // Vary y position slightly (between 25-45)
             clouds[i].y = 25 + ((i * 7) % 20);
         }
