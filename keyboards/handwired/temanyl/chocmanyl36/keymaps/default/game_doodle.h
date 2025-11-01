@@ -29,6 +29,7 @@ typedef struct {
     int16_t y;
     uint8_t width;
     bool active;
+    bool scored;  // Track if this platform was already scored
 } platform_t;
 
 // Player structure
