@@ -18,23 +18,55 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "snowflake.h"
 #include "../../display/framebuffer.h"
 
-// Snowflake positions (x, y)
-static const uint16_t snow_positions[NUM_WINTER_SNOWFLAKES][2] = {
-    {15, 50}, {40, 70}, {65, 90}, {85, 60}, {110, 80}, {25, 100}, {55, 120}, {95, 110}, {120, 65}, {10, 45}, {32, 85},
-    {48, 105}, {72, 55}, {90, 75}, {105, 95}, {125, 115}, {18, 130}, {35, 62}, {62, 88}, {78, 108}, {98, 72}
-};
+// Snowflake color configuration (HSV)
+#define SNOWFLAKE_HUE 170  // Cyan/blue-white
+#define SNOWFLAKE_SAT 80   // Low saturation for white appearance
+#define SNOWFLAKE_VAL 255  // Maximum brightness
 
-// Draw all winter snowflakes
-void snowflakes_draw_all(void) {
-    for (uint8_t i = 0; i < NUM_WINTER_SNOWFLAKES; i++) {
-        // Center of snowflake
-        fb_rect_hsv(snow_positions[i][0], snow_positions[i][1],
-                    snow_positions[i][0] + 2, snow_positions[i][1] + 2, 170, 80, 255, true);
-        // Horizontal line
-        fb_rect_hsv(snow_positions[i][0] - 2, snow_positions[i][1] + 1,
-                    snow_positions[i][0] + 4, snow_positions[i][1] + 1, 170, 80, 255, true);
-        // Vertical line
-        fb_rect_hsv(snow_positions[i][0] + 1, snow_positions[i][1] - 2,
-                    snow_positions[i][0] + 1, snow_positions[i][1] + 4, 170, 80, 255, true);
+// Initialize a snowflake
+void snowflake_init(snowflake_t* flake, int16_t x, int16_t y) {
+    flake->x = x;
+    flake->y = y;
+}
+
+// Draw a snowflake at its current position (cross pattern)
+void snowflake_draw(const snowflake_t* flake) {
+    int16_t x = flake->x;
+    int16_t y = flake->y;
+
+    // Bounds check - don't draw if completely off-screen
+    if (x < -SNOWFLAKE_SIZE || x > 135 || y < -SNOWFLAKE_SIZE || y > 152) {
+        return;
     }
+
+    // Only draw if within visible area
+    if (y >= 0 && y < 150) {
+        // Center of snowflake (2x2 square)
+        fb_rect_hsv(x, y, x + 2, y + 2,
+                    SNOWFLAKE_HUE, SNOWFLAKE_SAT, SNOWFLAKE_VAL, true);
+
+        // Horizontal line (extends 2 pixels left and right from center)
+        fb_rect_hsv(x - 2, y + 1, x + 4, y + 1,
+                    SNOWFLAKE_HUE, SNOWFLAKE_SAT, SNOWFLAKE_VAL, true);
+
+        // Vertical line (extends 2 pixels up and down from center)
+        fb_rect_hsv(x + 1, y - 2, x + 1, y + 4,
+                    SNOWFLAKE_HUE, SNOWFLAKE_SAT, SNOWFLAKE_VAL, true);
+    }
+}
+
+// Get the snowflake's bounding box
+void snowflake_get_bounds(const snowflake_t* flake, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2) {
+    *x1 = flake->x - 2;
+    *y1 = flake->y - 2;
+    *x2 = flake->x + 4;
+    *y2 = flake->y + 4;
+}
+
+// Check if a point is inside the snowflake's bounds
+bool snowflake_contains_point(const snowflake_t* flake, int16_t px, int16_t py) {
+    return (px >= flake->x - 2 &&
+            px < flake->x + 5 &&
+            py >= flake->y - 2 &&
+            py < flake->y + 5);
 }

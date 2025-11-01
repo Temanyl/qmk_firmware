@@ -20,10 +20,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdbool.h>
 #include "objects/weather/cloud.h"
+#include "objects/effects/snowflake.h"
 
 // Cloud animation
 #define NUM_CLOUDS 5  // 5 clouds total
 #define CLOUD_ANIMATION_SPEED 100  // Update every 100ms for smooth movement
+
+// Snowflake animation
+#define NUM_SNOWFLAKES 40  // Number of animated snowflakes
+#define SNOWFLAKE_ANIMATION_SPEED 60  // Update every 60ms (~16fps)
 
 // External state
 extern cloud_t clouds[NUM_CLOUDS];
@@ -31,9 +36,15 @@ extern bool cloud_initialized;
 extern bool cloud_background_saved;
 extern uint32_t cloud_animation_timer;
 
+extern snowflake_t snowflakes[NUM_SNOWFLAKES];
+extern bool snowflake_initialized;
+extern bool snowflake_background_saved;
+extern uint32_t snowflake_animation_timer;
+
 // Winter functions
 void init_clouds(void);
 void draw_cloud(int16_t x, int16_t y);
 void animate_clouds(void);
+void animate_snowflakes(void);
 void reset_winter_animations(void);
 void draw_winter_scene_elements(void);

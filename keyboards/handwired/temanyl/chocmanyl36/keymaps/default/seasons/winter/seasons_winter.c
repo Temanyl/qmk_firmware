@@ -29,22 +29,29 @@ bool cloud_initialized = false;
 bool cloud_background_saved = false;
 uint32_t cloud_animation_timer = 0;
 
+// Snowflake animation state
+snowflake_t snowflakes[NUM_SNOWFLAKES];
+bool snowflake_initialized = false;
+bool snowflake_background_saved = false;
+uint32_t snowflake_animation_timer = 0;
+
 // Forward declarations
 extern uint8_t current_month;
+extern painter_device_t display;
 
 // Initialize clouds
 void init_clouds(void) {
     if (cloud_initialized) return;
 
-    // Initialize 5 clouds evenly spaced across the screen
+    // Initialize 5 clouds spread across a wide area
     // All clouds move at same speed to prevent overlap artifacts
-    // Spacing: ~50 pixels apart to cover the full width (135 pixels + margins)
+    // Spacing: ~55 pixels apart for continuous flow (not all visible at once)
 
-    cloud_init(&clouds[0], 25, 35, -1);
-    cloud_init(&clouds[1], 70, 28, -1);
-    cloud_init(&clouds[2], 115, 42, -1);
-    cloud_init(&clouds[3], 160, 32, -1);
-    cloud_init(&clouds[4], 205, 38, -1);
+    cloud_init(&clouds[0], 10, 35, -1);
+    cloud_init(&clouds[1], 65, 28, -1);
+    cloud_init(&clouds[2], 120, 42, -1);
+    cloud_init(&clouds[3], 175, 32, -1);
+    cloud_init(&clouds[4], 230, 38, -1);
 
     cloud_initialized = true;
 }
@@ -76,25 +83,26 @@ void animate_clouds(void) {
     }
 
     // Determine how many clouds to animate based on season
-    uint8_t num_active_clouds = is_fall ? 5 : 3;  // 5 clouds in fall, 3 in winter
+    uint8_t num_active_clouds = is_fall ? 5 : 4;  // 5 clouds in fall, 4 in winter
 
     // Update cloud positions
     for (uint8_t i = 0; i < num_active_clouds; i++) {
         // Move cloud left
         clouds[i].x += clouds[i].vx;
 
-        // Check if cloud has moved completely off the left side
-        if (clouds[i].x < -20) {
+        // Respawn cloud when it's fully off the left edge of the display
+        // Cloud left edge is at x-16, so when x < -16, the cloud is completely gone
+        if (clouds[i].x < -16) {
             // Respawn on the right side, maintaining spacing
             // Since all clouds move at same speed, find the rightmost cloud
             int16_t rightmost_x = -100;
-            for (uint8_t j = 0; j < NUM_CLOUDS; j++) {
+            for (uint8_t j = 0; j < num_active_clouds; j++) {
                 if (j != i && clouds[j].x > rightmost_x) {
                     rightmost_x = clouds[j].x;
                 }
             }
-            // Place this cloud 45 pixels to the right of the rightmost cloud
-            clouds[i].x = rightmost_x + 45;
+            // Place this cloud 55 pixels to the right of the rightmost cloud
+            clouds[i].x = rightmost_x + 55;
             // Vary y position slightly (between 25-45)
             clouds[i].y = 25 + ((i * 7) % 20);
         }
@@ -103,10 +111,74 @@ void animate_clouds(void) {
     // NOTE: Drawing is handled by caller to ensure consistent z-ordering
 }
 
+// Animate snowflakes
+void animate_snowflakes(void) {
+    if (!snowflake_initialized || !snowflake_background_saved) {
+        return;
+    }
+
+    // Get current season
+    uint8_t season = (current_month == 12 || current_month <= 2) ? 0 :
+                     (current_month >= 3 && current_month <= 5) ? 1 :
+                     (current_month >= 6 && current_month <= 8) ? 2 : 3;
+
+    // Only animate during winter (season 0)
+    if (season != 0) {
+        return;
+    }
+
+    // Animate each snowflake
+    for (uint8_t i = 0; i < NUM_SNOWFLAKES; i++) {
+        // Restore old snowflake position from background
+        int16_t bounds_x1, bounds_y1, bounds_x2, bounds_y2;
+        snowflake_get_bounds(&snowflakes[i], &bounds_x1, &bounds_y1, &bounds_x2, &bounds_y2);
+        fb_restore_from_background(bounds_x1, bounds_y1, bounds_x2, bounds_y2);
+
+        // Flush the old snowflake region to erase it from display
+        fb_flush_region(display, bounds_x1, bounds_y1, bounds_x2, bounds_y2);
+
+        // Move snowflake down by 1 pixel (slower than rain)
+        snowflakes[i].y += 1;
+
+        // Add gentle horizontal drift (alternates left/right based on snowflake index)
+        // Some snowflakes drift left, some right, some don't drift
+        if (i % 3 == 0 && snowflakes[i].y % 4 == 0) {
+            snowflakes[i].x += 1;  // Drift right
+        } else if (i % 3 == 1 && snowflakes[i].y % 4 == 0) {
+            snowflakes[i].x -= 1;  // Drift left
+        }
+        // i % 3 == 2: no horizontal drift (straight down)
+
+        // Reset snowflake to top if it goes below ground (y=150)
+        if (snowflakes[i].y >= 150) {
+            // Reset to random position at top (below clouds, y=45-55)
+            snowflakes[i].y = 45 + (i * 7) % 10;
+            // Reset to pseudo-random x position based on snowflake index
+            snowflakes[i].x = 5 + ((i * 11 + (i / 5) * 13) % 125);
+            // Clamp to screen bounds
+            if (snowflakes[i].x < 0) snowflakes[i].x = 0;
+            if (snowflakes[i].x > 130) snowflakes[i].x = 130;
+        }
+
+        // Draw snowflake at new position
+        if (snowflakes[i].y >= 0 && snowflakes[i].y < 150) {
+            snowflake_draw(&snowflakes[i]);
+
+            // Get new bounds for flushing
+            snowflake_get_bounds(&snowflakes[i], &bounds_x1, &bounds_y1, &bounds_x2, &bounds_y2);
+
+            // Flush the new snowflake region to draw it on display
+            fb_flush_region(display, bounds_x1, bounds_y1, bounds_x2, bounds_y2);
+        }
+    }
+}
+
 // Reset winter animations
 void reset_winter_animations(void) {
     cloud_initialized = false;
     cloud_background_saved = false;
+    snowflake_initialized = false;
+    snowflake_background_saved = false;
 }
 
 // Draw winter-specific scene elements
@@ -116,8 +188,24 @@ void draw_winter_scene_elements(void) {
         init_clouds();
     }
 
-    // Snowflakes
-    snowflakes_draw_all();
+    // Initialize snowflakes if not already done (but don't draw yet - draw after background is saved)
+    if (!snowflake_initialized) {
+        // Initialize snowflake positions
+        uint16_t snow_positions[][2] = {
+            {15, 50}, {40, 70}, {65, 90}, {85, 60}, {110, 80}, {25, 100}, {55, 120}, {95, 110}, {120, 65}, {10, 45},
+            {32, 85}, {48, 105}, {72, 55}, {90, 75}, {105, 95}, {125, 115}, {18, 130}, {35, 62}, {62, 88}, {78, 108},
+            {98, 72}, {22, 95}, {47, 68}, {73, 122}, {103, 58}, {118, 87}, {28, 114}, {58, 77}, {88, 102}, {113, 71},
+            {8, 125}, {38, 83}, {68, 96}, {93, 64}, {123, 106}, {13, 79}, {43, 118}, {77, 81}, {100, 91}, {128, 99}
+        };
+        for (uint8_t i = 0; i < NUM_SNOWFLAKES; i++) {
+            snowflakes[i].x = snow_positions[i][0];
+            snowflakes[i].y = snow_positions[i][1];
+        }
+        snowflake_initialized = true;
+    }
+
+    // NOTE: Snowflakes are NOT drawn here - they're drawn after background is saved
+    // to prevent them from being baked into the background image
 
     // Snow on ground with drifts
     uint16_t ground_y = 150;

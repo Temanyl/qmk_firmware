@@ -32,6 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // Include drawable objects
 #include "../objects/weather/smoke.h"
+#include "../objects/weather/cloud.h"
 #include "../objects/weather/raindrop.h"
 #include "../objects/celestial/sun.h"
 #include "../objects/celestial/moon.h"
@@ -417,6 +418,11 @@ void draw_seasonal_animation(void) {
         need_background = true;
     }
 
+    // Winter season needs background for snowflakes
+    if (season == 0 && snowflake_initialized && !snowflake_background_saved) {
+        need_background = true;
+    }
+
     // Halloween needs background for ghosts
     if (is_halloween_event() && ghost_initialized && !ghost_background_saved) {
         need_background = true;
@@ -439,6 +445,9 @@ void draw_seasonal_animation(void) {
         // Set the appropriate flags based on what's active
         if (season == 3 && rain_initialized) {
             rain_background_saved = true;
+        }
+        if (season == 0 && snowflake_initialized) {
+            snowflake_background_saved = true;
         }
         if (is_halloween_event() && ghost_initialized) {
             ghost_background_saved = true;
@@ -474,9 +483,10 @@ void draw_seasonal_animation(void) {
 
     // === DRAW CLOUDS (winter and fall) ===
     if ((season == 0 || season == 3) && cloud_initialized) {
-        // Draw clouds
+        // Draw clouds with appropriate type based on season
+        cloud_type_t type = (season == 3) ? CLOUD_TYPE_DARK : CLOUD_TYPE_LIGHT;
         for (uint8_t i = 0; i < NUM_CLOUDS; i++) {
-            draw_cloud(clouds[i].x, clouds[i].y);
+            cloud_draw(&clouds[i], type);
         }
     } else if (season != 0 && season != 3) {
         // Not winter or fall - clean up cloud state
@@ -499,6 +509,22 @@ void draw_seasonal_animation(void) {
         if (rain_initialized) {
             rain_initialized = false;
             rain_background_saved = false;
+        }
+    }
+
+    // === DRAW SNOWFLAKES (winter only) ===
+    if (season == 0 && snowflake_initialized) {
+        // Draw snowflakes
+        for (uint8_t i = 0; i < NUM_SNOWFLAKES; i++) {
+            if (snowflakes[i].y >= 0 && snowflakes[i].y < 150) {
+                snowflake_draw(&snowflakes[i]);
+            }
+        }
+    } else if (season != 0) {
+        // Not winter - clean up snowflake state
+        if (snowflake_initialized) {
+            snowflake_initialized = false;
+            snowflake_background_saved = false;
         }
     }
 }
