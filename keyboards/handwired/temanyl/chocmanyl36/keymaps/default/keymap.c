@@ -23,6 +23,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "framebuffer.h"
 #include "display.h"
 #include "scenes.h"
+#include "seasons_winter.h"
+#include "seasons_spring.h"
+#include "seasons_summer.h"
+#include "seasons_fall.h"
+#include "seasons_halloween.h"
+#include "seasons_christmas.h"
 
 // Custom keycodes
 enum custom_keycodes {

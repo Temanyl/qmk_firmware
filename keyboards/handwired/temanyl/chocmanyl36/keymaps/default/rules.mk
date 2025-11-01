@@ -7,3 +7,6 @@ SRC += framebuffer.c
 
 # Display and scene rendering
 SRC += display.c scenes.c
+
+# Season modules
+SRC += seasons_winter.c seasons_spring.c seasons_summer.c seasons_fall.c seasons_halloween.c seasons_christmas.c
