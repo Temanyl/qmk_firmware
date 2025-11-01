@@ -531,26 +531,170 @@ void housekeeping_task_user(void) {
         }
     }
 
-    // Handle cloud animation
-    // Note: animate_clouds() handles its own region-based flushing
+    // Region-based animation with smart overlap detection
+    // Store old positions before updating
+    cloud_t old_clouds[NUM_CLOUDS];
+    ghost_t old_ghosts[NUM_GHOSTS];
+    bool clouds_updated = false;
+    bool ghosts_updated = false;
+    uint8_t season = get_season(current_month);
+    uint8_t num_active_clouds = (season == 3) ? 5 : 3;
+
+    // Update cloud positions if timer elapsed
     if (cloud_initialized && cloud_background_saved) {
         if (current_time - cloud_animation_timer >= CLOUD_ANIMATION_SPEED) {
+            // Store old positions
+            for (uint8_t i = 0; i < num_active_clouds; i++) {
+                old_clouds[i] = clouds[i];
+            }
             cloud_animation_timer = current_time;
-            animate_clouds();
-            // No needs_flush = true here - clouds flush their own regions
+            animate_clouds();  // Updates positions only
+            clouds_updated = true;
         }
     }
 
-    // Handle ghost animation (during Halloween event)
-    // Note: animate_ghosts() handles its own region-based flushing
-    if (ghost_initialized && ghost_background_saved) {
-        if (is_halloween_event()) {
-            if (current_time - ghost_animation_timer >= GHOST_ANIMATION_SPEED) {
-                ghost_animation_timer = current_time;
-                animate_ghosts();
-                // No needs_flush = true here - ghosts flush their own regions
+    // Update ghost positions if timer elapsed (during Halloween event)
+    bool ghosts_active = ghost_initialized && ghost_background_saved && is_halloween_event();
+    if (ghosts_active) {
+        if (current_time - ghost_animation_timer >= GHOST_ANIMATION_SPEED) {
+            // Store old positions
+            for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
+                old_ghosts[i] = ghosts[i];
+            }
+            ghost_animation_timer = current_time;
+            animate_ghosts();  // Updates positions only
+            ghosts_updated = true;
+        }
+    }
+
+    // Smart region-based rendering with z-ordering
+    if (clouds_updated || ghosts_updated) {
+        // Track dirty bounds for efficient flushing
+        int16_t dirty_x1 = 134, dirty_y1 = 121;
+        int16_t dirty_x2 = 0, dirty_y2 = 12;
+
+        // Helper to expand dirty region
+        #define EXPAND_DIRTY(x1, y1, x2, y2) do { \
+            if ((x1) < dirty_x1) dirty_x1 = (x1); \
+            if ((y1) < dirty_y1) dirty_y1 = (y1); \
+            if ((x2) > dirty_x2) dirty_x2 = (x2); \
+            if ((y2) > dirty_y2) dirty_y2 = (y2); \
+        } while(0)
+
+        // Helper to check rectangle overlap
+        #define RECTS_OVERLAP(ax1, ay1, ax2, ay2, bx1, by1, bx2, by2) \
+            (!((ax2) < (bx1) || (ax1) > (bx2) || (ay2) < (by1) || (ay1) > (by2)))
+
+        // Track which objects need redrawing
+        bool redraw_clouds[NUM_CLOUDS] = {false};
+        bool redraw_ghosts[NUM_GHOSTS] = {false};
+
+        // Process cloud updates
+        if (clouds_updated) {
+            for (uint8_t i = 0; i < num_active_clouds; i++) {
+                // Cloud bounds: x-16 to x+18, y-11 to y+10 (conservative)
+                int16_t old_x1 = old_clouds[i].x - 16;
+                int16_t old_y1 = old_clouds[i].y - 11;
+                int16_t old_x2 = old_clouds[i].x + 18;
+                int16_t old_y2 = old_clouds[i].y + 10;
+
+                // Restore old position
+                fb_restore_from_background(old_x1, old_y1, old_x2, old_y2);
+                EXPAND_DIRTY(old_x1, old_y1, old_x2, old_y2);
+
+                // Mark this cloud for redraw
+                redraw_clouds[i] = true;
+
+                // Check if any ghosts overlap old cloud position
+                if (ghosts_active) {
+                    for (uint8_t j = 0; j < NUM_GHOSTS; j++) {
+                        int16_t gx1 = ghosts[j].x - 8;
+                        int16_t gy1 = ghosts[j].y - 8;
+                        int16_t gx2 = ghosts[j].x + 8;
+                        int16_t gy2 = ghosts[j].y + 14;
+                        if (RECTS_OVERLAP(old_x1, old_y1, old_x2, old_y2, gx1, gy1, gx2, gy2)) {
+                            redraw_ghosts[j] = true;
+                        }
+                    }
+                }
             }
         }
+
+        // Process ghost updates
+        if (ghosts_updated) {
+            for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
+                // Ghost bounds: x-8 to x+8, y-8 to y+14
+                int16_t old_x1 = old_ghosts[i].x - 8;
+                int16_t old_y1 = old_ghosts[i].y - 8;
+                int16_t old_x2 = old_ghosts[i].x + 8;
+                int16_t old_y2 = old_ghosts[i].y + 14;
+
+                // Restore old position
+                fb_restore_from_background(old_x1, old_y1, old_x2, old_y2);
+                EXPAND_DIRTY(old_x1, old_y1, old_x2, old_y2);
+
+                // Mark this ghost for redraw
+                redraw_ghosts[i] = true;
+
+                // Check if any clouds overlap old ghost position
+                if (cloud_initialized && cloud_background_saved) {
+                    for (uint8_t j = 0; j < num_active_clouds; j++) {
+                        int16_t cx1 = clouds[j].x - 16;
+                        int16_t cy1 = clouds[j].y - 11;
+                        int16_t cx2 = clouds[j].x + 18;
+                        int16_t cy2 = clouds[j].y + 10;
+                        if (RECTS_OVERLAP(old_x1, old_y1, old_x2, old_y2, cx1, cy1, cx2, cy2)) {
+                            redraw_clouds[j] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Redraw affected objects in z-order (clouds first, then ghosts)
+        // Draw clouds (background layer)
+        if (cloud_initialized && cloud_background_saved) {
+            for (uint8_t i = 0; i < num_active_clouds; i++) {
+                if (redraw_clouds[i]) {
+                    int16_t x = clouds[i].x;
+                    int16_t y = clouds[i].y;
+                    if (x >= -30 && x <= 165) {
+                        // Expand dirty region for new position
+                        EXPAND_DIRTY(x - 16, y - 11, x + 18, y + 10);
+
+                        if (season == 3) {
+                            // Fall: darker rain clouds
+                            fb_circle_hsv(x, y, 9, 0, 0, 120, true);
+                            fb_circle_hsv(x + 10, y + 2, 7, 0, 0, 120, true);
+                            fb_circle_hsv(x - 8, y + 2, 7, 0, 0, 120, true);
+                            fb_circle_hsv(x + 5, y - 4, 6, 0, 0, 110, true);
+                        } else {
+                            // Winter: lighter clouds
+                            draw_cloud(x, y);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Draw ghosts (foreground layer)
+        if (ghosts_active) {
+            for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
+                if (redraw_ghosts[i]) {
+                    // Expand dirty region for new position
+                    EXPAND_DIRTY(ghosts[i].x - 8, ghosts[i].y - 8, ghosts[i].x + 8, ghosts[i].y + 14);
+                    draw_ghost(ghosts[i].x, ghosts[i].y);
+                }
+            }
+        }
+
+        // Flush only the dirty region (much smaller than full area)
+        if (dirty_x2 >= dirty_x1 && dirty_y2 >= dirty_y1) {
+            fb_flush_region(display, dirty_x1, dirty_y1, dirty_x2, dirty_y2);
+        }
+
+        #undef EXPAND_DIRTY
+        #undef RECTS_OVERLAP
     }
 
     // Handle smoke animation (all seasons except summer)

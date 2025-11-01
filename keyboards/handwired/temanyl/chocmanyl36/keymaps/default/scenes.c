@@ -150,7 +150,7 @@ void draw_cloud(int16_t x, int16_t y) {
 extern uint8_t current_hour;
 extern uint8_t current_day;
 
-// Animate clouds (right to left movement with batched rendering)
+// Animate clouds (updates positions only, drawing done by caller)
 void animate_clouds(void) {
     if (!cloud_initialized || !cloud_background_saved) {
         return;
@@ -169,105 +169,7 @@ void animate_clouds(void) {
     // Determine how many clouds to animate based on season
     uint8_t num_active_clouds = is_fall ? 5 : 3;  // 5 clouds in fall, 3 in winter
 
-    // STEP 1: Clear all old cloud positions by restoring from background
-    for (uint8_t i = 0; i < num_active_clouds; i++) {
-        int16_t old_x = clouds[i].x;
-        int16_t old_y = clouds[i].y;
-
-        // Calculate bounding box for old position
-        // Fall clouds extend: x-15 to x+17, y-10 to y+9
-        // Winter clouds extend: x-13 to x+15, y-8 to y+8
-        // Use conservative bounds to fully cover both types
-        int16_t old_x1 = old_x - 16;
-        int16_t old_y1 = old_y - 11;
-        int16_t old_x2 = old_x + 18;
-        int16_t old_y2 = old_y + 10;
-
-        // Restore from background (only updates framebuffer, doesn't flush)
-        fb_restore_from_background(old_x1, old_y1, old_x2, old_y2);
-    }
-
-    // STEP 2: Redraw celestial objects that may have been erased
-    bool is_night = (current_hour >= 20 || current_hour < 6);
-    uint16_t celestial_x, celestial_y;
-    get_celestial_position(current_hour, &celestial_x, &celestial_y);
-
-    if (is_night) {
-        // Redraw moon if in cloud area (y=15-50)
-        if (celestial_y >= 15 && celestial_y <= 50) {
-            uint8_t moon_day = (current_hour < 6) ? ((current_day > 1) ? (current_day - 1) : 31) : current_day;
-            uint8_t moon_phase = (moon_day * 29) / 31;
-
-            fb_circle_hsv(celestial_x, celestial_y, 8, 42, 100, 255, true);
-
-            if (moon_phase < 14) {
-                if (moon_phase < 7) {
-                    int8_t shadow_offset = -8 + (moon_phase * 2);
-                    uint8_t shadow_radius = 8 - (moon_phase / 2);
-                    fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
-                } else {
-                    int8_t shadow_offset = 6 - ((moon_phase - 7) * 2);
-                    uint8_t shadow_radius = 5 - ((moon_phase - 7) / 2);
-                    if (shadow_radius > 0) {
-                        fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
-                    }
-                }
-            } else if (moon_phase > 14) {
-                uint8_t waning_phase = moon_phase - 15;
-                if (waning_phase < 7) {
-                    int8_t shadow_offset = -6 + (waning_phase * 2);
-                    uint8_t shadow_radius = (waning_phase / 2);
-                    if (shadow_radius > 0) {
-                        fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
-                    }
-                } else {
-                    int8_t shadow_offset = 8 - ((waning_phase - 7) * 2);
-                    uint8_t shadow_radius = 5 + ((waning_phase - 7) / 2);
-                    fb_circle_hsv(celestial_x + shadow_offset, celestial_y, shadow_radius, 0, 0, 20, true);
-                }
-            }
-        }
-
-        // Redraw stars in cloud area
-        uint16_t star_positions[][2] = {
-            {20, 15}, {50, 25}, {90, 18}, {110, 30},
-            {65, 12}, {100, 22}, {80, 30},
-            {120, 15}, {10, 25}, {28, 20},
-            {85, 8}, {70, 25}, {60, 15}
-        };
-        for (uint8_t i = 0; i < 13; i++) {
-            if (star_positions[i][1] >= 15 && star_positions[i][1] <= 50) {
-                fb_rect_hsv(star_positions[i][0], star_positions[i][1],
-                        star_positions[i][0] + 2, star_positions[i][1] + 2, 42, 50, 255, true);
-            }
-        }
-    } else {
-        // Redraw sun if in cloud area (y=15-50)
-        if (celestial_y >= 15 && celestial_y <= 50) {
-            uint8_t sun_hue = (current_hour < 8 || current_hour > 17) ? 10 : 42;
-            uint8_t sun_sat = 255;
-
-            fb_circle_hsv(celestial_x, celestial_y, 9, sun_hue, sun_sat, 255, true);
-
-            // Sun rays
-            for (uint8_t i = 0; i < 8; i++) {
-                int16_t ray_x = 0, ray_y = 0;
-                if (i == 0) { ray_x = 12; ray_y = 0; }
-                else if (i == 1) { ray_x = 9; ray_y = -9; }
-                else if (i == 2) { ray_x = 0; ray_y = -12; }
-                else if (i == 3) { ray_x = -9; ray_y = -9; }
-                else if (i == 4) { ray_x = -12; ray_y = 0; }
-                else if (i == 5) { ray_x = -9; ray_y = 9; }
-                else if (i == 6) { ray_x = 0; ray_y = 12; }
-                else if (i == 7) { ray_x = 9; ray_y = 9; }
-
-                fb_rect_hsv(celestial_x + ray_x - 1, celestial_y + ray_y - 1,
-                        celestial_x + ray_x + 1, celestial_y + ray_y + 1, sun_hue, sun_sat, 200, true);
-            }
-        }
-    }
-
-    // STEP 3: Update cloud positions
+    // Update cloud positions
     for (uint8_t i = 0; i < num_active_clouds; i++) {
         // Move cloud left
         clouds[i].x += clouds[i].vx;
@@ -289,30 +191,7 @@ void animate_clouds(void) {
         }
     }
 
-    // STEP 4: Draw all clouds at new positions
-    for (uint8_t i = 0; i < num_active_clouds; i++) {
-        int16_t x = clouds[i].x;
-        int16_t y = clouds[i].y;
-
-        if (x >= -30 && x <= 165) {
-            if (is_fall) {
-                // Draw darker rain clouds
-                // Bounds: x-15 to x+17, y-10 to y+9
-                fb_circle_hsv(x, y, 9, 0, 0, 120, true);
-                fb_circle_hsv(x + 10, y + 2, 7, 0, 0, 120, true);
-                fb_circle_hsv(x - 8, y + 2, 7, 0, 0, 120, true);
-                fb_circle_hsv(x + 5, y - 4, 6, 0, 0, 110, true);
-            } else {
-                // Draw lighter winter clouds
-                draw_cloud(x, y);
-            }
-        }
-    }
-
-    // STEP 5: Single flush for entire animation area (from top clouds to bottom)
-    // This eliminates flicker by doing one atomic update
-    // Clouds are at y=25-45, extend ±11 vertically, so flush y=14-56 to be safe
-    fb_flush_region(display, 0, 12, 134, 58);
+    // NOTE: Drawing is handled by caller to ensure consistent z-ordering
 }
 
 // Get season based on month
@@ -1016,45 +895,8 @@ void animate_ghosts(void) {
         return;
     }
 
-    // Animate each ghost
+    // Update all ghost positions with floating motion
     for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
-        // Store old position
-        int16_t old_x = ghosts[i].x;
-        int16_t old_y = ghosts[i].y;
-
-        // Calculate bounding box for old position
-        int16_t old_x1 = old_x - 8;  // Ghost extends 7 pixels left, plus 1 margin
-        int16_t old_y1 = old_y - 8;  // Ghost extends 7 pixels up, plus 1 margin
-        int16_t old_x2 = old_x + 8;  // Ghost extends 7 pixels right, plus 1 margin
-        int16_t old_y2 = old_y + 14; // Ghost extends to y+13, plus 1 margin
-
-        // Restore old ghost position from background
-        // BUT: need to check if other ghosts or raindrops overlap this area
-        for (int16_t py = old_y1; py <= old_y2; py++) {
-            for (int16_t px = old_x1; px <= old_x2; px++) {
-                if (px < 0 || px >= FB_WIDTH || py < 0 || py >= FB_SPLIT_Y) continue;
-
-                // Check if this pixel is covered by another ghost
-                bool covered_by_other_ghost = false;
-                for (uint8_t j = 0; j < NUM_GHOSTS; j++) {
-                    if (j != i && is_pixel_in_ghost(px, py, j)) {
-                        covered_by_other_ghost = true;
-                        break;
-                    }
-                }
-
-                if (!covered_by_other_ghost) {
-                    // Restore from background
-                    uint16_t bg_color = fb_background.pixels[py][px];
-                    fb.pixels[py][px] = bg_color;
-                }
-            }
-        }
-
-        // Flush the old ghost region to erase it from display
-        fb_flush_region(display, old_x1, old_y1, old_x2, old_y2);
-
-        // Update ghost position with floating motion
         // Horizontal movement
         ghosts[i].x += ghosts[i].vx;
 
@@ -1106,19 +948,9 @@ void animate_ghosts(void) {
         if (ghosts[i].x <= 8 || ghosts[i].x >= FB_WIDTH - 8) {
             ghosts[i].vx = -ghosts[i].vx;
         }
-
-        // Draw ghost at new position
-        draw_ghost(ghosts[i].x, ghosts[i].y);
-
-        // Calculate bounding box for new position
-        int16_t new_x1 = ghosts[i].x - 8;
-        int16_t new_y1 = ghosts[i].y - 8;
-        int16_t new_x2 = ghosts[i].x + 8;
-        int16_t new_y2 = ghosts[i].y + 14;
-
-        // Flush the new ghost region to draw it on display
-        fb_flush_region(display, new_x1, new_y1, new_x2, new_y2);
     }
+
+    // NOTE: Drawing is handled by caller to ensure consistent z-ordering
 }
 
 // Animate raindrops
