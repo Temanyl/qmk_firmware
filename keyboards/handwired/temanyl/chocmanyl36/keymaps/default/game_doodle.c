@@ -148,9 +148,11 @@ void game_update(void) {
     }
 
     // Update camera to follow player when jumping up
+    // Keep player in bottom quarter (3/4 down the screen) to make falling easier
     int16_t player_screen_y = g_game.player.y - g_game.camera_y;
-    if (player_screen_y < GAME_HEIGHT / 3 && g_game.player.vy < 0) {
-        int16_t scroll = GAME_HEIGHT / 3 - player_screen_y;
+    int16_t target_y = (GAME_HEIGHT * 3) / 4;  // Bottom quarter position
+    if (player_screen_y < target_y && g_game.player.vy < 0) {
+        int16_t scroll = target_y - player_screen_y;
         g_game.camera_y -= scroll;
 
         // Update score based on height
