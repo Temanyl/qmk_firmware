@@ -24,6 +24,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "framebuffer.h"
 #include "draw_logo.h"
 #include "../graphics/helvetica20.qff.c"
+#include "../objects/weather/cloud.h"
+#include "../seasons/winter/seasons_winter.h"
+#include "../seasons/fall/seasons_fall.h"
+#include "../seasons/halloween/seasons_halloween.h"
+#include "../seasons/christmas/seasons_christmas.h"
+#include "../objects/seasonal/ghost.h"
 
 // Layer enum (from keymap.c)
 enum layer_names {
@@ -546,4 +552,315 @@ void init_display(void) {
     // Force flush to ensure everything is drawn
     fb_flush(display);   // Flush framebuffer scenic area
     qp_flush(display);   // Flush QP info area
+}
+
+// Display housekeeping task - handles all display animations and updates
+void display_housekeeping_task(void) {
+    update_display_for_layer();
+
+    uint32_t current_time = timer_read32();
+    bool needs_flush = false;
+
+    // Check if hour or day changed (for seasonal animation updates)
+    bool hour_changed = (current_hour != last_hour);
+    bool day_changed = (current_day != last_day);
+
+    // Update date/time display once per minute (or when time is received)
+    if (time_received && (current_time - last_uptime_update >= 60000)) {
+        last_uptime_update = current_time;
+        // Increment minute (host will send updated time periodically)
+        current_minute++;
+        if (current_minute >= 60) {
+            current_minute = 0;
+            current_hour++;
+            hour_changed = true;
+            if (current_hour >= 24) {
+                current_hour = 0;
+                current_day++;
+                day_changed = true;
+
+                // Handle day rollover with proper month boundaries
+                uint8_t days_in_month = 31; // Default
+                if (current_month == 2) {
+                    // February: check for leap year
+                    bool is_leap = (current_year % 4 == 0 && current_year % 100 != 0) || (current_year % 400 == 0);
+                    days_in_month = is_leap ? 29 : 28;
+                } else if (current_month == 4 || current_month == 6 || current_month == 9 || current_month == 11) {
+                    days_in_month = 30; // April, June, September, November
+                }
+
+                if (current_day > days_in_month) {
+                    current_day = 1;
+                    current_month++;
+                    if (current_month > 12) {
+                        current_month = 1;
+                        current_year++;
+                    }
+                    // Force full redraw when month changes (season may change)
+                    current_display_layer = 255;
+                    update_display_for_layer();
+                    needs_flush = false; // Already flushed by update_display_for_layer
+                }
+            }
+        }
+        if (needs_flush) {
+            draw_date_time();
+        }
+        needs_flush = true;
+    }
+
+    // Redraw seasonal animation when hour or day changes (sun/moon position, moon phase)
+    if (hour_changed || day_changed) {
+        // Reset background flags to force re-saving with updated scene
+        // (sun/moon positions change, so background buffer must be updated)
+        rain_background_saved = false;
+        ghost_background_saved = false;
+        smoke_background_saved = false;
+
+        draw_seasonal_animation();
+        last_hour = current_hour;
+        last_day = current_day;
+        needs_flush = true;
+    }
+
+    // Handle brightness display timeout
+    if (brightness_display_active) {
+        if (current_time - brightness_display_timer >= BRIGHTNESS_DISPLAY_TIMEOUT) {
+            // Timeout expired, hide brightness indicator
+            brightness_display_active = false;
+            // Force a full redraw by invalidating the current layer
+            current_display_layer = 255;
+            update_display_for_layer();
+            needs_flush = true;
+        }
+    }
+
+    // Handle media text scrolling (character-based tick scrolling)
+    if (needs_scroll && media_active) {
+        uint32_t elapsed = current_time - scroll_timer;
+
+        // Start scrolling after initial pause
+        if (elapsed >= SCROLL_PAUSE_START) {
+            // Calculate how many ticks should have occurred
+            uint32_t scroll_ticks = (elapsed - SCROLL_PAUSE_START) / SCROLL_SPEED;
+            uint8_t target_position = scroll_ticks % (text_length + 3); // +3 for spacing
+
+            // Only redraw if scroll position actually changed
+            if (target_position != scroll_position) {
+                scroll_position = target_position;
+                draw_media_text();
+                needs_flush = true;
+            }
+        }
+    }
+
+    // Handle rain animation (during fall season)
+    // Note: animate_raindrops() handles its own region-based flushing
+    if (rain_initialized && rain_background_saved) {
+        uint8_t season = get_season(current_month);
+        if (season == 3) { // Fall season
+            if (current_time - rain_animation_timer >= RAIN_ANIMATION_SPEED) {
+                rain_animation_timer = current_time;
+                animate_raindrops();
+                // No needs_flush = true here - raindrops flush their own regions
+            }
+        }
+    }
+
+    // Region-based animation with smart overlap detection
+    // Store old positions before updating
+    cloud_t old_clouds[NUM_CLOUDS];
+    ghost_t old_ghosts[NUM_GHOSTS];
+    bool clouds_updated = false;
+    bool ghosts_updated = false;
+    uint8_t season = get_season(current_month);
+    uint8_t num_active_clouds = (season == 3) ? 5 : 3;
+
+    // Update cloud positions if timer elapsed
+    if (cloud_initialized && cloud_background_saved) {
+        if (current_time - cloud_animation_timer >= CLOUD_ANIMATION_SPEED) {
+            // Store old positions
+            for (uint8_t i = 0; i < num_active_clouds; i++) {
+                old_clouds[i] = clouds[i];
+            }
+            cloud_animation_timer = current_time;
+            animate_clouds();  // Updates positions only
+            clouds_updated = true;
+        }
+    }
+
+    // Update ghost positions if timer elapsed (during Halloween event)
+    bool ghosts_active = ghost_initialized && ghost_background_saved && is_halloween_event();
+    if (ghosts_active) {
+        if (current_time - ghost_animation_timer >= GHOST_ANIMATION_SPEED) {
+            // Store old positions
+            for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
+                old_ghosts[i] = ghosts[i];
+            }
+            ghost_animation_timer = current_time;
+            animate_ghosts();  // Updates positions only
+            ghosts_updated = true;
+        }
+    }
+
+    // Smart region-based rendering with z-ordering
+    if (clouds_updated || ghosts_updated) {
+        // Track dirty bounds for efficient flushing
+        int16_t dirty_x1 = 134, dirty_y1 = 121;
+        int16_t dirty_x2 = 0, dirty_y2 = 12;
+
+        // Helper to expand dirty region
+        #define EXPAND_DIRTY(x1, y1, x2, y2) do { \
+            if ((x1) < dirty_x1) dirty_x1 = (x1); \
+            if ((y1) < dirty_y1) dirty_y1 = (y1); \
+            if ((x2) > dirty_x2) dirty_x2 = (x2); \
+            if ((y2) > dirty_y2) dirty_y2 = (y2); \
+        } while(0)
+
+        // Helper to check rectangle overlap
+        #define RECTS_OVERLAP(ax1, ay1, ax2, ay2, bx1, by1, bx2, by2) \
+            (!((ax2) < (bx1) || (ax1) > (bx2) || (ay2) < (by1) || (ay1) > (by2)))
+
+        // Track which objects need redrawing
+        bool redraw_clouds[NUM_CLOUDS] = {false};
+        bool redraw_ghosts[NUM_GHOSTS] = {false};
+
+        // Process cloud updates
+        if (clouds_updated) {
+            for (uint8_t i = 0; i < num_active_clouds; i++) {
+                // Cloud bounds: x-16 to x+18, y-11 to y+10 (conservative)
+                int16_t old_x1 = old_clouds[i].x - 16;
+                int16_t old_y1 = old_clouds[i].y - 11;
+                int16_t old_x2 = old_clouds[i].x + 18;
+                int16_t old_y2 = old_clouds[i].y + 10;
+
+                // Restore old position
+                fb_restore_from_background(old_x1, old_y1, old_x2, old_y2);
+                EXPAND_DIRTY(old_x1, old_y1, old_x2, old_y2);
+
+                // Mark this cloud for redraw
+                redraw_clouds[i] = true;
+
+                // Check if any ghosts overlap old cloud position
+                if (ghosts_active) {
+                    for (uint8_t j = 0; j < NUM_GHOSTS; j++) {
+                        int16_t gx1 = ghosts[j].x - 7;
+                        int16_t gy1 = ghosts[j].y - 7;
+                        int16_t gx2 = ghosts[j].x + 7;
+                        int16_t gy2 = ghosts[j].y + 13;
+                        if (RECTS_OVERLAP(old_x1, old_y1, old_x2, old_y2, gx1, gy1, gx2, gy2)) {
+                            redraw_ghosts[j] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Process ghost updates
+        if (ghosts_updated) {
+            for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
+                // Ghost bounds: x-7 to x+7, y-7 to y+13
+                int16_t old_x1 = old_ghosts[i].x - 7;
+                int16_t old_y1 = old_ghosts[i].y - 7;
+                int16_t old_x2 = old_ghosts[i].x + 7;
+                int16_t old_y2 = old_ghosts[i].y + 13;
+
+                // Restore old position
+                fb_restore_from_background(old_x1, old_y1, old_x2, old_y2);
+                EXPAND_DIRTY(old_x1, old_y1, old_x2, old_y2);
+
+                // Mark this ghost for redraw
+                redraw_ghosts[i] = true;
+
+                // Check if any clouds overlap old ghost position
+                if (cloud_initialized && cloud_background_saved) {
+                    for (uint8_t j = 0; j < num_active_clouds; j++) {
+                        int16_t cx1 = clouds[j].x - 16;
+                        int16_t cy1 = clouds[j].y - 11;
+                        int16_t cx2 = clouds[j].x + 18;
+                        int16_t cy2 = clouds[j].y + 10;
+                        if (RECTS_OVERLAP(old_x1, old_y1, old_x2, old_y2, cx1, cy1, cx2, cy2)) {
+                            redraw_clouds[j] = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Redraw affected objects in z-order (clouds first, then ghosts)
+        // Draw clouds (background layer)
+        if (cloud_initialized && cloud_background_saved) {
+            for (uint8_t i = 0; i < num_active_clouds; i++) {
+                if (redraw_clouds[i]) {
+                    int16_t x = clouds[i].x;
+                    int16_t y = clouds[i].y;
+                    if (x >= -30 && x <= 165) {
+                        // Expand dirty region for new position
+                        EXPAND_DIRTY(x - 16, y - 11, x + 18, y + 10);
+
+                        if (season == 3) {
+                            // Fall: darker rain clouds
+                            cloud_draw(&clouds[i], CLOUD_TYPE_DARK);
+                        } else {
+                            // Winter: lighter clouds
+                            cloud_draw(&clouds[i], CLOUD_TYPE_LIGHT);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Draw ghosts (foreground layer)
+        if (ghosts_active) {
+            for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
+                if (redraw_ghosts[i]) {
+                    // Expand dirty region for new position
+                    EXPAND_DIRTY(ghosts[i].x - 7, ghosts[i].y - 7, ghosts[i].x + 7, ghosts[i].y + 13);
+                    ghost_draw(&ghosts[i]);
+                }
+            }
+        }
+
+        // Flush only the dirty region (much smaller than full area)
+        if (dirty_x2 >= dirty_x1 && dirty_y2 >= dirty_y1) {
+            fb_flush_region(display, dirty_x1, dirty_y1, dirty_x2, dirty_y2);
+        }
+
+        #undef EXPAND_DIRTY
+        #undef RECTS_OVERLAP
+    }
+
+    // Handle smoke animation (all seasons except summer)
+    // Note: animate_smoke() handles its own region-based flushing
+    if (smoke_initialized && smoke_background_saved) {
+        uint8_t season = get_season(current_month);
+        if (season != 2) { // Not summer
+            if (current_time - smoke_animation_timer >= SMOKE_ANIMATION_SPEED) {
+                smoke_animation_timer = current_time;
+                animate_smoke();
+                // No needs_flush = true here - smoke flushes its own regions
+            }
+        }
+    }
+
+    // Handle Santa sleigh animation (on Christmas Day Dec 25 and after)
+    if (is_christmas_season() && current_day >= 25) {
+        if (current_time - santa_animation_timer >= SANTA_ANIMATION_SPEED) {
+            santa_animation_timer = current_time;
+            update_santa_animation();
+            // Redraw seasonal animation to show updated Santa position
+            draw_seasonal_animation();
+            needs_flush = true;
+        }
+    } else {
+        // Reset Santa state when not Christmas Day
+        if (santa_initialized) {
+            santa_initialized = false;
+        }
+    }
+
+    // Single flush at the end to batch all updates
+    if (needs_flush) {
+        fb_flush(display);
+    }
 }

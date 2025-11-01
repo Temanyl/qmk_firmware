@@ -73,3 +73,6 @@ void set_backlight_brightness(uint8_t brightness);
 // Display initialization
 void init_display(void);
 void fb_quick_test(void);
+
+// Display housekeeping (animations, updates, etc.)
+void display_housekeeping_task(void);
