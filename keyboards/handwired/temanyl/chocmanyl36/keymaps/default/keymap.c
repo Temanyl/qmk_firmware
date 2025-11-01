@@ -383,6 +383,12 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
 
         case 0x03:  // Date/Time update
             if (length >= 8) {
+#ifdef HARDCODE_DATE_TIME
+    #if IGNORE_HID_TIME_UPDATES
+                // Hard-coded date mode is active - ignore HID time updates
+                break;
+    #endif
+#endif
                 // Extract date/time components
                 current_year = data[1] | (data[2] << 8);  // 16-bit year
                 current_month = data[3];
