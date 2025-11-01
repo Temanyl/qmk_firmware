@@ -479,6 +479,7 @@ void housekeeping_task_user(void) {
         // (sun/moon positions change, so background buffer must be updated)
         rain_background_saved = false;
         ghost_background_saved = false;
+        smoke_background_saved = false;
 
         draw_seasonal_animation();
         last_hour = current_hour;
@@ -548,6 +549,19 @@ void housekeeping_task_user(void) {
                 ghost_animation_timer = current_time;
                 animate_ghosts();
                 // No needs_flush = true here - ghosts flush their own regions
+            }
+        }
+    }
+
+    // Handle smoke animation (all seasons except summer)
+    // Note: animate_smoke() handles its own region-based flushing
+    if (smoke_initialized && smoke_background_saved) {
+        uint8_t season = get_season(current_month);
+        if (season != 2) { // Not summer
+            if (current_time - smoke_animation_timer >= SMOKE_ANIMATION_SPEED) {
+                smoke_animation_timer = current_time;
+                animate_smoke();
+                // No needs_flush = true here - smoke flushes its own regions
             }
         }
     }
