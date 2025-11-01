@@ -37,8 +37,8 @@ extern uint8_t current_day;
 
 // Halloween event check
 bool is_halloween_event(void) {
-    return (current_month == 10 && current_day >= 28) ||
-           (current_month == 11 && current_day <= 3);
+    return (current_month == 10 && current_day >= 24) ||
+           (current_month == 11 && current_day <= 2);
 }
 
 // Draw Halloween elements
