@@ -207,6 +207,16 @@ void fb_flush_region(painter_device_t display, int16_t x1, int16_t y1, int16_t x
     }
 }
 
+void fb_flush_fullscreen(painter_device_t display) {
+    // Set viewport to entire screen (no FB_SPLIT_Y restriction)
+    qp_viewport(display, 0, 0, FB_WIDTH - 1, FB_HEIGHT - 1);
+
+    // Stream pixel data row by row for the entire framebuffer
+    for (uint16_t y = 0; y < FB_HEIGHT; y++) {
+        qp_pixdata(display, fb.pixels[y], FB_WIDTH);
+    }
+}
+
 void fb_save_to_background(void) {
     // Copy entire framebuffer to background buffer
     memcpy(fb_background.pixels, fb.pixels, sizeof(fb.pixels));

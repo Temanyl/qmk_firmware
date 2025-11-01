@@ -27,9 +27,9 @@ static void spawn_platform(uint8_t index, int16_t y) {
 
 // Initialize the game
 void game_init(void) {
-    // Initialize player in the middle bottom
+    // Initialize player in the middle of screen, more visible
     g_game.player.x = GAME_WIDTH / 2;
-    g_game.player.y = GAME_HEIGHT - 30;
+    g_game.player.y = GAME_HEIGHT - 50;  // Start higher for better visibility
     g_game.player.vx = 0;
     g_game.player.vy = 0;
     g_game.player.on_platform = false;
@@ -46,11 +46,17 @@ void game_init(void) {
         g_game.platforms[i].active = false;
     }
 
-    // Spawn initial platforms
-    spawn_platform(0, GAME_HEIGHT - 10);  // Starting platform
-    spawn_platform(1, GAME_HEIGHT - 40);
-    spawn_platform(2, GAME_HEIGHT - 70);
-    spawn_platform(3, GAME_HEIGHT - 100);
+    // Spawn initial platforms - ensure starting platform is centered under player
+    // Starting platform: manually position it centered under the player
+    g_game.platforms[0].x = (GAME_WIDTH / 2) - (PLATFORM_WIDTH / 2);  // Center under player
+    g_game.platforms[0].y = GAME_HEIGHT - 30;  // Below player
+    g_game.platforms[0].width = PLATFORM_WIDTH;
+    g_game.platforms[0].active = true;
+
+    // Other platforms can be random
+    spawn_platform(1, GAME_HEIGHT - 60);  // Platform at player level
+    spawn_platform(2, GAME_HEIGHT - 90);  // Platform above
+    spawn_platform(3, GAME_HEIGHT - 120); // Platform higher up
 
     // Initialize input
     g_input.left = false;
@@ -99,7 +105,7 @@ void game_update(void) {
     if (!g_game.active || g_game.game_over) return;
 
     uint32_t now = timer_read32();
-    if (now - g_game.last_update < 16) return;  // ~60 FPS
+    if (now - g_game.last_update < 10) return;  // ~100 FPS for smoother fullscreen rendering
     g_game.last_update = now;
 
     // Handle horizontal input
@@ -232,14 +238,6 @@ void game_render(painter_device_t device) {
     int16_t player_screen_y = g_game.player.y - g_game.camera_y;
     draw_player(g_game.player.x, player_screen_y);
 
-    // Draw score text in top-left
-    char score_text[16];
-    snprintf(score_text, sizeof(score_text), "Score: %u", g_game.score);
-
-    // Simple text drawing (we'll draw it as a rectangle for now since we need font support)
-    // Draw a score background
-    fb_rect_hsv(0, 0, 60, 8, 0, 0, 0, true);
-
     // Draw game over text if needed
     if (g_game.game_over) {
         // Draw "GAME OVER" background in center
@@ -248,8 +246,8 @@ void game_render(painter_device_t device) {
                 0, 255, 255, true);
     }
 
-    // Flush framebuffer to display
-    fb_flush(device);
+    // Flush entire framebuffer to display (fullscreen, bypasses FB_SPLIT_Y)
+    fb_flush_fullscreen(device);
 }
 
 // Cleanup game resources
