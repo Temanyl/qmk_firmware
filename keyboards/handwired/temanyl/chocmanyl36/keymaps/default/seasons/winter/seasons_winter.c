@@ -83,17 +83,16 @@ void animate_clouds(void) {
     }
 
     // Determine how many clouds to animate based on season
-    uint8_t num_active_clouds = is_fall ? 5 : 3;  // 5 clouds in fall, 3 in winter
+    uint8_t num_active_clouds = is_fall ? 5 : 4;  // 5 clouds in fall, 4 in winter
 
     // Update cloud positions
     for (uint8_t i = 0; i < num_active_clouds; i++) {
         // Move cloud left
         clouds[i].x += clouds[i].vx;
 
-        // Respawn cloud when it starts to leave the left edge of the display
-        // Cloud left edge is at x-16, so when x < 0, the cloud is starting to disappear
-        // Respawn earlier (at x=0) to maintain constant cloud coverage
-        if (clouds[i].x < 0) {
+        // Respawn cloud when it's fully off the left edge of the display
+        // Cloud left edge is at x-16, so when x < -16, the cloud is completely gone
+        if (clouds[i].x < -16) {
             // Respawn on the right side, maintaining spacing
             // Since all clouds move at same speed, find the rightmost cloud
             int16_t rightmost_x = -100;
