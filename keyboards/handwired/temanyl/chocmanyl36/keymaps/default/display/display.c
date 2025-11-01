@@ -51,40 +51,7 @@ uint32_t last_uptime_update = 0;
 // Volume indicator state
 uint8_t current_volume = 0;
 
-// ============================================================================
-// DATE/TIME OVERRIDE CONFIGURATION FOR TESTING
-// ============================================================================
-// Uncomment HARDCODE_DATE_TIME to override date/time from HID with fixed values.
-// This is useful for testing seasonal displays without changing system time.
-// IMPORTANT: Comment out HARDCODE_DATE_TIME before merging to production!
-// ============================================================================
-
-// #define HARDCODE_DATE_TIME
-
-#ifdef HARDCODE_DATE_TIME
-    // Set your test date/time here:
-    // Examples:
-    //   Halloween:  10, 28, 2025, 18, 30  (Oct 28, 2025, 6:30 PM)
-    //   Christmas:  12, 15, 2025, 10, 0   (Dec 15, 2025, 10:00 AM)
-    //   New Year's: 12, 31, 2025, 23, 45  (Dec 31, 2025, 11:45 PM)
-    //   Spring:     4, 15, 2025, 14, 0    (Apr 15, 2025, 2:00 PM)
-    //   Summer:     7, 20, 2025, 12, 0    (Jul 20, 2025, noon)
-    //   Fall:       10, 10, 2025, 16, 0   (Oct 10, 2025, 4:00 PM)
-    //   Winter:     1, 15, 2025, 8, 0     (Jan 15, 2025, 8:00 AM)
-
-    #define HARDCODED_MONTH     10
-    #define HARDCODED_DAY       28
-    #define HARDCODED_YEAR      2025
-    #define HARDCODED_HOUR      18
-    #define HARDCODED_MINUTE    30
-
-    // When true, HID date/time updates will be ignored
-    #define IGNORE_HID_TIME_UPDATES true
-#endif
-
-// ============================================================================
-// Date/time state
-// ============================================================================
+// Date/time state (configuration now in display.h)
 #ifdef HARDCODE_DATE_TIME
 uint8_t current_hour = HARDCODED_HOUR;
 uint8_t current_minute = HARDCODED_MINUTE;
@@ -92,8 +59,8 @@ uint8_t current_day = HARDCODED_DAY;
 uint8_t current_month = HARDCODED_MONTH;
 uint16_t current_year = HARDCODED_YEAR;
 bool time_received = true;  // Mark as received so display renders immediately
-uint8_t last_hour = 255;
-uint8_t last_day = 255;
+uint8_t last_hour = HARDCODED_HOUR;    // Initialize to match hardcoded values to prevent false change detection
+uint8_t last_day = HARDCODED_DAY;
 #else
 uint8_t current_hour = 0;
 uint8_t current_minute = 0;
@@ -660,6 +627,8 @@ void display_housekeeping_task(void) {
         rain_background_saved = false;
         ghost_background_saved = false;
         smoke_background_saved = false;
+        cloud_background_saved = false;
+        snowflake_background_saved = false;
 
         draw_seasonal_animation();
         last_hour = current_hour;
