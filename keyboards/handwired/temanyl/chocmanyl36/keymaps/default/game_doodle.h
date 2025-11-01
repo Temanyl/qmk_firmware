@@ -7,9 +7,9 @@
 #include <stdbool.h>
 #include "quantum/painter/qp.h"
 
-// Display dimensions
-#define GAME_WIDTH 134
-#define GAME_HEIGHT 121
+// Display dimensions (fullscreen: 135x240 portrait)
+#define GAME_WIDTH 135
+#define GAME_HEIGHT 240
 
 // Game constants
 #define MAX_PLATFORMS 8

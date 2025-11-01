@@ -112,6 +112,15 @@ void fb_flush(painter_device_t display);
 void fb_flush_region(painter_device_t display, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
 /**
+ * Flush the entire framebuffer to the physical display (fullscreen mode)
+ * Unlike fb_flush(), this bypasses the FB_SPLIT_Y limitation and renders
+ * the entire framebuffer to the full screen height (0 to FB_HEIGHT-1)
+ * Use this for fullscreen games or animations that need the entire display
+ * @param display The QP display device handle
+ */
+void fb_flush_fullscreen(painter_device_t display);
+
+/**
  * Save current framebuffer to background buffer
  * Used to preserve the base scene before drawing animated elements
  */
