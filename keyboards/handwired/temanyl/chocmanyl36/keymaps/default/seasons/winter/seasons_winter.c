@@ -43,15 +43,15 @@ extern painter_device_t display;
 void init_clouds(void) {
     if (cloud_initialized) return;
 
-    // Initialize 5 clouds evenly spaced across the screen
+    // Initialize 5 clouds spread across a wide area
     // All clouds move at same speed to prevent overlap artifacts
-    // Spacing: ~35 pixels apart for better coverage (135 pixels display width)
+    // Spacing: ~55 pixels apart for continuous flow (not all visible at once)
 
-    cloud_init(&clouds[0], 20, 35, -1);
-    cloud_init(&clouds[1], 55, 28, -1);
-    cloud_init(&clouds[2], 90, 42, -1);
-    cloud_init(&clouds[3], 125, 32, -1);
-    cloud_init(&clouds[4], 160, 38, -1);
+    cloud_init(&clouds[0], 10, 35, -1);
+    cloud_init(&clouds[1], 65, 28, -1);
+    cloud_init(&clouds[2], 120, 42, -1);
+    cloud_init(&clouds[3], 175, 32, -1);
+    cloud_init(&clouds[4], 230, 38, -1);
 
     cloud_initialized = true;
 }
@@ -101,8 +101,8 @@ void animate_clouds(void) {
                     rightmost_x = clouds[j].x;
                 }
             }
-            // Place this cloud 35 pixels to the right of the rightmost cloud
-            clouds[i].x = rightmost_x + 35;
+            // Place this cloud 55 pixels to the right of the rightmost cloud
+            clouds[i].x = rightmost_x + 55;
             // Vary y position slightly (between 25-45)
             clouds[i].y = 25 + ((i * 7) % 20);
         }
