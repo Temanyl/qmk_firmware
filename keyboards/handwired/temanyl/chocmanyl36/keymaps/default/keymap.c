@@ -530,36 +530,71 @@ void housekeeping_task_user(void) {
         }
     }
 
-    // Track if any animations updated (for coordinated flushing)
-    bool animation_updated = false;
+    // Track which animations updated (for coordinated rendering)
+    bool clouds_updated = false;
+    bool ghosts_updated = false;
 
-    // Handle cloud animation
+    // Update cloud positions if timer elapsed
     if (cloud_initialized && cloud_background_saved) {
         if (current_time - cloud_animation_timer >= CLOUD_ANIMATION_SPEED) {
             cloud_animation_timer = current_time;
-            animate_clouds();
-            animation_updated = true;
+            animate_clouds();  // Updates positions only
+            clouds_updated = true;
         }
     }
 
-    // Handle ghost animation (during Halloween event)
+    // Update ghost positions if timer elapsed (during Halloween event)
     if (ghost_initialized && ghost_background_saved) {
         if (is_halloween_event()) {
             if (current_time - ghost_animation_timer >= GHOST_ANIMATION_SPEED) {
                 ghost_animation_timer = current_time;
-                animate_ghosts();
-                animation_updated = true;
+                animate_ghosts();  // Updates positions only
+                ghosts_updated = true;
             }
         }
     }
 
-    // Coordinated flush for all overlapping animations
-    // This eliminates flicker when clouds and ghosts overlap
-    if (animation_updated) {
-        // Flush the combined animation area:
-        // - Clouds: y=12 to y=58
-        // - Ghosts: y=35 to y=121
-        // Combined: y=12 to y=121
+    // Coordinated rendering with consistent z-ordering
+    // If either animation is active, redraw BOTH in consistent order
+    // This prevents z-order flickering (ghosts jumping in front/behind clouds)
+    bool any_animation_active = (cloud_initialized && cloud_background_saved) ||
+                                 (ghost_initialized && ghost_background_saved && is_halloween_event());
+
+    if (any_animation_active && (clouds_updated || ghosts_updated)) {
+        // STEP 1: Restore entire animation area from background
+        fb_restore_from_background(0, 12, 134, 121);
+
+        // STEP 2: Draw in consistent z-order (back to front)
+        // Draw clouds first (background layer)
+        if (cloud_initialized && cloud_background_saved) {
+            uint8_t season = get_season(current_month);
+            uint8_t num_clouds_to_draw = (season == 3) ? 5 : 3;
+            for (uint8_t i = 0; i < num_clouds_to_draw; i++) {
+                int16_t x = clouds[i].x;
+                int16_t y = clouds[i].y;
+                if (x >= -30 && x <= 165) {
+                    if (season == 3) {
+                        // Fall: darker rain clouds
+                        fb_circle_hsv(x, y, 9, 0, 0, 120, true);
+                        fb_circle_hsv(x + 10, y + 2, 7, 0, 0, 120, true);
+                        fb_circle_hsv(x - 8, y + 2, 7, 0, 0, 120, true);
+                        fb_circle_hsv(x + 5, y - 4, 6, 0, 0, 110, true);
+                    } else {
+                        // Winter: lighter clouds
+                        draw_cloud(x, y);
+                    }
+                }
+            }
+        }
+
+        // Draw ghosts on top (foreground layer)
+        if (ghost_initialized && ghost_background_saved && is_halloween_event()) {
+            for (uint8_t i = 0; i < NUM_GHOSTS; i++) {
+                draw_ghost(ghosts[i].x, ghosts[i].y);
+            }
+        }
+
+        // STEP 3: Single flush for combined area
         fb_flush_region(display, 0, 12, 134, 121);
     }
 
