@@ -417,6 +417,11 @@ void draw_seasonal_animation(void) {
         need_background = true;
     }
 
+    // Winter season needs background for snowflakes
+    if (season == 0 && snowflake_initialized && !snowflake_background_saved) {
+        need_background = true;
+    }
+
     // Halloween needs background for ghosts
     if (is_halloween_event() && ghost_initialized && !ghost_background_saved) {
         need_background = true;
@@ -439,6 +444,9 @@ void draw_seasonal_animation(void) {
         // Set the appropriate flags based on what's active
         if (season == 3 && rain_initialized) {
             rain_background_saved = true;
+        }
+        if (season == 0 && snowflake_initialized) {
+            snowflake_background_saved = true;
         }
         if (is_halloween_event() && ghost_initialized) {
             ghost_background_saved = true;
@@ -499,6 +507,22 @@ void draw_seasonal_animation(void) {
         if (rain_initialized) {
             rain_initialized = false;
             rain_background_saved = false;
+        }
+    }
+
+    // === DRAW SNOWFLAKES (winter only) ===
+    if (season == 0 && snowflake_initialized) {
+        // Draw snowflakes
+        for (uint8_t i = 0; i < NUM_SNOWFLAKES; i++) {
+            if (snowflakes[i].y >= 0 && snowflakes[i].y < 150) {
+                snowflake_draw(&snowflakes[i]);
+            }
+        }
+    } else if (season != 0) {
+        // Not winter - clean up snowflake state
+        if (snowflake_initialized) {
+            snowflake_initialized = false;
+            snowflake_background_saved = false;
         }
     }
 }

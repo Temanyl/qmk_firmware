@@ -667,6 +667,19 @@ void display_housekeeping_task(void) {
         }
     }
 
+    // Handle snowflake animation (during winter season)
+    // Note: animate_snowflakes() handles its own region-based flushing
+    if (snowflake_initialized && snowflake_background_saved) {
+        uint8_t season = get_season(current_month);
+        if (season == 0) { // Winter season
+            if (current_time - snowflake_animation_timer >= SNOWFLAKE_ANIMATION_SPEED) {
+                snowflake_animation_timer = current_time;
+                animate_snowflakes();
+                // No needs_flush = true here - snowflakes flush their own regions
+            }
+        }
+    }
+
     // Region-based animation with smart overlap detection
     // Store old positions before updating
     cloud_t old_clouds[NUM_CLOUDS];

@@ -18,8 +18,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 
-#define NUM_WINTER_SNOWFLAKES 21
+// Snowflake dimensions (cross pattern with center)
+#define SNOWFLAKE_SIZE 6  // Total size of cross pattern
 
-// Draw all winter snowflakes
-void snowflakes_draw_all(void);
+// Snowflake structure
+typedef struct {
+    int16_t x;
+    int16_t y;
+} snowflake_t;
+
+// Snowflake functions
+void snowflake_init(snowflake_t* flake, int16_t x, int16_t y);
+void snowflake_draw(const snowflake_t* flake);
+void snowflake_get_bounds(const snowflake_t* flake, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2);
+bool snowflake_contains_point(const snowflake_t* flake, int16_t px, int16_t py);
