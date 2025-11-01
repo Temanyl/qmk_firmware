@@ -827,12 +827,13 @@ void draw_seasonal_animation(void) {
     }
 
     // === SAVE BACKGROUND FOR ANIMATIONS ===
-    bool need_background = (season == 3) || is_halloween_event() || (season != 2 && smoke_initialized);
-    if (need_background && !rain_background_saved && !ghost_background_saved && !smoke_background_saved) {
+    bool need_background = (season == 3) || is_halloween_event() || (season != 2 && smoke_initialized) || ((season == 0 || season == 3) && cloud_initialized);
+    if (need_background && !rain_background_saved && !ghost_background_saved && !smoke_background_saved && !cloud_background_saved) {
         fb_save_to_background();
         rain_background_saved = true;
         ghost_background_saved = true;
         smoke_background_saved = true;
+        cloud_background_saved = true;
     }
 
     // === DRAW RAINDROPS (if fall season) ===
@@ -899,6 +900,20 @@ void draw_seasonal_animation(void) {
         if (smoke_initialized) {
             smoke_initialized = false;
             smoke_background_saved = false;
+        }
+    }
+
+    // === DRAW CLOUDS (winter and fall) ===
+    if ((season == 0 || season == 3) && cloud_initialized) {
+        // Draw clouds
+        for (uint8_t i = 0; i < NUM_CLOUDS; i++) {
+            draw_cloud(clouds[i].x, clouds[i].y);
+        }
+    } else if (season != 0 && season != 3) {
+        // Not winter or fall - clean up cloud state
+        if (cloud_initialized) {
+            cloud_initialized = false;
+            cloud_background_saved = false;
         }
     }
 }
