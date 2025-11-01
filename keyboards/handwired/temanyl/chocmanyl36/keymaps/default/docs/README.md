@@ -300,6 +300,96 @@ The framebuffer system converts HSV to RGB565 for the ST7789 display.
 
 ---
 
+## Testing with Hard-Coded Dates
+
+For testing seasonal displays and special events without changing system time, you can hard-code the date/time in the firmware.
+
+### Enabling Hard-Coded Date Mode
+
+In `display/display.c`, uncomment the `HARDCODE_DATE_TIME` define (line 62):
+
+```c
+#define HARDCODE_DATE_TIME
+```
+
+Then set your desired test date/time using the provided defines (lines 75-79):
+
+```c
+#define HARDCODED_MONTH     10      // Month (1-12)
+#define HARDCODED_DAY       28      // Day (1-31)
+#define HARDCODED_YEAR      2025    // Year
+#define HARDCODED_HOUR      18      // Hour (0-23, 24-hour format)
+#define HARDCODED_MINUTE    30      // Minute (0-59)
+```
+
+### Test Date Examples
+
+Pre-configured examples are provided in the comments:
+
+| Test Scenario | Month | Day | Year | Hour | Minute | What to Test |
+|---------------|-------|-----|------|------|--------|--------------|
+| Halloween Event | 10 | 28 | 2025 | 18 | 30 | Pumpkins + floating ghosts |
+| Christmas Advent | 12 | 15 | 2025 | 10 | 0 | 15 advent items displayed |
+| New Year's Eve | 12 | 31 | 2025 | 23 | 45 | Fireworks + "HNY" text |
+| Spring Day | 4 | 15 | 2025 | 14 | 0 | Green trees, flowers |
+| Summer Day | 7 | 20 | 2025 | 12 | 0 | Sun at noon, summer colors |
+| Fall Day | 10 | 10 | 2025 | 16 | 0 | Orange trees, rain |
+| Winter Day | 1 | 15 | 2025 | 8 | 0 | Snow, snowflakes, smoke |
+
+### Time of Day Testing
+
+The display changes appearance based on hour:
+
+- **Night (20:00 - 05:59)**: Moon with phases, stars, darker sky
+- **Day (06:00 - 19:59)**: Sun with color transitions, brighter sky
+- **Sunrise (~6:00)**: Sun low on horizon, warm colors
+- **Sunset (~19:00)**: Sun low on horizon, orange/red tones
+
+### Behavior When Enabled
+
+When `HARDCODE_DATE_TIME` is defined:
+
+1. **Initial values**: Date/time variables are initialized with hard-coded values instead of zeros
+2. **HID updates ignored**: If `IGNORE_HID_TIME_UPDATES` is true (default), the keyboard ignores date/time updates from the host computer
+3. **Immediate rendering**: `time_received` is set to `true` on startup, so the scene renders immediately with the hard-coded date
+4. **Static time**: Time does not advance - it stays frozen at the configured values
+
+### Important: Reset Before Merging
+
+**⚠️ CRITICAL**: Always comment out `#define HARDCODE_DATE_TIME` before merging to production!
+
+When the define is commented out (default):
+- Date/time comes from host computer via HID
+- Display responds to real-time changes
+- Normal production behavior
+
+### Workflow for Testing Branches
+
+```bash
+# 1. Create test branch
+git checkout -b test-halloween-display
+
+# 2. Edit display/display.c
+# Uncomment: #define HARDCODE_DATE_TIME
+# Set: HARDCODED_MONTH=10, HARDCODED_DAY=28, etc.
+
+# 3. Build and test
+make handwired/temanyl/chocmanyl36:default
+
+# 4. Work on halloween display features...
+
+# 5. Before merging: Reset to normal
+# Comment out: // #define HARDCODE_DATE_TIME
+
+# 6. Commit and merge
+git add display/display.c
+git commit -m "Fix: Ensure date mode is disabled for production"
+git checkout master
+git merge test-halloween-display
+```
+
+---
+
 ## Display Layout
 
 ```
