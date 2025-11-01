@@ -13,3 +13,4 @@ SRC += seasons_winter.c seasons_spring.c seasons_summer.c seasons_fall.c seasons
 
 # Drawable objects
 SRC += objects/seasonal/pumpkin.c objects/seasonal/ghost.c
+SRC += objects/weather/smoke.c objects/weather/cloud.c objects/weather/raindrop.c

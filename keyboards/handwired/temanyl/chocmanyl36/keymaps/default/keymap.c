@@ -28,6 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "seasons_summer.h"
 #include "seasons_fall.h"
 #include "seasons_halloween.h"
+#include "objects/weather/cloud.h"
 #include "seasons_christmas.h"
 
 // Custom keycodes
@@ -670,13 +671,10 @@ void housekeeping_task_user(void) {
 
                         if (season == 3) {
                             // Fall: darker rain clouds
-                            fb_circle_hsv(x, y, 9, 0, 0, 120, true);
-                            fb_circle_hsv(x + 10, y + 2, 7, 0, 0, 120, true);
-                            fb_circle_hsv(x - 8, y + 2, 7, 0, 0, 120, true);
-                            fb_circle_hsv(x + 5, y - 4, 6, 0, 0, 110, true);
+                            cloud_draw(&clouds[i], CLOUD_TYPE_DARK);
                         } else {
                             // Winter: lighter clouds
-                            draw_cloud(x, y);
+                            cloud_draw(&clouds[i], CLOUD_TYPE_LIGHT);
                         }
                     }
                 }

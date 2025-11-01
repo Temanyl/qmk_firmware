@@ -19,21 +19,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "objects/weather/cloud.h"
 
-// Cloud animation
-#define NUM_CLOUDS 5  // 5 clouds total
-#define CLOUD_ANIMATION_SPEED 100  // Update every 100ms for smooth movement
+// Cloud structure
+typedef struct {
+    int16_t x;
+    int16_t y;
+    int8_t  vx;  // Horizontal velocity (negative for right-to-left)
+} cloud_t;
 
-// External state
-extern cloud_t clouds[NUM_CLOUDS];
-extern bool cloud_initialized;
-extern bool cloud_background_saved;
-extern uint32_t cloud_animation_timer;
+// Cloud type for different appearances
+typedef enum {
+    CLOUD_TYPE_LIGHT,  // Light winter clouds
+    CLOUD_TYPE_DARK    // Dark rain clouds (fall)
+} cloud_type_t;
 
-// Winter functions
-void init_clouds(void);
-void draw_cloud(int16_t x, int16_t y);
-void animate_clouds(void);
-void reset_winter_animations(void);
-void draw_winter_scene_elements(void);
+// Cloud functions
+void cloud_init(cloud_t* cloud, int16_t x, int16_t y, int8_t vx);
+void cloud_draw(const cloud_t* cloud, cloud_type_t type);
+void cloud_get_bounds(const cloud_t* cloud, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2);
+bool cloud_contains_point(const cloud_t* cloud, int16_t px, int16_t py);

@@ -19,17 +19,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "objects/weather/raindrop.h"
 
 // Rain animation
 #define NUM_RAINDROPS 50
-#define RAINDROP_WIDTH 2
-#define RAINDROP_HEIGHT 4
 #define RAIN_ANIMATION_SPEED 50  // Update every 50ms (20fps)
-
-typedef struct {
-    int16_t x;
-    int16_t y;
-} raindrop_t;
 
 // External state
 extern bool rain_initialized;

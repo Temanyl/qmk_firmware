@@ -19,21 +19,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "objects/weather/cloud.h"
 
-// Cloud animation
-#define NUM_CLOUDS 5  // 5 clouds total
-#define CLOUD_ANIMATION_SPEED 100  // Update every 100ms for smooth movement
+// Raindrop dimensions
+#define RAINDROP_WIDTH 2
+#define RAINDROP_HEIGHT 4
 
-// External state
-extern cloud_t clouds[NUM_CLOUDS];
-extern bool cloud_initialized;
-extern bool cloud_background_saved;
-extern uint32_t cloud_animation_timer;
+// Raindrop structure
+typedef struct {
+    int16_t x;
+    int16_t y;
+} raindrop_t;
 
-// Winter functions
-void init_clouds(void);
-void draw_cloud(int16_t x, int16_t y);
-void animate_clouds(void);
-void reset_winter_animations(void);
-void draw_winter_scene_elements(void);
+// Raindrop functions
+void raindrop_init(raindrop_t* drop, int16_t x, int16_t y);
+void raindrop_draw(const raindrop_t* drop);
+void raindrop_get_bounds(const raindrop_t* drop, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2);
+bool raindrop_contains_point(const raindrop_t* drop, int16_t px, int16_t py);

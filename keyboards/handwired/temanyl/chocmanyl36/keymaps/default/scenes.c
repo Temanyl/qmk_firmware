@@ -30,6 +30,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "seasons_halloween.h"
 #include "seasons_christmas.h"
 
+// Include drawable objects
+#include "objects/weather/smoke.h"
+#include "objects/weather/raindrop.h"
+
 // Smoke animation state (shared across seasons)
 bool smoke_initialized = false;
 bool smoke_background_saved = false;
@@ -315,12 +319,7 @@ void init_smoke(void) {
 
     // Initialize all particles as inactive (brightness = 0)
     for (uint8_t i = 0; i < NUM_SMOKE_PARTICLES; i++) {
-        smoke_particles[i].brightness = 0;  // Inactive
-        smoke_particles[i].x = 0;
-        smoke_particles[i].y = 0;
-        smoke_particles[i].size = 2;
-        smoke_particles[i].age = 0;
-        smoke_particles[i].drift = 1;
+        smoke_init(&smoke_particles[i], 0, 0, 2, 0, 1);  // Inactive particle
     }
 
     smoke_initialized = true;
@@ -359,8 +358,7 @@ void redraw_smoke_in_region(int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
             smoke_bottom >= y1 && smoke_top <= y2 &&
             smoke_particles[i].brightness > 0) {
             // Draw this smoke puff
-            fb_circle_hsv(smoke_particles[i].x, smoke_particles[i].y,
-                         smoke_particles[i].size, 0, 0, smoke_particles[i].brightness, true);
+            smoke_draw(&smoke_particles[i]);
         }
     }
 }
@@ -486,8 +484,7 @@ void animate_smoke(void) {
 
         // Draw smoke at new position
         if (smoke_particles[i].y >= 0 && smoke_particles[i].y < 155) {
-            fb_circle_hsv(smoke_particles[i].x, smoke_particles[i].y,
-                         smoke_particles[i].size, 0, 0, smoke_particles[i].brightness, true);
+            smoke_draw(&smoke_particles[i]);
 
             // Flush the new smoke region
             fb_flush_region(display,
@@ -715,8 +712,7 @@ void draw_seasonal_animation(void) {
         // Draw smoke particles
         for (uint8_t i = 0; i < NUM_SMOKE_PARTICLES; i++) {
             if (smoke_particles[i].brightness > 0) {
-                fb_circle_hsv(smoke_particles[i].x, smoke_particles[i].y,
-                             smoke_particles[i].size, 0, 0, smoke_particles[i].brightness, true);
+                smoke_draw(&smoke_particles[i]);
             }
         }
     } else if (season == 2) {
@@ -746,10 +742,7 @@ void draw_seasonal_animation(void) {
         // Draw raindrops
         for (uint8_t i = 0; i < NUM_RAINDROPS; i++) {
             if (raindrops[i].y >= 0 && raindrops[i].y < 150) {
-                fb_rect_hsv(raindrops[i].x, raindrops[i].y,
-                           raindrops[i].x + RAINDROP_WIDTH - 1,
-                           raindrops[i].y + RAINDROP_HEIGHT - 1,
-                           170, 150, 200, true);
+                raindrop_draw(&raindrops[i]);
             }
         }
     } else if (season != 3) {

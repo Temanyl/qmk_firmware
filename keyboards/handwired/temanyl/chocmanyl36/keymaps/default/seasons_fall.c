@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "seasons_winter.h"
 #include "framebuffer.h"
 #include "display.h"
+#include "objects/weather/raindrop.h"
 
 // Rain animation state
 bool rain_initialized = false;
@@ -87,10 +88,7 @@ void animate_raindrops(void) {
 
         // Draw raindrop at new position
         if (raindrops[i].y >= 0 && raindrops[i].y < 150) {
-            fb_rect_hsv(raindrops[i].x, raindrops[i].y,
-                       raindrops[i].x + RAINDROP_WIDTH - 1,
-                       raindrops[i].y + RAINDROP_HEIGHT - 1,
-                       170, 150, 200, true);
+            raindrop_draw(&raindrops[i]);
 
             // Flush the new raindrop region to draw it on display
             fb_flush_region(display, raindrops[i].x, raindrops[i].y,

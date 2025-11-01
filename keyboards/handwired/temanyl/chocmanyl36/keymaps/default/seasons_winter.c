@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "seasons_winter.h"
 #include "display.h"
 #include "framebuffer.h"
+#include "objects/weather/cloud.h"
 
 // Cloud animation state
 cloud_t clouds[NUM_CLOUDS];
@@ -37,45 +38,20 @@ void init_clouds(void) {
     // All clouds move at same speed to prevent overlap artifacts
     // Spacing: ~50 pixels apart to cover the full width (135 pixels + margins)
 
-    // Cloud 0
-    clouds[0].x = 25;
-    clouds[0].y = 35;
-    clouds[0].vx = -1;
-
-    // Cloud 1
-    clouds[1].x = 70;
-    clouds[1].y = 28;
-    clouds[1].vx = -1;
-
-    // Cloud 2
-    clouds[2].x = 115;
-    clouds[2].y = 42;
-    clouds[2].vx = -1;
-
-    // Cloud 3
-    clouds[3].x = 160;
-    clouds[3].y = 32;
-    clouds[3].vx = -1;
-
-    // Cloud 4
-    clouds[4].x = 205;
-    clouds[4].y = 38;
-    clouds[4].vx = -1;
+    cloud_init(&clouds[0], 25, 35, -1);
+    cloud_init(&clouds[1], 70, 28, -1);
+    cloud_init(&clouds[2], 115, 42, -1);
+    cloud_init(&clouds[3], 160, 32, -1);
+    cloud_init(&clouds[4], 205, 38, -1);
 
     cloud_initialized = true;
 }
 
-// Draw a single cloud
+// Draw a single cloud (wrapper for compatibility)
 void draw_cloud(int16_t x, int16_t y) {
-    // Don't draw clouds that are completely off-screen
-    if (x < -30 || x > 165) return;
-
-    // Cloud shape using circles (gray/white)
-    // Bounds: x-13 to x+15, y-8 to y+8
-    fb_circle_hsv(x, y, 8, 0, 0, 160, true);          // Main body
-    fb_circle_hsv(x + 9, y + 2, 6, 0, 0, 160, true);  // Right bump
-    fb_circle_hsv(x - 7, y + 2, 6, 0, 0, 160, true);  // Left bump
-    fb_circle_hsv(x + 4, y - 3, 5, 0, 0, 150, true);  // Top bump
+    cloud_t temp_cloud;
+    cloud_init(&temp_cloud, x, y, 0);
+    cloud_draw(&temp_cloud, CLOUD_TYPE_LIGHT);
 }
 
 // Animate clouds (updates positions only, drawing done by caller)

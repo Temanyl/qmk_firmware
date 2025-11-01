@@ -19,21 +19,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "objects/weather/smoke.h"
 
 // Smoke animation (shared across seasons)
 #define NUM_SMOKE_PARTICLES 20  // Larger pool for time-based emission
 #define SMOKE_ANIMATION_SPEED 100  // Update every 100ms for smooth rising smoke
 #define SMOKE_SPAWN_INTERVAL_MIN 700   // Minimum spawn interval (0.7 seconds)
 #define SMOKE_SPAWN_INTERVAL_MAX 1000  // Maximum spawn interval (1.0 second)
-
-typedef struct {
-    int16_t x;
-    int16_t y;
-    uint8_t size;       // Smoke puff size (grows as it rises)
-    uint8_t brightness; // Brightness (fades as it rises) - 0 means inactive
-    uint8_t age;        // Age of particle (0-255)
-    int8_t  drift;      // Horizontal drift direction
-} smoke_particle_t;
 
 extern smoke_particle_t smoke_particles[NUM_SMOKE_PARTICLES];
 extern bool smoke_initialized;

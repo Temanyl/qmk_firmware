@@ -19,21 +19,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "objects/weather/cloud.h"
 
-// Cloud animation
-#define NUM_CLOUDS 5  // 5 clouds total
-#define CLOUD_ANIMATION_SPEED 100  // Update every 100ms for smooth movement
+// Smoke particle structure
+typedef struct {
+    int16_t x;
+    int16_t y;
+    uint8_t size;       // Smoke puff size
+    uint8_t brightness; // Brightness (0 = inactive)
+    uint8_t age;        // Age of particle (0-255)
+    int8_t  drift;      // Horizontal drift speed
+} smoke_particle_t;
 
-// External state
-extern cloud_t clouds[NUM_CLOUDS];
-extern bool cloud_initialized;
-extern bool cloud_background_saved;
-extern uint32_t cloud_animation_timer;
-
-// Winter functions
-void init_clouds(void);
-void draw_cloud(int16_t x, int16_t y);
-void animate_clouds(void);
-void reset_winter_animations(void);
-void draw_winter_scene_elements(void);
+// Smoke particle functions
+void smoke_init(smoke_particle_t* smoke, int16_t x, int16_t y, uint8_t size, uint8_t brightness, int8_t drift);
+void smoke_draw(const smoke_particle_t* smoke);
+bool smoke_contains_point(const smoke_particle_t* smoke, int16_t px, int16_t py);
+void smoke_get_bounds(const smoke_particle_t* smoke, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2);
