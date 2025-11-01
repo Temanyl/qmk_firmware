@@ -41,6 +41,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../objects/structures/cabin.h"
 #include "../objects/fauna/bird.h"
 #include "../objects/fauna/butterfly.h"
+#include "../objects/fauna/bee.h"
+#include "../objects/fauna/firefly.h"
 
 // Smoke animation state (shared across seasons)
 bool smoke_initialized = false;
@@ -420,6 +422,11 @@ void draw_seasonal_animation(void) {
         need_background = true;
     }
 
+    // Summer season needs background for bees and fireflies
+    if (season == 2 && summer_initialized && !summer_background_saved) {
+        need_background = true;
+    }
+
     // Fall season needs background for rain
     if (season == 3 && rain_initialized && !rain_background_saved) {
         need_background = true;
@@ -452,6 +459,9 @@ void draw_seasonal_animation(void) {
         // Set the appropriate flags based on what's active
         if (season == 1 && spring_initialized) {
             spring_background_saved = true;
+        }
+        if (season == 2 && summer_initialized) {
+            summer_background_saved = true;
         }
         if (season == 3 && rain_initialized) {
             rain_background_saved = true;
@@ -503,6 +513,25 @@ void draw_seasonal_animation(void) {
         if (spring_initialized) {
             spring_initialized = false;
             spring_background_saved = false;
+        }
+    }
+
+    // === DRAW BEES AND FIREFLIES (summer only) ===
+    // NOTE: Bees and fireflies are drawn AFTER background save to avoid
+    // baking them into the background. They are drawn here once, then animated
+    // by the region-based animation system in animate_summer().
+    if (season == 2 && summer_initialized) {
+        bees_draw_all();
+        // Fireflies are drawn by animate_summer() based on time-of-day
+        // Check if it's evening/night for fireflies (18:00 - 6:00)
+        if (current_hour >= 18 || current_hour < 6) {
+            fireflies_draw_all();
+        }
+    } else if (season != 2) {
+        // Not summer - clean up summer animation state
+        if (summer_initialized) {
+            summer_initialized = false;
+            summer_background_saved = false;
         }
     }
 

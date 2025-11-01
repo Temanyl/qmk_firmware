@@ -20,5 +20,5 @@ SRC += objects/weather/smoke.c objects/weather/cloud.c objects/weather/raindrop.
 SRC += objects/celestial/sun.c objects/celestial/moon.c objects/celestial/stars.c
 SRC += objects/structures/tree.c objects/structures/cabin.c
 SRC += objects/flora/flower.c objects/flora/sunflower.c objects/flora/fallen_leaf.c
-SRC += objects/fauna/bird.c objects/fauna/butterfly.c
+SRC += objects/fauna/bird.c objects/fauna/butterfly.c objects/fauna/bee.c objects/fauna/firefly.c
 SRC += objects/effects/snowflake.c objects/effects/snow_drift.c objects/effects/airplane.c
