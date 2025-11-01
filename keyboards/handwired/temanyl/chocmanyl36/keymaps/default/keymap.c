@@ -267,33 +267,10 @@ uint8_t mod_state;
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     mod_state = get_mods();
 
-    // On arrow layer, shift returns to default layer
-    if (layer_state_is(_MAC_ARROW) && (keycode == KC_LSFT || keycode == KC_RSFT)) {
-        if (record->event.pressed) {
-            layer_clear();
-            game_cleanup();
-            // Invalidate display cache to force full redraw
-            current_display_layer = 255;
-            return false;
-        }
-    }
-
     // Handle game input on arrow layer
     if (layer_state_is(_MAC_ARROW)) {
-        bool pressed = record->event.pressed;
-        switch (keycode) {
-            case KC_LEFT:
-                game_set_input(pressed, g_input.right, g_input.up, g_input.down);
-                return false;
-            case KC_RIGHT:
-                game_set_input(g_input.left, pressed, g_input.up, g_input.down);
-                return false;
-            case KC_UP:
-                game_set_input(g_input.left, g_input.right, pressed, g_input.down);
-                return false;
-            case KC_DOWN:
-                game_set_input(g_input.left, g_input.right, g_input.up, pressed);
-                return false;
+        if (!game_process_record(keycode, record, &current_display_layer)) {
+            return false;  // Game handled the key
         }
     }
 
@@ -485,10 +462,8 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
 // Periodically check and update display based on active layer
 void housekeeping_task_user(void) {
     // Handle game when on arrow layer
-    if (layer_state_is(_MAC_ARROW) && game_is_active()) {
-        game_update();
-        game_render(display);
-        return;  // Skip normal display updates while game is active
+    if (game_housekeeping(display)) {
+        return;  // Game handled the update, skip normal display updates
     }
 
     update_display_for_layer();

@@ -3,6 +3,8 @@
 
 #include "game_doodle.h"
 #include "framebuffer.h"
+#include "action.h"
+#include "action_layer.h"
 #include <stdlib.h>
 #include "timer.h"
 
@@ -259,4 +261,51 @@ void game_cleanup(void) {
 // Check if game is active
 bool game_is_active(void) {
     return g_game.active;
+}
+
+// Handle keypresses for the game
+bool game_process_record(uint16_t keycode, keyrecord_t *record, uint8_t *current_display_layer) {
+    if (!g_game.active) return true;
+
+    // Handle shift keys to exit game
+    if (keycode == KC_LSFT || keycode == KC_RSFT) {
+        if (record->event.pressed) {
+            layer_clear();
+            game_cleanup();
+            // Invalidate display cache to force full redraw
+            if (current_display_layer != NULL) {
+                *current_display_layer = 255;
+            }
+            return false;
+        }
+    }
+
+    // Handle arrow key input
+    bool pressed = record->event.pressed;
+    switch (keycode) {
+        case KC_LEFT:
+            game_set_input(pressed, g_input.right, g_input.up, g_input.down);
+            return false;
+        case KC_RIGHT:
+            game_set_input(g_input.left, pressed, g_input.up, g_input.down);
+            return false;
+        case KC_UP:
+            game_set_input(g_input.left, g_input.right, pressed, g_input.down);
+            return false;
+        case KC_DOWN:
+            game_set_input(g_input.left, g_input.right, g_input.up, pressed);
+            return false;
+        default:
+            // Let other keys be processed normally
+            return true;
+    }
+}
+
+// Handle game update and rendering in housekeeping loop
+bool game_housekeeping(painter_device_t display) {
+    if (!g_game.active) return false;
+
+    game_update();
+    game_render(display);
+    return true;  // Game handled the update
 }

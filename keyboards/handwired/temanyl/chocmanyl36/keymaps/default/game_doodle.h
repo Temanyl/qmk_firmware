@@ -67,6 +67,24 @@ void game_set_input(bool left, bool right, bool up, bool down);
 void game_cleanup(void);
 bool game_is_active(void);
 
+/**
+ * Handle keypresses for the game
+ * Call this from process_record_user when on the arrow layer
+ * @param keycode The keycode being processed
+ * @param record The keyrecord
+ * @param current_display_layer Pointer to display layer cache (will be invalidated if game exits)
+ * @return false if game handled the key, true to continue normal processing
+ */
+bool game_process_record(uint16_t keycode, keyrecord_t *record, uint8_t *current_display_layer);
+
+/**
+ * Handle game update and rendering in housekeeping loop
+ * Call this from housekeeping_task_user
+ * @param display The display device
+ * @return true if game handled the update (skip other display updates), false otherwise
+ */
+bool game_housekeeping(painter_device_t display);
+
 // Global game state
 extern game_state_t g_game;
 extern input_state_t g_input;
