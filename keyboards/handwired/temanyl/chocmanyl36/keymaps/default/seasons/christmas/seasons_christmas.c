@@ -17,7 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include QMK_KEYBOARD_H
 #include "seasons_christmas.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Christmas animation state
 bool santa_initialized = false;

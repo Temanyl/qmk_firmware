@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "cloud.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Cloud color configuration (HSV)
 // Light clouds (winter)

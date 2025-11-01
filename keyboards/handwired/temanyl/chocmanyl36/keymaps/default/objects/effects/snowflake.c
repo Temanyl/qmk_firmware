@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "snowflake.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Snowflake positions (x, y)
 static const uint16_t snow_positions[NUM_WINTER_SNOWFLAKES][2] = {

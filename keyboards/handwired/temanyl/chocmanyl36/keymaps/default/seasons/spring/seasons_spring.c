@@ -17,10 +17,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include QMK_KEYBOARD_H
 #include "seasons_spring.h"
-#include "framebuffer.h"
-#include "objects/fauna/bird.h"
-#include "objects/fauna/butterfly.h"
-#include "objects/flora/flower.h"
+#include "../../display/framebuffer.h"
+#include "../../objects/fauna/bird.h"
+#include "../../objects/fauna/butterfly.h"
+#include "../../objects/flora/flower.h"
 
 // Reset spring animations
 void reset_spring_animations(void) {

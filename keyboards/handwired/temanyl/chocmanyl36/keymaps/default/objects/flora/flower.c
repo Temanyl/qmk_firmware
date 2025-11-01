@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "flower.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Flower data
 static const flower_t flowers[NUM_SPRING_FLOWERS] = {

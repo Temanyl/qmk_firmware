@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "tree.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Initialize tree
 void tree_init(tree_t *tree, uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, uint8_t sat, uint8_t val) {

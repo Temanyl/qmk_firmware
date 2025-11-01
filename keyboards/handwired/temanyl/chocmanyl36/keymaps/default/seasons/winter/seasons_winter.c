@@ -17,11 +17,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include QMK_KEYBOARD_H
 #include "seasons_winter.h"
-#include "display.h"
-#include "framebuffer.h"
-#include "objects/weather/cloud.h"
-#include "objects/effects/snowflake.h"
-#include "objects/effects/snow_drift.h"
+#include "../../display/display.h"
+#include "../../display/framebuffer.h"
+#include "../../objects/weather/cloud.h"
+#include "../../objects/effects/snowflake.h"
+#include "../../objects/effects/snow_drift.h"
 
 // Cloud animation state
 cloud_t clouds[NUM_CLOUDS];

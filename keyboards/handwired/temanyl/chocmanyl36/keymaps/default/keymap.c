@@ -20,16 +20,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "framebuffer.h"
-#include "display.h"
-#include "scenes.h"
-#include "seasons_winter.h"
-#include "seasons_spring.h"
-#include "seasons_summer.h"
-#include "seasons_fall.h"
-#include "seasons_halloween.h"
+#include "display/framebuffer.h"
+#include "display/display.h"
+#include "scenes/scenes.h"
+#include "seasons/winter/seasons_winter.h"
+#include "seasons/spring/seasons_spring.h"
+#include "seasons/summer/seasons_summer.h"
+#include "seasons/fall/seasons_fall.h"
+#include "seasons/halloween/seasons_halloween.h"
 #include "objects/weather/cloud.h"
-#include "seasons_christmas.h"
+#include "seasons/christmas/seasons_christmas.h"
 
 // Custom keycodes
 enum custom_keycodes {

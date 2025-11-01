@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "butterfly.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Butterfly data (x, y, hue)
 static const struct { uint16_t x; uint16_t y; uint8_t hue; } butterflies[NUM_SPRING_BUTTERFLIES] = {

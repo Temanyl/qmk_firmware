@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "airplane.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Draw airplane in top left
 void airplane_draw(void) {

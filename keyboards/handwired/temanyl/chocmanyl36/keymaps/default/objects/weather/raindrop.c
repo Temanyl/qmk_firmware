@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "raindrop.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Raindrop color configuration (HSV)
 #define RAINDROP_HUE 170   // 170=cyan/blue

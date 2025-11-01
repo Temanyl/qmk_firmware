@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "sunflower.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Sunflower data (x position, stem height)
 static const struct { uint16_t x; uint8_t stem_height; } sunflowers[NUM_SUMMER_SUNFLOWERS] = {

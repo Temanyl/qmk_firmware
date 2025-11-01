@@ -17,12 +17,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include QMK_KEYBOARD_H
 #include "seasons_fall.h"
-#include "seasons_halloween.h"
-#include "seasons_winter.h"
-#include "framebuffer.h"
-#include "display.h"
-#include "objects/weather/raindrop.h"
-#include "objects/flora/fallen_leaf.h"
+#include "../halloween/seasons_halloween.h"
+#include "../winter/seasons_winter.h"
+#include "../../display/framebuffer.h"
+#include "../../display/display.h"
+#include "../../objects/weather/raindrop.h"
+#include "../../objects/flora/fallen_leaf.h"
 
 // Rain animation state
 bool rain_initialized = false;

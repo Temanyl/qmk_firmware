@@ -17,9 +17,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include QMK_KEYBOARD_H
 #include "seasons_halloween.h"
-#include "objects/seasonal/pumpkin.h"
-#include "objects/seasonal/ghost.h"
-#include "framebuffer.h"
+#include "../../objects/seasonal/pumpkin.h"
+#include "../../objects/seasonal/ghost.h"
+#include "../../display/framebuffer.h"
 
 // Halloween animation state
 ghost_t ghosts[NUM_GHOSTS];

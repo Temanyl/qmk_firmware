@@ -17,9 +17,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include QMK_KEYBOARD_H
 #include "seasons_summer.h"
-#include "framebuffer.h"
-#include "objects/effects/airplane.h"
-#include "objects/flora/sunflower.h"
+#include "../../display/framebuffer.h"
+#include "../../objects/effects/airplane.h"
+#include "../../objects/flora/sunflower.h"
 
 // Reset summer animations
 void reset_summer_animations(void) {

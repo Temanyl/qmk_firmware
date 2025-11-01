@@ -20,10 +20,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <string.h>
 #include <qp.h>
 #include "display.h"
-#include "scenes.h"
+#include "../scenes/scenes.h"
 #include "framebuffer.h"
 #include "draw_logo.h"
-#include "graphics/helvetica20.qff.c"
+#include "../graphics/helvetica20.qff.c"
 
 // Layer enum (from keymap.c)
 enum layer_names {

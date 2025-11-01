@@ -19,25 +19,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdio.h>
 #include <string.h>
 #include "scenes.h"
-#include "display.h"
-#include "framebuffer.h"
+#include "../display/display.h"
+#include "../display/framebuffer.h"
 
 // Include season-specific modules
-#include "seasons_winter.h"
-#include "seasons_spring.h"
-#include "seasons_summer.h"
-#include "seasons_fall.h"
-#include "seasons_halloween.h"
-#include "seasons_christmas.h"
+#include "../seasons/winter/seasons_winter.h"
+#include "../seasons/spring/seasons_spring.h"
+#include "../seasons/summer/seasons_summer.h"
+#include "../seasons/fall/seasons_fall.h"
+#include "../seasons/halloween/seasons_halloween.h"
+#include "../seasons/christmas/seasons_christmas.h"
 
 // Include drawable objects
-#include "objects/weather/smoke.h"
-#include "objects/weather/raindrop.h"
-#include "objects/celestial/sun.h"
-#include "objects/celestial/moon.h"
-#include "objects/celestial/stars.h"
-#include "objects/structures/tree.h"
-#include "objects/structures/cabin.h"
+#include "../objects/weather/smoke.h"
+#include "../objects/weather/raindrop.h"
+#include "../objects/celestial/sun.h"
+#include "../objects/celestial/moon.h"
+#include "../objects/celestial/stars.h"
+#include "../objects/structures/tree.h"
+#include "../objects/structures/cabin.h"
 
 // Smoke animation state (shared across seasons)
 bool smoke_initialized = false;

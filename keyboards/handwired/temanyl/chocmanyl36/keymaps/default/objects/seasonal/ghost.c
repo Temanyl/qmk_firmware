@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "ghost.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Ghost color configuration (HSV)
 #define GHOST_HUE 0        // 0=red, 42=yellow, 85=green, 170=blue, 234=pink

@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "sun.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Initialize sun
 void sun_init(sun_t *sun, int16_t x, int16_t y, uint8_t hour) {

@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "moon.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Initialize moon
 void moon_init(moon_t *moon, int16_t x, int16_t y, uint8_t day, uint8_t hour) {

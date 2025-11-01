@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "fallen_leaf.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Fallen leaf data (x position, hue color)
 static const struct { uint16_t x; uint8_t hue; } fallen_leaves[NUM_FALL_LEAVES] = {

@@ -3,13 +3,13 @@ QUANTUM_PAINTER_ENABLE = yes
 QUANTUM_PAINTER_DRIVERS += st7789_spi
 
 # Framebuffer support
-SRC += framebuffer.c
+SRC += display/framebuffer.c
 
 # Display and scene rendering
-SRC += display.c scenes.c
+SRC += display/display.c scenes/scenes.c
 
 # Season modules
-SRC += seasons_winter.c seasons_spring.c seasons_summer.c seasons_fall.c seasons_halloween.c seasons_christmas.c
+SRC += seasons/winter/seasons_winter.c seasons/spring/seasons_spring.c seasons/summer/seasons_summer.c seasons/fall/seasons_fall.c seasons/halloween/seasons_halloween.c seasons/christmas/seasons_christmas.c
 
 # Drawable objects
 SRC += objects/seasonal/pumpkin.c objects/seasonal/ghost.c

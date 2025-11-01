@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "bird.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Bird positions (x, y)
 static const uint16_t bird_positions[NUM_SPRING_BIRDS][2] = {

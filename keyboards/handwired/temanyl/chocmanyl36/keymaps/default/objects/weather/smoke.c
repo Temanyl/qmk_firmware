@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "smoke.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Smoke color configuration (HSV)
 #define SMOKE_HUE 0        // 0=red smoke, 0=grey/white smoke (depends on saturation)

@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "cabin.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Initialize cabin
 void cabin_init(cabin_t *cabin, uint16_t base_x, uint16_t base_y, uint8_t season) {

@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "snow_drift.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Snow drift data (x position, height)
 static const struct { uint16_t x; uint8_t height; } snow_drifts[] = {

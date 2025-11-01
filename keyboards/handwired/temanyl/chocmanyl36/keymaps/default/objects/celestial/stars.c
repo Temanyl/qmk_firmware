@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "stars.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Star positions
 static const uint16_t star_positions[NUM_STARS][2] = {

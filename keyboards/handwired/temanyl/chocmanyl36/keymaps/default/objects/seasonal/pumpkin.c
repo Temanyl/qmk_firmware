@@ -16,7 +16,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "pumpkin.h"
-#include "framebuffer.h"
+#include "../../display/framebuffer.h"
 
 // Initialize a pumpkin object with position and size
 void pumpkin_init(pumpkin_t* pumpkin, int16_t x, int16_t y, uint8_t size) {
