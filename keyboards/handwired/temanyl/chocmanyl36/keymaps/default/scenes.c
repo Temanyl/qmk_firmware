@@ -300,10 +300,8 @@ void animate_clouds(void) {
         }
     }
 
-    // STEP 5: Single flush for entire animation area (from top clouds to bottom)
-    // This eliminates flicker by doing one atomic update
-    // Clouds are at y=25-45, extend ±11 vertically, so flush y=14-56 to be safe
-    fb_flush_region(display, 0, 12, 134, 58);
+    // STEP 5: Draw complete - framebuffer is ready
+    // NOTE: Flush is handled by caller to coordinate with other animations
 }
 
 // Get season based on month
@@ -1072,12 +1070,8 @@ void animate_ghosts(void) {
         draw_ghost(ghosts[i].x, ghosts[i].y);
     }
 
-    // STEP 4: Single flush for entire ghost animation area
-    // This eliminates flicker by doing one atomic update
-    // Ghosts move in range: x=8 to x=126, y=42 to y=108 (approximate)
-    // Ghost dimensions: 15px wide (x-7 to x+7), 21px tall (y-7 to y+13)
-    // Safe flush area: y=35 to y=121 to cover all possible ghost positions
-    fb_flush_region(display, 0, 35, 134, 121);
+    // STEP 4: Draw complete - framebuffer is ready
+    // NOTE: Flush is handled by caller to coordinate with other animations
 }
 
 // Animate raindrops

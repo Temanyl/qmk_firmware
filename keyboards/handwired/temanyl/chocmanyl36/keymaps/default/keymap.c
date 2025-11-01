@@ -530,26 +530,37 @@ void housekeeping_task_user(void) {
         }
     }
 
+    // Track if any animations updated (for coordinated flushing)
+    bool animation_updated = false;
+
     // Handle cloud animation
-    // Note: animate_clouds() handles its own region-based flushing
     if (cloud_initialized && cloud_background_saved) {
         if (current_time - cloud_animation_timer >= CLOUD_ANIMATION_SPEED) {
             cloud_animation_timer = current_time;
             animate_clouds();
-            // No needs_flush = true here - clouds flush their own regions
+            animation_updated = true;
         }
     }
 
     // Handle ghost animation (during Halloween event)
-    // Note: animate_ghosts() handles its own region-based flushing
     if (ghost_initialized && ghost_background_saved) {
         if (is_halloween_event()) {
             if (current_time - ghost_animation_timer >= GHOST_ANIMATION_SPEED) {
                 ghost_animation_timer = current_time;
                 animate_ghosts();
-                // No needs_flush = true here - ghosts flush their own regions
+                animation_updated = true;
             }
         }
+    }
+
+    // Coordinated flush for all overlapping animations
+    // This eliminates flicker when clouds and ghosts overlap
+    if (animation_updated) {
+        // Flush the combined animation area:
+        // - Clouds: y=12 to y=58
+        // - Ghosts: y=35 to y=121
+        // Combined: y=12 to y=121
+        fb_flush_region(display, 0, 12, 134, 121);
     }
 
     // Handle Santa sleigh animation (on Christmas Day Dec 25 and after)
