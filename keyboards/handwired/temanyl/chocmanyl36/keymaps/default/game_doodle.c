@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "game_doodle.h"
-#include "framebuffer.h"
+#include "display/framebuffer.h"
 #include "action.h"
 #include "action_layer.h"
 #include <stdlib.h>
