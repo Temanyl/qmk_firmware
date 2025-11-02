@@ -41,6 +41,26 @@ typedef struct {
     bool on_platform;
 } player_t;
 
+// Game modes
+typedef enum {
+    GAME_PLAYING,
+    GAME_NAME_ENTRY,
+    GAME_SCORE_DISPLAY
+} game_mode_t;
+
+// High score entry
+typedef struct {
+    char name[4];  // 3 chars + null terminator
+    uint16_t score;
+} highscore_entry_t;
+
+// Name entry state (arcade-style)
+typedef struct {
+    char name[3];         // Current name being entered
+    uint8_t char_index;   // Which character (0-2) we're editing
+    uint8_t letter_index; // Which letter (0-25 for A-Z)
+} name_entry_state_t;
+
 // Game state
 typedef struct {
     player_t player;
@@ -50,6 +70,16 @@ typedef struct {
     bool active;
     bool game_over;
     uint32_t last_update;
+
+    // High score system
+    game_mode_t mode;
+    name_entry_state_t name_entry;
+    highscore_entry_t highscores[10];
+    uint8_t highscore_count;
+    uint8_t player_rank;  // 0-9 if in top 10, 255 otherwise
+    bool waiting_for_hid_response;
+    uint32_t hid_wait_start;  // Timer for HID response timeout
+    bool offline_mode;        // True if computer didn't respond (no Python script)
 } game_state_t;
 
 // Input state
@@ -85,6 +115,14 @@ bool game_process_record(uint16_t keycode, keyrecord_t *record, uint8_t *current
  * @return true if game handled the update (skip other display updates), false otherwise
  */
 bool game_housekeeping(painter_device_t display);
+
+/**
+ * Handle Raw HID data from computer (high score responses)
+ * Call this from raw_hid_receive callback
+ * @param data The received data buffer (32 bytes)
+ * @param length The length of the data
+ */
+void game_hid_receive(uint8_t *data, uint8_t length);
 
 // Global game state
 extern game_state_t g_game;
