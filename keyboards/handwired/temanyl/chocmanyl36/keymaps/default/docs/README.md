@@ -1,452 +1,710 @@
-# Chocmanyl36 Default Keymap
+# Chocmanyl36 Default Keymap Documentation
 
-This directory contains the default keymap and display code for the Chocmanyl36 keyboard with ST7789 LCD display.
+This directory contains the default keymap for the Chocmanyl36 keyboard with ST7789 LCD display, featuring seasonal animations, interactive games, and a modular object-based rendering system.
+
+## Table of Contents
+
+1. [Quick Start](#quick-start)
+2. [Architecture Overview](#architecture-overview)
+3. [File Structure](#file-structure)
+4. [Display System](#display-system)
+5. [Season System](#season-system)
+6. [Objects System](#objects-system)
+7. [Animation Workflow](#animation-workflow)
+8. [Games](#games)
+9. [Testing](#testing)
+
+---
+
+## Quick Start
+
+### Building and Flashing
+
+```bash
+# From repository root
+make handwired/temanyl/chocmanyl36:default:flash
+```
+
+### Running the Companion Script
+
+The keyboard requires a Python companion script for full functionality:
+
+```bash
+# From repository root
+python3 keyboard_monitor.py
+```
+
+This provides:
+- Volume monitoring and display
+- Media playback information
+- Date/time synchronization for seasonal animations
+- High score persistence for games
+
+---
+
+## Architecture Overview
+
+The firmware uses a modular, object-oriented architecture:
+
+```
+keymap.c (keyboard logic)
+    ↓
+display/ (UI and hardware)
+    ↓
+scenes/ (seasonal orchestration)
+    ↓
+seasons/ (season-specific events)
+    ↓
+objects/ (reusable drawable elements)
+```
+
+### Design Principles
+
+1. **Modularity**: Each visual element is a self-contained object with `.h` and `.c` files
+2. **Reusability**: Objects can be used across multiple seasons/events
+3. **Separation of Concerns**: Display hardware, scene logic, and objects are independent
+4. **Animation Framework**: Shared timer-based animation system with background buffering
+
+---
 
 ## File Structure
 
 ### Core Keyboard Files
 
-#### `keymap.c` (565 lines)
-**Purpose**: Keyboard behavior, input handling, and QMK integration
-
-**Handles**:
-- Layer definitions (Colemak-DH, Code, Nav, Num layers)
-- Custom keycodes (DISP_UP, DISP_DN for brightness control)
-- Tap dance definitions and state machines
-- Key processing logic (`process_record_user`)
-- Tapping term customization (`get_tapping_term`)
-- Raw HID receive callback for host communication (volume, media, date/time)
+**`keymap.c`** - Keyboard behavior and QMK integration
+- Layer definitions (Colemak-DH, Code, Nav, Num, Arrow)
+- Custom keycodes (brightness control, game modes)
+- Tap dance definitions
+- Raw HID communication (volume, media, date/time, high scores)
 - Housekeeping task for periodic updates and animations
-- Keyboard initialization (`keyboard_post_init_kb`)
+- Game mode switching and input handling
 
-**Key Functions**:
-- `process_record_user()` - Handles custom keycodes and special key behaviors
-- `housekeeping_task_user()` - Main event loop for display updates and animations
-- `raw_hid_receive()` - Receives volume, media text, and date/time from host computer
-- Tap dance functions for layer switching and multi-tap behaviors
+**`config.h`** - Keyboard configuration
+- Tap dance settings
+- Tapping term customization
+- Hardware pin definitions
 
----
-
-### Display System Files
-
-#### `display.h` (75 lines)
-**Purpose**: Public interface for display functionality
-
-**Declares**:
-- External variables: `display`, `media_font`, brightness, volume, date/time state
-- Display drawing functions
-- Display initialization and management functions
-
-**Key Declarations**:
-- `init_display()` - Initialize display hardware and draw initial UI
-- `update_display_for_layer()` - Update background color based on active layer
-- `draw_date_time()` - Render 7-segment clock display
-- `draw_volume_bar()` - Render volume indicator bar
-- `draw_brightness_indicator()` - Show temporary brightness overlay
-- `draw_media_text()` - Render scrolling media text
-- `set_backlight_brightness()` - Control PWM backlight
-
-#### `display.c` (549 lines)
-**Purpose**: Display hardware initialization and UI element rendering
-
-**Handles**:
-- **Hardware Setup**:
-  - ST7789 SPI display initialization (240x135 pixels with offsets)
-  - PWM backlight control on GP4
-  - Power pin management (GP22 for LILYGO board)
-  - Font loading (Helvetica 20px)
-
-- **UI Elements**:
-  - 7-segment digit rendering for clock (`draw_digit`)
-  - Date/time display (HH:MM MM/DD)
-  - Volume bar (0-100% visualization)
-  - Scrolling media text with automatic scroll detection
-  - Brightness indicator overlay (temporary, 3-second timeout)
-
-- **Layer Management**:
-  - Layer-to-color mapping (Teal=Colemak, Green=Nav, Red=Code, Yellow=Num)
-  - Background color transitions
-  - Scene animation reset on layer changes
-
-**State Variables**:
-- `display` - Quantum Painter device handle
-- `media_font` - Font handle for media text
-- `current_display_layer` - Cached layer for change detection
-- `backlight_brightness` - Current PWM brightness (0-255)
-- `current_volume` - Volume level (0-100)
-- `current_hour/minute/day/month/year` - Date/time from host
-- `time_received` - Whether time has been received from host
-- Media text state: `current_media`, `scroll_position`, `needs_scroll`
-- Brightness overlay state: `brightness_display_active`, `brightness_display_timer`
-
----
-
-### Scene Rendering Files
-
-#### `scenes.h` (123 lines)
-**Purpose**: Public interface for seasonal animations and scene rendering
-
-**Declares**:
-- Animation constants (raindrop count, ghost count, animation speeds)
-- Type definitions for animated elements (raindrop_t, ghost_t, christmas_item_type_t)
-- External variables for animation state
-- Scene drawing and animation functions
-
-**Key Declarations**:
-- `draw_seasonal_animation()` - Main scene renderer (sun/moon, weather, events)
-- `reset_scene_animations()` - Reset all animation states
-- Halloween functions: `init_ghosts()`, `animate_ghosts()`, `draw_halloween_elements()`
-- Christmas functions: `draw_christmas_scene()`, `update_santa_animation()`
-- Utility functions: `get_season()`, `is_halloween_event()`, `is_christmas_season()`
-
-#### `scenes.c` (1240 lines)
-**Purpose**: Seasonal scene rendering and animation implementation
-
-**Handles**:
-- **Seasonal Scenes** (Spring, Summer, Fall, Winter):
-  - Trees with seasonal foliage colors
-  - Cabin with chimney smoke (winter only)
-  - Ground with seasonal colors
-  - Sun/moon with position based on hour (0-23)
-  - Moon phases based on day of month
-  - Seasonal weather effects (flowers, sun rays, raindrops, snowflakes)
-
-- **Rain Animation** (Fall season):
-  - 50 animated raindrops (2x4 pixels each)
-  - Vertical movement with reset at ground level
-  - Background restoration for smooth animation
-  - Region-based framebuffer flushing for efficiency
-
-- **Halloween Event** (Oct 28 - Nov 3):
-  - 4 static pumpkins at fixed positions
-  - 3 animated floating ghosts (16x16 pixels)
-  - Sine wave approximation for smooth floating motion
-  - Horizontal drifting with screen wrapping
-  - Background restoration and region-based rendering
-
-- **Christmas Season** (Dec 1-31):
-  - Advent calendar system (1-24 items appear progressively)
-  - 24 different Christmas decorations (presents, ornaments, candy canes, etc.)
-  - Animated Santa sleigh (flies across screen on Dec 25+)
-  - Santa with 2 reindeer (Rudolph with red nose)
-
-- **New Year's Eve** (Dec 31):
-  - 6 static fireworks at various positions
-  - "HNY" text in large block letters
-  - Colorful burst patterns (8 directional rays per firework)
-
-**State Variables**:
-- Rain: `raindrops[]`, `rain_initialized`, `rain_background_saved`, `rain_animation_timer`
-- Ghosts: `ghosts[]`, `ghost_initialized`, `ghost_background_saved`, `ghost_animation_timer`
-- Christmas: `santa_x`, `santa_initialized`, `santa_animation_timer`
-- Advent items: `advent_items[]` array with 24 positioned decorations
-
-**Key Functions**:
-- `draw_seasonal_animation()` - Main orchestrator, draws complete scene based on date/time
-- `animate_raindrops()` - Updates raindrop positions (called at 20fps during fall)
-- `animate_ghosts()` - Updates ghost floating motion (called at 12.5fps during Halloween)
-- `draw_christmas_item()` - Renders one of 24 Christmas decoration types
-- `update_santa_animation()` - Moves Santa sleigh across screen
-- `get_celestial_position()` - Calculates sun/moon position based on hour
-
----
-
-### Supporting Files
-
-#### `framebuffer.h` / `framebuffer.c`
-**Purpose**: Custom framebuffer system for split rendering
-
-**Provides**:
-- Upper region (y=0-154): HSV framebuffer for scenes, manually flushed
-- Lower region (y=155+): Direct Quantum Painter rendering for UI elements
-- Background saving/restoration for animations
-- Region-based flushing for efficiency
-- HSV to RGB565 conversion for ST7789
-
-**Key Functions**:
-- `fb_init()` - Allocate framebuffer memory
-- `fb_rect_hsv()` - Draw HSV rectangle to framebuffer
-- `fb_circle_hsv()` - Draw HSV circle to framebuffer
-- `fb_flush()` - Flush entire framebuffer to display
-- `fb_flush_region()` - Flush specific region for efficiency
-- `fb_save_background()` - Save current scene to background buffer
-- `fb_restore_from_background()` - Restore specific region from background
-
-#### `draw_logo.h`
-**Purpose**: Amboss logo rendering
-
-**Provides**:
-- `draw_amboss_logo()` - Renders company logo in HSV color
-- Used during display initialization in `display.c`
-
-#### `rules.mk`
-**Purpose**: Build configuration
-
-**Contents**:
+**`rules.mk`** - Build configuration
 ```makefile
 TAP_DANCE_ENABLE = yes
 QUANTUM_PAINTER_ENABLE = yes
 QUANTUM_PAINTER_DRIVERS += st7789_spi
+RAW_ENABLE = yes  # For HID communication
 
-# Framebuffer support
-SRC += framebuffer.c
-
-# Display and scene rendering
-SRC += display.c scenes.c
+# Include all source files
+SRC += display/display.c display/framebuffer.c
+SRC += scenes/scenes.c
+SRC += seasons/**/*.c
+SRC += objects/**/*.c
+SRC += game_manager.c game_doodle.c game_tetris.c
 ```
 
 ---
 
-## Data Flow
+### Display System
 
-### Initialization (Power On)
-1. `keyboard_post_init_kb()` in `keymap.c` calls `init_display()` from `display.c`
-2. `init_display()`:
-   - Initializes ST7789 SPI display with proper offsets (53, 40)
-   - Sets up PWM backlight on GP4
-   - Loads Helvetica 20px font
-   - Initializes framebuffer system
-   - Draws Amboss logo
-   - Calls `draw_seasonal_animation()` from `scenes.c` to draw initial scene
-   - Draws initial UI elements (date/time, volume bar)
+Located in `display/` directory:
 
-### Periodic Updates (Housekeeping)
-`housekeeping_task_user()` in `keymap.c` runs continuously and:
-1. Calls `update_display_for_layer()` to handle layer changes
-2. Checks for time/date changes and redraws scene if needed
-3. Handles brightness overlay timeout
-4. Manages media text scrolling
-5. Triggers rain animation (fall season, 20fps)
-6. Triggers ghost animation (Halloween event, 12.5fps)
-7. Triggers Santa animation (Dec 25+, 10fps)
-8. Flushes framebuffer if any changes occurred
+**`display.h` / `display.c`** - Display hardware and UI elements
+- ST7789 SPI initialization (240x135 pixels, 53x40 offset)
+- PWM backlight control (GP4)
+- 7-segment clock rendering
+- Volume bar visualization
+- Scrolling media text
+- Brightness overlay
+- Layer color management
 
-### Host Communication
-`raw_hid_receive()` in `keymap.c` receives data from host:
-- **Volume updates** (0x01): Updates volume bar via `draw_volume_bar()` from `display.c`
-- **Media text** (0x02): Updates scrolling text via `draw_media_text()` from `display.c`
-- **Date/Time** (0x03): Updates clock and triggers full scene redraw
+**`framebuffer.h` / `framebuffer.c`** - Custom framebuffer system
+- HSV framebuffer (240x155 pixels) for scenes
+- RGB565 conversion for ST7789
+- Region-based flushing for efficiency
+- Background save/restore for animations
+- Direct drawing primitives (rect, circle, line)
 
-### User Input
-`process_record_user()` in `keymap.c` handles:
-- **DISP_UP/DISP_DN**: Calls `set_backlight_brightness()` from `display.c`
-- Brightness changes trigger overlay display via `draw_brightness_indicator()`
-- Other custom key behaviors (backspace→delete with shift, etc.)
-
----
-
-## Animation System
-
-### Frame-Based Animations
-All animations use the QMK timer system (`timer_read32()`) and region-based flushing:
-
-1. **Rain** (Fall season):
-   - Speed: 50ms per frame (20fps)
-   - Updates: Vertical movement by 3 pixels
-   - Optimization: Only flushes changed regions (2x4 pixel raindrops)
-
-2. **Ghosts** (Halloween Oct 28 - Nov 3):
-   - Speed: 80ms per frame (12.5fps)
-   - Updates: Sine wave floating + horizontal drift
-   - Optimization: Restores background before redrawing
-
-3. **Santa** (Christmas Dec 25+):
-   - Speed: 100ms per frame (10fps)
-   - Updates: Horizontal movement across screen
-   - Resets when off-screen to loop animation
-
-### Background Buffering
-Scenes use a two-buffer system:
-- **Primary framebuffer**: Current visible scene
-- **Background buffer**: Static scene without animations (saved via `fb_save_background()`)
-
-Animations restore from background before drawing new position, eliminating the need to redraw the entire static scene each frame.
-
----
-
-## Color System
-
-### Layer Colors (HSV)
-- **Colemak-DH** (default): Hue=128 (Teal)
-- **Navigation**: Hue=85 (Green)
-- **Code/Symbols**: Hue=0 (Red)
-- **Numbers**: Hue=43 (Yellow)
-
-All layer colors use Sat=255, Val=255 (fully saturated and bright).
-
-### Seasonal Colors
-- **Spring**: Green trees, light green ground, flowers
-- **Summer**: Darker green trees, yellow sun, sun rays
-- **Fall**: Orange/red trees, brown ground, rain
-- **Winter**: White trees (snow), white ground, snowflakes
-
-### Conversion
-The framebuffer system converts HSV to RGB565 for the ST7789 display.
-
----
-
-## Seasonal Event Schedule
-
-| Event | Dates | Features |
-|-------|-------|----------|
-| Spring | Mar 1 - May 31 | Green trees, flowers |
-| Summer | Jun 1 - Aug 31 | Sun rays, darker foliage |
-| Fall | Sep 1 - Nov 30 | Orange trees, rain animation |
-| Winter | Dec 1 - Feb 28/29 | Snow-covered trees, snowflakes, chimney smoke |
-| Halloween | Oct 28 - Nov 3 | Pumpkins + animated floating ghosts |
-| Christmas Advent | Dec 1-24 | Progressive decoration reveal (1 per day) |
-| Christmas Day | Dec 25-31 | All decorations + animated Santa sleigh |
-| New Year's Eve | Dec 31 | Fireworks display + "HNY" text |
-
----
-
-## Testing with Hard-Coded Dates
-
-For testing seasonal displays and special events without changing system time, you can hard-code the date/time in the firmware.
-
-### Enabling Hard-Coded Date Mode
-
-In `display/display.c`, uncomment the `HARDCODE_DATE_TIME` define (line 62):
-
-```c
-#define HARDCODE_DATE_TIME
-```
-
-Then set your desired test date/time using the provided defines (lines 75-79):
-
-```c
-#define HARDCODED_MONTH     10      // Month (1-12)
-#define HARDCODED_DAY       28      // Day (1-31)
-#define HARDCODED_YEAR      2025    // Year
-#define HARDCODED_HOUR      18      // Hour (0-23, 24-hour format)
-#define HARDCODED_MINUTE    30      // Minute (0-59)
-```
-
-### Test Date Examples
-
-Pre-configured examples are provided in the comments:
-
-| Test Scenario | Month | Day | Year | Hour | Minute | What to Test |
-|---------------|-------|-----|------|------|--------|--------------|
-| Halloween Event | 10 | 28 | 2025 | 18 | 30 | Pumpkins + floating ghosts |
-| Christmas Advent | 12 | 15 | 2025 | 10 | 0 | 15 advent items displayed |
-| New Year's Eve | 12 | 31 | 2025 | 23 | 45 | Fireworks + "HNY" text |
-| Spring Day | 4 | 15 | 2025 | 14 | 0 | Green trees, flowers |
-| Summer Day | 7 | 20 | 2025 | 12 | 0 | Sun at noon, summer colors |
-| Fall Day | 10 | 10 | 2025 | 16 | 0 | Orange trees, rain |
-| Winter Day | 1 | 15 | 2025 | 8 | 0 | Snow, snowflakes, smoke |
-
-### Time of Day Testing
-
-The display changes appearance based on hour:
-
-- **Night (20:00 - 05:59)**: Moon with phases, stars, darker sky
-- **Day (06:00 - 19:59)**: Sun with color transitions, brighter sky
-- **Sunrise (~6:00)**: Sun low on horizon, warm colors
-- **Sunset (~19:00)**: Sun low on horizon, orange/red tones
-
-### Behavior When Enabled
-
-When `HARDCODE_DATE_TIME` is defined:
-
-1. **Initial values**: Date/time variables are initialized with hard-coded values instead of zeros
-2. **HID updates ignored**: If `IGNORE_HID_TIME_UPDATES` is true (default), the keyboard ignores date/time updates from the host computer
-3. **Immediate rendering**: `time_received` is set to `true` on startup, so the scene renders immediately with the hard-coded date
-4. **Static time**: Time does not advance - it stays frozen at the configured values
-
-### Important: Reset Before Merging
-
-**⚠️ CRITICAL**: Always comment out `#define HARDCODE_DATE_TIME` before merging to production!
-
-When the define is commented out (default):
-- Date/time comes from host computer via HID
-- Display responds to real-time changes
-- Normal production behavior
-
-### Workflow for Testing Branches
-
-```bash
-# 1. Create test branch
-git checkout -b test-halloween-display
-
-# 2. Edit display/display.c
-# Uncomment: #define HARDCODE_DATE_TIME
-# Set: HARDCODED_MONTH=10, HARDCODED_DAY=28, etc.
-
-# 3. Build and test
-make handwired/temanyl/chocmanyl36:default
-
-# 4. Work on halloween display features...
-
-# 5. Before merging: Reset to normal
-# Comment out: // #define HARDCODE_DATE_TIME
-
-# 6. Commit and merge
-git add display/display.c
-git commit -m "Fix: Ensure date mode is disabled for production"
-git checkout master
-git merge test-halloween-display
-```
-
----
-
-## Display Layout
-
+**Display Layout:**
 ```
 ┌─────────────────────────────┐
-│   Framebuffer Region        │ y=0
-│   (240x155 pixels)          │
+│   Framebuffer Region        │ y=0-154
+│   (Seasonal scenes)         │
 │                             │
-│   Seasonal Scene:           │
-│   - Sky gradient            │
-│   - Sun/Moon (moves hourly) │
-│   - Trees & Cabin           │
+│   - Sky/celestial           │
+│   - Environment (trees)     │
 │   - Animated elements       │
-│     (rain/ghosts/santa)     │
-├─────────────────────────────┤ y=155 (transition line)
-│   Quantum Painter Region    │
-│   (240x20 pixels)           │
+│   - Seasonal effects        │
+├─────────────────────────────┤ y=155
+│   Quantum Painter Region    │ y=155-199
 │                             │
-│   Date/Time:   HH:MM MM/DD  │ y=157 (7-segment digits)
-│   Media Text:  [Scrolling]  │ y=178 (uses font)
-│   Volume Bar:  [========]   │ y=190 (horizontal bar)
-│                             │
-└─────────────────────────────┘ y=199 (bottom)
-     (240 pixels wide)
+│   HH:MM MM/DD (clock)       │
+│   [Now Playing Text]        │
+│   [=====] (volume bar)      │
+└─────────────────────────────┘
 ```
 
-**Note**: The framebuffer region (y < 155) requires manual flushing via `fb_flush()` or `fb_flush_region()`. The Quantum Painter region (y ≥ 155) auto-flushes on `qp_flush()` calls.
+---
+
+### Season System
+
+Located in `seasons/` directory. Each season has its own subdirectory with `.h` and `.c` files.
+
+#### Season Definitions
+
+**Winter** (`seasons/winter/`)
+- **Months**: December, January, February
+- **Features**: Snow-covered environment, snowflakes, chimney smoke
+- **Colors**: White/blue palette
+
+**Spring** (`seasons/spring/`)
+- **Months**: March, April, May
+- **Features**: Green foliage, flowers, butterflies
+- **Colors**: Green/pastel palette
+
+**Summer** (`seasons/summer/`)
+- **Months**: June, July, August
+- **Features**: Bright sun, sun rays, bees, fireflies
+- **Colors**: Yellow/bright palette
+
+**Fall** (`seasons/fall/`)
+- **Months**: September, October, November
+- **Features**: Orange/red foliage, rain animation, birds migrating
+- **Colors**: Orange/brown palette
+
+#### Special Events
+
+**Halloween** (`seasons/halloween/`)
+- **Dates**: October 28 - November 3
+- **Features**: Pumpkins, animated floating ghosts (3 ghosts with sine-wave motion)
+- **Animation**: 80ms update rate (12.5 fps)
+- **Overrides**: Fall season during this period
+
+**Christmas** (`seasons/christmas/`)
+- **Dates**: December 1-31
+- **Features**:
+  - Advent calendar (1-24 items appear progressively)
+  - 24 different decorations (presents, ornaments, candy canes, etc.)
+  - Animated Santa sleigh (December 25+)
+- **Animation**: 100ms update rate (10 fps)
+
+**New Year's Eve** (`seasons/christmas/`)
+- **Date**: December 31
+- **Features**: Static fireworks display, "HNY" text
+- **Note**: Part of Christmas module
+
+#### Season Module Structure
+
+Each season module follows this pattern:
+
+**`seasons_<name>.h`** - Public interface
+```c
+// Event detection
+bool is_<season>_event(void);
+
+// Drawing
+void draw_<season>_elements(void);
+void draw_<season>_scene(void);
+
+// Animation
+void init_<season>_animation(void);
+void animate_<season>_elements(void);
+void reset_<season>_animations(void);
+
+// State variables (extern)
+extern bool <season>_initialized;
+extern uint32_t <season>_animation_timer;
+```
+
+**`seasons_<name>.c`** - Implementation
+- State management
+- Animation logic
+- Object composition
+- Event detection based on date/time
+
+---
+
+### Objects System
+
+Located in `objects/` directory, organized by category.
+
+#### Object Categories
+
+**`celestial/`** - Sky elements
+- `sun.h/c` - Sun with hourly position calculation
+- `moon.h/c` - Moon with phase calculation
+- `stars.h/c` - Background stars
+
+**`weather/`** - Weather effects
+- `cloud.h/c` - Cloud rendering
+- `raindrop.h/c` - Animated rain particles
+- `snowflake.h/c` - Snowflake particles
+- `smoke.h/c` - Chimney smoke particles
+
+**`flora/`** - Plant life
+- `flower.h/c` - Spring flowers
+- Various plant objects
+
+**`fauna/`** - Animals and creatures
+- `bird.h/c` - Flying birds
+- `butterfly.h/c` - Animated butterflies
+- `bee.h/c` - Buzzing bees
+- `firefly.h/c` - Glowing fireflies
+
+**`structures/`** - Buildings and static elements
+- `tree.h/c` - Trees with seasonal variations
+- `cabin.h/c` - Cabin with chimney
+- `ground.h/c` - Ground with seasonal colors
+
+**`seasonal/`** - Holiday-specific objects
+- `ghost.h/c` - Floating ghost (Halloween)
+- `pumpkin.h/c` - Jack-o'-lantern (Halloween)
+- `snowman.h/c` - Snowman (Winter)
+
+**`effects/`** - Visual effects
+- Various effect objects
+
+#### Object Structure Pattern
+
+All objects follow this pattern:
+
+**Header file (`object.h`):**
+```c
+#pragma once
+#include <stdint.h>
+#include <stdbool.h>
+
+// Constants
+#define OBJECT_WIDTH 20
+#define OBJECT_HEIGHT 20
+
+// Type definition
+typedef struct {
+    int16_t x;        // Position
+    int16_t y;
+    int8_t  vx;       // Velocity (if animated)
+    int8_t  vy;
+    uint8_t phase;    // Animation phase
+    // ... other state
+} object_t;
+
+// Functions
+void object_init(object_t* obj, int16_t x, int16_t y, ...);
+void object_draw(const object_t* obj);
+void object_update(object_t* obj);  // For animated objects
+bool object_contains_point(const object_t* obj, int16_t px, int16_t py);
+void object_get_bounds(const object_t* obj, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2);
+```
+
+**Implementation file (`object.c`):**
+```c
+#include "object.h"
+#include "../../display/framebuffer.h"
+
+void object_init(object_t* obj, int16_t x, int16_t y, ...) {
+    obj->x = x;
+    obj->y = y;
+    // ... initialize other fields
+}
+
+void object_draw(const object_t* obj) {
+    // Use framebuffer drawing primitives
+    fb_rect_hsv(obj->x, obj->y, width, height, hue, sat, val);
+    fb_circle_hsv(obj->x, obj->y, radius, hue, sat, val);
+    // ... drawing logic
+}
+
+void object_update(object_t* obj) {
+    // Update position/state for animation
+    obj->x += obj->vx;
+    obj->y += obj->vy;
+    // ... animation logic
+}
+```
+
+#### Using Objects in Scenes
+
+Example from `seasons_halloween.c`:
+
+```c
+#include "../../objects/seasonal/ghost.h"
+#include "../../objects/seasonal/pumpkin.h"
+
+#define NUM_GHOSTS 3
+static ghost_t ghosts[NUM_GHOSTS];
+
+void init_ghosts(void) {
+    ghost_init(&ghosts[0], 40, 60, 1, 0);
+    ghost_init(&ghosts[1], 120, 70, -1, 53);
+    ghost_init(&ghosts[2], 200, 50, 1, 106);
+}
+
+void animate_ghosts(void) {
+    for (int i = 0; i < NUM_GHOSTS; i++) {
+        // Restore background before moving
+        int16_t x1, y1, x2, y2;
+        ghost_get_bounds(&ghosts[i], &x1, &y1, &x2, &y2);
+        fb_restore_from_background(x1, y1, x2, y2);
+
+        // Update position
+        ghost_update(&ghosts[i]);
+
+        // Draw at new position
+        ghost_draw(&ghosts[i]);
+
+        // Flush changed region
+        fb_flush_region(x1, y1, x2, y2);
+    }
+}
+```
+
+---
+
+### Scene Rendering
+
+Located in `scenes/` directory.
+
+**`scenes.h` / `scenes.c`** - Scene orchestration
+
+**Main Function**: `draw_seasonal_animation()`
+```c
+void draw_seasonal_animation(void) {
+    // 1. Draw base environment
+    uint8_t season = get_season(current_month);
+    draw_sky(season);
+    draw_celestial(current_hour);  // Sun or moon
+
+    // 2. Draw landscape
+    draw_trees(season);
+    draw_cabin(season);
+    draw_ground(season);
+
+    // 3. Draw seasonal effects
+    switch(season) {
+        case WINTER: draw_winter_scene(); break;
+        case SPRING: draw_spring_scene(); break;
+        case SUMMER: draw_summer_scene(); break;
+        case FALL:   draw_fall_scene(); break;
+    }
+
+    // 4. Check for special events (override seasonal)
+    if (is_halloween_event()) {
+        draw_halloween_elements();
+    } else if (is_christmas_season()) {
+        draw_christmas_scene();
+    }
+    if (is_new_years_eve()) {
+        draw_fireworks_scene();
+    }
+
+    // 5. Flush framebuffer
+    fb_flush();
+}
+```
+
+**Reset Function**: `reset_scene_animations()`
+```c
+void reset_scene_animations(void) {
+    // Called when layer changes or scene needs refresh
+    reset_winter_animations();
+    reset_spring_animations();
+    reset_summer_animations();
+    reset_fall_animations();
+    reset_halloween_animations();
+    reset_christmas_animations();
+    smoke_initialized = false;
+    smoke_background_saved = false;
+}
+```
+
+---
+
+## Animation Workflow
+
+### Animation System Architecture
+
+All animations use QMK's timer system (`timer_read32()`) and follow this pattern:
+
+1. **Initialization**: Create object instances
+2. **Background Save**: Save static scene to background buffer
+3. **Update Loop**: Restore → Update → Draw → Flush region
+4. **Reset**: Clear state when scene changes
+
+### Animation Timer Pattern
+
+```c
+// State variables
+static bool animation_initialized = false;
+static bool background_saved = false;
+static uint32_t animation_timer = 0;
+static object_t objects[NUM_OBJECTS];
+
+void init_animation(void) {
+    if (!animation_initialized) {
+        // Initialize objects
+        for (int i = 0; i < NUM_OBJECTS; i++) {
+            object_init(&objects[i], x, y, ...);
+        }
+        animation_initialized = true;
+    }
+}
+
+void animate_objects(void) {
+    // Throttle to desired frame rate
+    if (timer_elapsed32(animation_timer) < ANIMATION_SPEED) {
+        return;  // Not time to update yet
+    }
+    animation_timer = timer_read32();
+
+    // Save background on first frame
+    if (!background_saved) {
+        fb_save_background();
+        background_saved = true;
+    }
+
+    // Update each object
+    for (int i = 0; i < NUM_OBJECTS; i++) {
+        // Get old bounds
+        int16_t x1, y1, x2, y2;
+        object_get_bounds(&objects[i], &x1, &y1, &x2, &y2);
+
+        // Restore background
+        fb_restore_from_background(x1, y1, x2, y2);
+
+        // Update position
+        object_update(&objects[i]);
+
+        // Draw at new position
+        object_draw(&objects[i]);
+
+        // Flush changed region only
+        fb_flush_region(x1, y1, x2, y2);
+    }
+}
+
+void reset_animation(void) {
+    animation_initialized = false;
+    background_saved = false;
+}
+```
+
+### Animation Frame Rates
+
+Different animations use different frame rates for performance:
+
+| Animation | Speed (ms) | FPS | Notes |
+|-----------|-----------|-----|-------|
+| Rain | 50 | 20 | Fall season |
+| Ghosts | 80 | 12.5 | Halloween event |
+| Santa | 100 | 10 | Christmas Dec 25+ |
+| Smoke | 100 | 10 | Winter chimney |
+| Snowflakes | 50 | 20 | Winter weather |
+
+### Calling Animations from Housekeeping
+
+In `keymap.c`, the `housekeeping_task_user()` function calls animations:
+
+```c
+void housekeeping_task_user(void) {
+    // Update layer-based display
+    update_display_for_layer();
+
+    // Trigger seasonal animations based on date
+    if (get_season(current_month) == FALL) {
+        animate_raindrops();
+    }
+
+    if (is_halloween_event()) {
+        animate_ghosts();
+    }
+
+    if (is_christmas_season() && current_day >= 25) {
+        update_santa_animation();
+    }
+
+    if (get_season(current_month) == WINTER) {
+        animate_smoke();
+    }
+
+    // ... other periodic tasks
+}
+```
+
+---
+
+## Games
+
+The keyboard includes two built-in games accessible via the Arrow layer.
+
+### Game System
+
+**`game_manager.h/c`** - Game selection and mode switching
+- Game selection menu
+- Input routing to active game
+- Score tracking
+
+**`game_doodle.h/c`** - Doodle Jump implementation
+- Platform jumping mechanics
+- Score tracking
+- High score system with arcade-style name entry
+- See `HIGHSCORE_README.md` for details
+
+**`game_tetris.h/c`** - Tetris implementation
+- Classic block-falling gameplay
+- Score tracking
+- High score system
+
+### Game Mode Activation
+
+1. Switch to Arrow layer (game layer)
+2. Use arrow keys to select game
+3. Press Shift to start
+4. Arrow keys control gameplay
+5. Shift to exit
+
+### High Score System
+
+See `HIGHSCORE_README.md` for complete documentation.
+
+**Quick summary:**
+- Top 10 scores saved via Python companion script
+- Arcade-style 3-letter name entry
+- Offline mode for testing (scores not saved)
+- Persistent storage in `highscores.json`
+
+---
+
+## Testing
+
+### Hard-Coded Date Testing
+
+For testing seasonal displays without changing system time, use hard-coded dates.
+
+**Enable in `display/display.c`:**
+
+```c
+#define HARDCODE_DATE_TIME  // Uncomment this line
+
+// Set test date
+#define HARDCODED_MONTH     10      // October
+#define HARDCODED_DAY       28      // 28th
+#define HARDCODED_YEAR      2025
+#define HARDCODED_HOUR      18      // 6 PM
+#define HARDCODED_MINUTE    30
+```
+
+**Test scenarios:**
+
+| Event | Month | Day | Hour | What to Test |
+|-------|-------|-----|------|--------------|
+| Halloween | 10 | 28 | 18 | Pumpkins + floating ghosts |
+| Christmas Advent | 12 | 15 | 10 | 15 advent items |
+| Christmas Day | 12 | 25 | 14 | Santa flying across screen |
+| New Year's Eve | 12 | 31 | 23 | Fireworks + "HNY" text |
+| Spring | 4 | 15 | 14 | Flowers, butterflies |
+| Summer Noon | 7 | 20 | 12 | Sun at zenith, bright colors |
+| Fall Rain | 10 | 10 | 16 | Rain animation |
+| Winter Night | 1 | 15 | 20 | Moon, stars, snow, smoke |
+
+**Important:** Always comment out `#define HARDCODE_DATE_TIME` before merging!
+
+### Workflow for Test Branches
+
+```bash
+# 1. Create test branch for specific feature
+git checkout -b test-halloween-ghosts
+
+# 2. Enable hard-coded date in display/display.c
+# Set date to Oct 28, 6 PM
+
+# 3. Build and test
+make handwired/temanyl/chocmanyl36:default:flash
+
+# 4. Iterate on ghost animation...
+
+# 5. Before merging: disable hard-coded date
+# Comment out: // #define HARDCODE_DATE_TIME
+
+# 6. Test with real time from companion script
+python3 keyboard_monitor.py
+
+# 7. Commit and merge
+git add .
+git commit -m "Add smooth floating motion to Halloween ghosts"
+git checkout master
+git merge test-halloween-ghosts
+```
+
+---
+
+## Adding New Content
+
+See separate documentation files:
+- `SEASONS.md` - How to add new seasons and seasonal events
+- `ANIMATIONS.md` - How to create new animations
+- `OBJECTS.md` - How to create new drawable objects
 
 ---
 
 ## Performance Considerations
 
-### Efficient Updates
-- **Region-based flushing**: Only update changed screen areas
-- **Background buffering**: Avoid redrawing static elements
-- **Change detection**: Only redraw when values actually change
-- **Batched updates**: Single flush at end of housekeeping task
-
 ### Memory Usage
-- Primary framebuffer: ~72KB (240×155 pixels × 3 bytes HSV)
-- Background buffer: ~72KB (same size, for animation restoration)
-- Display buffers managed by framebuffer system
-- Font data: Embedded in binary (Helvetica 20px)
 
-### Animation Throttling
-Rain, ghosts, and Santa use independent timers at different framerates to balance visual smoothness with CPU usage.
+- **Framebuffer**: ~72 KB (240×155 × 3 bytes HSV)
+- **Background buffer**: ~72 KB (for animation restoration)
+- **Total display memory**: ~144 KB of RP2040's 264 KB SRAM
+
+### Optimization Strategies
+
+1. **Region-based flushing**: Only update changed pixels
+2. **Background buffering**: Avoid redrawing static elements
+3. **Change detection**: Only redraw when values actually change
+4. **Throttled animations**: Different frame rates for different effects
+5. **Batched updates**: Single flush at end of housekeeping
+
+### Best Practices
+
+- Use `fb_flush_region()` instead of `fb_flush()` for animations
+- Save background once, restore repeatedly
+- Minimize SPI transfers (each pixel is 2 bytes over SPI)
+- Use HSV color space for easy color manipulation
+- Keep animation speeds reasonable (10-20 fps is smooth enough)
 
 ---
 
-## Future Enhancements
+## Companion Script
 
-Potential areas for expansion:
-- Additional seasonal events (Easter, Valentine's Day, etc.)
-- More animation types (snow accumulation, wind effects)
-- Dynamic weather based on real conditions (via host data)
-- User-customizable event dates
-- More interactive elements responding to keyboard activity
-- Transition animations between scenes
+### keyboard_monitor.py
+
+Located in repository root. Provides:
+
+**Volume Monitoring:**
+- Reads system volume (macOS: AppleScript, Linux: ALSA)
+- Sends volume updates to keyboard (HID message 0x01)
+
+**Media Playback:**
+- Reads current media info (macOS: Music.app, Spotify)
+- Sends now-playing text to keyboard (HID message 0x02)
+
+**Date/Time Sync:**
+- Sends current date/time every second (HID message 0x03)
+- Required for seasonal animations to work
+
+**High Score Management:**
+- Receives scores from games (HID message 0x10)
+- Saves to `highscores.json`
+- Sends leaderboard back to keyboard (HID message 0x12)
+
+### Running the Companion
+
+```bash
+# Install dependencies
+pip3 install hid
+
+# Run (must stay running for full functionality)
+python3 keyboard_monitor.py
+```
+
+**Note:** Keyboard works without companion, but:
+- No seasonal animations (no date/time)
+- No volume/media display
+- No high score persistence
 
 ---
 
@@ -455,3 +713,12 @@ Potential areas for expansion:
 Copyright 2022 Joe Scotto
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 2 of the License, or (at your option) any later version.
+
+---
+
+## Additional Documentation
+
+- `HIGHSCORE_README.md` - Game high score system
+- `SEASONS.md` - Adding new seasons (to be created)
+- `ANIMATIONS.md` - Creating new animations (to be created)
+- `OBJECTS.md` - Creating new objects (to be created)
