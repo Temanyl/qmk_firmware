@@ -1,8 +1,7 @@
-
 #!/usr/bin/env python3
 """
-Keyboard Monitor for QMK Keyboards with Raw HID
-Monitors system volume and media playback, sending updates to keyboard display via Raw HID.
+QMK Keyboard Companion - Unified Monitor and High Score Manager
+Monitors system volume, media playback, and manages Doodle Jump high scores via Raw HID.
 
 Requirements:
     - macOS: osascript (built-in)
@@ -23,7 +22,9 @@ import subprocess
 import platform
 import sys
 import argparse
+import json
 from datetime import datetime
+from pathlib import Path
 
 # Import hidapi - handle potential import issues
 try:
@@ -55,15 +56,115 @@ USAGE = 0x0061
 # HID packet size (32 bytes for Raw HID)
 HID_PACKET_SIZE = 32
 
-# Command IDs for the protocol
+# Command IDs for monitor protocol (0x01-0x03: computer → keyboard)
 CMD_VOLUME_UPDATE = 0x01
 CMD_MEDIA_UPDATE = 0x02
 CMD_DATETIME_UPDATE = 0x03
 
-# Poll interval in seconds
+# Command IDs for game protocol (0x10-0x13: bidirectional)
+MSG_SCORE_SUBMIT = 0x10  # Keyboard → Computer: score submission
+MSG_ENTER_NAME = 0x11    # Computer → Keyboard: ask for name (top 10)
+MSG_SHOW_SCORES = 0x12   # Computer → Keyboard: display leaderboard
+MSG_NAME_SUBMIT = 0x13   # Keyboard → Computer: name + score
+
+# Poll intervals
 POLL_INTERVAL = 0.1
 MEDIA_POLL_INTERVAL = 1.0  # Check media every second
+DATETIME_UPDATE_INTERVAL = 60.0  # Send time every 60 seconds
 
+# High score file
+SCRIPT_DIR = Path(__file__).parent
+SCORES_FILE = SCRIPT_DIR / "highscores.json"
+
+
+# ============================================================================
+# HIGH SCORE MANAGEMENT
+# ============================================================================
+
+class HighScoreManager:
+    """Manages high scores for Doodle Jump game."""
+
+    def __init__(self):
+        self.scores = self.load_scores()
+
+    def load_scores(self):
+        """Load high scores from JSON file"""
+        if SCORES_FILE.exists():
+            try:
+                with open(SCORES_FILE, 'r') as f:
+                    data = json.load(f)
+                    # Ensure scores are sorted
+                    data.sort(key=lambda x: x['score'], reverse=True)
+                    return data[:10]  # Keep only top 10
+            except Exception as e:
+                print(f"⚠ Error loading scores: {e}")
+                return []
+        return []
+
+    def save_scores(self):
+        """Save high scores to JSON file"""
+        try:
+            with open(SCORES_FILE, 'w') as f:
+                json.dump(self.scores, f, indent=2)
+            print(f"💾 Saved {len(self.scores)} scores to {SCORES_FILE}")
+        except Exception as e:
+            print(f"⚠ Error saving scores: {e}")
+
+    def add_score(self, name, score):
+        """Add a new score and return its rank (0-9) or -1 if not in top 10"""
+        # Add the new score
+        self.scores.append({'name': name, 'score': score})
+
+        # Sort by score (descending)
+        self.scores.sort(key=lambda x: x['score'], reverse=True)
+
+        # Find rank
+        for i, entry in enumerate(self.scores):
+            if entry['name'] == name and entry['score'] == score:
+                rank = i
+                break
+        else:
+            rank = -1
+
+        # Keep only top 10
+        self.scores = self.scores[:10]
+
+        # Save to file
+        self.save_scores()
+
+        return rank if rank < 10 else -1
+
+    def check_score(self, score):
+        """Check if score makes top 10, return rank or -1"""
+        if len(self.scores) < 10:
+            return len(self.scores)  # Automatic entry
+
+        # Check if score beats the lowest top 10 score
+        if score > self.scores[9]['score']:
+            # Find where it would rank
+            for i, entry in enumerate(self.scores):
+                if score > entry['score']:
+                    return i
+            return 9
+
+        return -1  # Didn't make top 10
+
+    def print_scores(self):
+        """Print current high scores to console"""
+        if self.scores:
+            print("\n" + "=" * 40)
+            print("        DOODLE JUMP HIGH SCORES")
+            print("=" * 40)
+            for i, entry in enumerate(self.scores):
+                print(f"  {i+1:2d}. {entry['name']:3s}  {entry['score']:5d}")
+            print("=" * 40 + "\n")
+        else:
+            print("\n📊 No high scores yet!\n")
+
+
+# ============================================================================
+# SYSTEM MONITORING
+# ============================================================================
 
 def get_volume_macos():
     """Get system volume on macOS (0-100)."""
@@ -77,7 +178,7 @@ def get_volume_macos():
         volume = int(result.stdout.strip())
         return volume
     except Exception as e:
-        print(f"Error getting macOS volume: {e}")
+        print(f"⚠ Error getting macOS volume: {e}")
         return None
 
 
@@ -97,7 +198,7 @@ def get_volume_windows():
         current_volume = volume_interface.GetMasterVolumeLevelScalar()
         return int(current_volume * 100)
     except Exception as e:
-        print(f"Error getting Windows volume: {e}")
+        print(f"⚠ Error getting Windows volume: {e}")
         return None
 
 
@@ -135,10 +236,10 @@ def get_volume_linux():
                     volume = int(line[start:end])
                     return volume
         except Exception as e:
-            print(f"Error getting Linux volume with amixer: {e}")
+            print(f"⚠ Error getting Linux volume with amixer: {e}")
             return None
     except Exception as e:
-        print(f"Error getting Linux volume with pactl: {e}")
+        print(f"⚠ Error getting Linux volume with pactl: {e}")
         return None
 
 
@@ -153,7 +254,7 @@ def get_system_volume():
     elif system == "Linux":
         return get_volume_linux()
     else:
-        print(f"Unsupported platform: {system}")
+        print(f"⚠ Unsupported platform: {system}")
         return None
 
 
@@ -235,10 +336,14 @@ def get_current_media():
         return None
 
 
+# ============================================================================
+# HID COMMUNICATION
+# ============================================================================
+
 def find_keyboard_device(silent=False):
     """Find the keyboard HID device. Set silent=True to suppress output."""
     if not silent:
-        print(f"Looking for keyboard (VID: 0x{VENDOR_ID:04X}, PID: 0x{PRODUCT_ID:04X})...")
+        print(f"🔍 Looking for keyboard (VID: 0x{VENDOR_ID:04X}, PID: 0x{PRODUCT_ID:04X})...")
 
     # List all HID devices
     devices = hid.enumerate()
@@ -251,7 +356,7 @@ def find_keyboard_device(silent=False):
             device_info['usage'] == USAGE):
 
             if not silent:
-                print(f"Found keyboard: {device_info['product_string']}")
+                print(f"✓ Found keyboard: {device_info['product_string']}")
             return device_info['path']
 
     return None
@@ -346,6 +451,103 @@ def send_datetime_update(device, override_datetime=None):
         return False
 
 
+def send_enter_name(device, rank):
+    """Send ENTER_NAME message to keyboard"""
+    data = bytearray(HID_PACKET_SIZE)
+    data[0] = MSG_ENTER_NAME
+    data[1] = rank
+
+    try:
+        bytes_written = device.write([0] + list(data))
+        if bytes_written <= 0:
+            print(f"✗ Enter name write failed")
+            return False
+        print(f"🎮 Sent ENTER_NAME (rank: {rank + 1})")
+        return True
+    except Exception as e:
+        print(f"✗ Error sending ENTER_NAME: {e}")
+        return False
+
+
+def send_show_scores(device, scores):
+    """Send SHOW_SCORES message with top 10 list"""
+    data = bytearray(HID_PACKET_SIZE)
+    data[0] = MSG_SHOW_SCORES
+
+    # Pack up to 10 scores (each: 3 chars + 2 bytes score = 5 bytes)
+    offset = 1
+    for i, entry in enumerate(scores[:10]):
+        if offset + 5 > 32:
+            break  # Max 6 scores per packet (1 + 6*5 = 31 bytes)
+
+        # Encode name (3 chars)
+        name = entry['name'][:3].ljust(3)
+        for c in name:
+            data[offset] = ord(c)
+            offset += 1
+
+        # Encode score (2 bytes, big-endian)
+        score = min(entry['score'], 65535)
+        data[offset] = (score >> 8) & 0xFF
+        data[offset + 1] = score & 0xFF
+        offset += 2
+
+    try:
+        bytes_written = device.write([0] + list(data))
+        if bytes_written <= 0:
+            print(f"✗ Show scores write failed")
+            return False
+        print(f"🎮 Sent SHOW_SCORES ({len(scores)} entries)")
+        return True
+    except Exception as e:
+        print(f"✗ Error sending SHOW_SCORES: {e}")
+        return False
+
+
+def process_game_message(device, data, score_manager):
+    """Process incoming game message from keyboard"""
+    if len(data) == 0:
+        return True
+
+    msg_type = data[0]
+
+    if msg_type == MSG_SCORE_SUBMIT:
+        # Parse score (2 bytes, big-endian)
+        score = (data[1] << 8) | data[2]
+        print(f"\n{'=' * 50}")
+        print(f"🎮 Score Received: {score}")
+        print(f"{'=' * 50}")
+
+        # Check if it makes top 10
+        rank = score_manager.check_score(score)
+
+        if rank >= 0:
+            print(f"🏆 NEW HIGH SCORE! Rank: {rank + 1}")
+            return send_enter_name(device, rank)
+        else:
+            print("📊 Score didn't make top 10")
+            return send_show_scores(device, score_manager.scores)
+
+    elif msg_type == MSG_NAME_SUBMIT:
+        # Parse name (3 chars) and score (2 bytes)
+        name = ''.join(chr(data[i]) for i in range(1, 4))
+        score = (data[4] << 8) | data[5]
+        print(f"\n{'=' * 50}")
+        print(f"🎮 Name Submitted: {name} - {score}")
+        print(f"{'=' * 50}")
+
+        # Add to scores
+        rank = score_manager.add_score(name, score)
+        if rank >= 0:
+            print(f"💾 Added to high scores at rank {rank + 1}")
+            score_manager.print_scores()
+
+        # Send updated scores
+        return send_show_scores(device, score_manager.scores)
+
+    return True
+
+
 def is_keyboard_connected():
     """Check if keyboard is still in HID device list."""
     devices = hid.enumerate()
@@ -370,9 +572,13 @@ def connect_to_keyboard(silent=False):
         return device
     except Exception as e:
         if not silent:
-            print(f"Error opening HID device: {e}")
+            print(f"⚠ Error opening HID device: {e}")
         return None
 
+
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
 
 def get_season_name(month):
     """Get season name from month number."""
@@ -408,31 +614,38 @@ def parse_test_datetime(datetime_str):
             # Try without seconds
             return datetime.strptime(datetime_str, "%Y-%m-%d %H:%M")
     except ValueError as e:
-        raise argparse.ArgumentTypeError(f"Invalid datetime format: {datetime_str}. Use YYYY-MM-DD HH:MM or YYYY-MM-DD HH:MM:SS")
+        raise argparse.ArgumentTypeError(
+            f"Invalid datetime format: {datetime_str}. Use YYYY-MM-DD HH:MM or YYYY-MM-DD HH:MM:SS"
+        )
 
+
+# ============================================================================
+# MAIN LOOP
+# ============================================================================
 
 def main():
-    """Main loop: monitor volume and media, sending updates to keyboard."""
+    """Main loop: monitor volume/media, send datetime, handle game messages."""
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
-        description="QMK Keyboard Monitor - Send volume, media, and time updates to your keyboard",
+        description="QMK Keyboard Companion - Volume/media monitoring + High score management",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Normal operation (use current time)
+  # Normal operation (monitor + high scores)
   python3 keyboard_monitor.py
 
   # Test winter night scene (January 1st at 11 PM)
   python3 keyboard_monitor.py --test-date "2025-01-01 23:00"
 
-  # Test spring morning (April 15th at 8 AM)
-  python3 keyboard_monitor.py --test-date "2025-04-15 08:00"
-
   # Test summer day (July 20th at 2 PM)
   python3 keyboard_monitor.py --test-date "2025-07-20 14:00"
 
-  # Test fall evening (October 31st at 7 PM)
-  python3 keyboard_monitor.py --test-date "2025-10-31 19:00"
+Features:
+  • Monitors system volume and sends to keyboard display
+  • Tracks media playback (Music/Spotify on macOS)
+  • Syncs date/time for seasonal animations
+  • Manages Doodle Jump high scores via Raw HID
+  • Auto-reconnects if keyboard is unplugged
         """
     )
     parser.add_argument(
@@ -443,13 +656,20 @@ Examples:
     )
     args = parser.parse_args()
 
-    print("QMK Keyboard Monitor")
-    print("=" * 50)
+    print("=" * 60)
+    print("    QMK KEYBOARD COMPANION")
+    print("    Volume Monitor + High Score Manager")
+    print("=" * 60)
     if args.test_date:
-        print(f"TEST MODE: Using override date/time: {args.test_date.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"  Season: {get_season_name(args.test_date.month)}")
-        print(f"  Time of day: {get_time_of_day_name(args.test_date.hour)}")
-    print("Waiting for keyboard... (Press Ctrl+C to quit)\n")
+        print(f"🧪 TEST MODE: Using override date/time")
+        print(f"   {args.test_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"   Season: {get_season_name(args.test_date.month)}")
+        print(f"   Time: {get_time_of_day_name(args.test_date.hour)}")
+    print("\n⏳ Waiting for keyboard... (Press Ctrl+C to quit)\n")
+
+    # Initialize high score manager
+    score_manager = HighScoreManager()
+    score_manager.print_scores()
 
     device = None
     last_volume = None
@@ -461,7 +681,6 @@ Examples:
     last_connection_check = 0
     last_media_check = 0  # Last time we checked media
     last_datetime_update = 0  # Last time we sent date/time
-    datetime_update_interval = 60.0  # Send time every 60 seconds (or never if using test date)
 
     try:
         while True:
@@ -481,7 +700,7 @@ Examples:
                             first_connection = False
                         else:
                             print(f"✓ Keyboard reconnected!")
-                        print("Monitoring system volume...\n")
+                        print("📊 Monitoring system volume + game scores...\n")
 
                         # Reset connection check timer to check immediately
                         last_connection_check = current_time
@@ -489,13 +708,13 @@ Examples:
                         # Immediately send current volume on (re)connect
                         current_volume = get_system_volume()
                         if current_volume is not None:
-                            print(f"Syncing volume: {current_volume}%")
+                            print(f"🔊 Syncing volume: {current_volume}%")
                             if send_volume_update(device, current_volume):
                                 last_volume = current_volume
                             else:
                                 # Send failed immediately after connect
                                 print("✗ Initial sync failed")
-                                print("Waiting for keyboard to reconnect...\n")
+                                print("⏳ Waiting for keyboard to reconnect...\n")
                                 try:
                                     device.close()
                                 except:
@@ -511,7 +730,7 @@ Examples:
                         # Immediately send current media on (re)connect
                         current_media = get_current_media()
                         if current_media:
-                            print(f"Syncing media: {current_media}")
+                            print(f"♪ Syncing media: {current_media}")
                             send_media_update(device, current_media)
                             last_media = current_media
                         else:
@@ -519,7 +738,7 @@ Examples:
 
                         # Immediately send current date/time on (re)connect
                         dt_to_send = args.test_date if args.test_date else datetime.now()
-                        print(f"Syncing date/time: {dt_to_send.strftime('%Y-%m-%d %H:%M:%S')}")
+                        print(f"📅 Syncing date/time: {dt_to_send.strftime('%Y-%m-%d %H:%M:%S')}")
                         if send_datetime_update(device, dt_to_send):
                             last_datetime_update = current_time
                         else:
@@ -534,7 +753,7 @@ Examples:
                 last_connection_check = current_time
                 if not is_keyboard_connected():
                     print("✗ Keyboard disconnected")
-                    print("Waiting for keyboard to reconnect...\n")
+                    print("⏳ Waiting for keyboard to reconnect...\n")
                     try:
                         device.close()
                     except:
@@ -543,20 +762,44 @@ Examples:
                     last_volume = None
                     continue
 
-            # We're connected, try to get and send volume
+            # Check for incoming messages from keyboard (non-blocking)
+            try:
+                # Read with very short timeout to not block volume monitoring
+                data = device.read(HID_PACKET_SIZE, timeout_ms=10)
+
+                if data and len(data) > 0:
+                    # Process game message
+                    if not process_game_message(device, data, score_manager):
+                        # Message handling failed, likely disconnected
+                        print("✗ Game message handling failed")
+                        print("⏳ Waiting for keyboard to reconnect...\n")
+                        try:
+                            device.close()
+                        except:
+                            pass
+                        device = None
+                        last_volume = None
+                        last_media = None
+                        continue
+            except Exception as e:
+                # Read error doesn't necessarily mean disconnection
+                # Will be caught by connection check
+                pass
+
+            # Monitor volume and send updates
             try:
                 current_volume = get_system_volume()
 
                 if current_volume is not None:
                     # Only send update if volume changed
                     if current_volume != last_volume:
-                        print(f"Volume changed: {current_volume}%")
+                        print(f"🔊 Volume changed: {current_volume}%")
                         if send_volume_update(device, current_volume):
                             last_volume = current_volume
                         else:
                             # Send failed, likely disconnected
                             print("✗ Send failed, keyboard may be disconnected")
-                            print("Waiting for keyboard to reconnect...\n")
+                            print("⏳ Waiting for keyboard to reconnect...\n")
                             try:
                                 device.close()
                             except:
@@ -583,7 +826,7 @@ Examples:
                         else:
                             # Send failed, likely disconnected
                             print("✗ Media send failed, keyboard may be disconnected")
-                            print("Waiting for keyboard to reconnect...\n")
+                            print("⏳ Waiting for keyboard to reconnect...\n")
                             try:
                                 device.close()
                             except:
@@ -595,13 +838,13 @@ Examples:
 
                 # Periodically send date/time updates (every minute, unless using test date)
                 # If using test date, only send once at connection
-                if not args.test_date and current_time - last_datetime_update >= datetime_update_interval:
+                if not args.test_date and current_time - last_datetime_update >= DATETIME_UPDATE_INTERVAL:
                     if send_datetime_update(device):
                         last_datetime_update = current_time
                     else:
                         # Send failed, likely disconnected
                         print("✗ DateTime send failed, keyboard may be disconnected")
-                        print("Waiting for keyboard to reconnect...\n")
+                        print("⏳ Waiting for keyboard to reconnect...\n")
                         try:
                             device.close()
                         except:
@@ -617,7 +860,7 @@ Examples:
             except Exception as e:
                 # Any error during communication, assume disconnected
                 print(f"✗ Connection error: {e}")
-                print("Waiting for keyboard to reconnect...\n")
+                print("⏳ Waiting for keyboard to reconnect...\n")
                 try:
                     device.close()
                 except:
@@ -627,7 +870,7 @@ Examples:
                 last_media = None
 
     except KeyboardInterrupt:
-        print("\n\nStopping keyboard monitor...")
+        print("\n\n👋 Stopping keyboard companion...")
     finally:
         if device is not None:
             try:

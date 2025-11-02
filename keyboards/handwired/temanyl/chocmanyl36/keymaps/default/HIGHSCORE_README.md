@@ -30,22 +30,24 @@ Build and flash the updated firmware:
 make handwired/temanyl/chocmanyl36:default:flash
 ```
 
-### 3. Start the High Score Manager
+### 3. Start the Keyboard Companion
 
-Run the Python script to start the high score manager:
+Run the unified keyboard companion script from the repository root:
 
 ```bash
-cd keyboards/handwired/temanyl/chocmanyl36/keymaps/default
-python3 highscore_manager.py
+# From the repository root
+python3 keyboard_monitor.py
 ```
 
 The script will:
 - Connect to your keyboard via Raw HID
+- Monitor and send volume/media updates to the keyboard display
+- Sync date/time for seasonal animations
 - Display current high scores (if any)
-- Listen for new scores from the game
-- Save scores to `highscores.json` in the same directory
+- Listen for new scores from the Doodle Jump game
+- Save scores to `highscores.json` in the repository root
 
-**Important**: The script must be running for the high score system to work!
+**Important**: The keyboard companion must be running for volume monitoring, media display, AND the high score system to work!
 
 ## How to Use
 
@@ -57,7 +59,7 @@ The script will:
    - **SHIFT**: Exit game (during gameplay)
 3. When you die, your score is automatically sent to the computer
 
-### Online Mode (Python Script Running)
+### Online Mode (Keyboard Companion Running)
 
 **If Your Score Makes Top 10:**
 
@@ -75,9 +77,9 @@ You'll see the **"HIGH SCORES"** screen showing the top 10 scores:
 
 - **SHIFT**: Restart the game
 
-### Offline Mode (No Python Script)
+### Offline Mode (No Keyboard Companion)
 
-**Don't worry if the Python script isn't running!** The game will automatically detect this after a 2-second timeout and let you test the name entry system anyway.
+**Don't worry if the keyboard companion isn't running!** The game will automatically detect this after a 2-second timeout and let you test the name entry system anyway.
 
 When offline:
 1. After dying, wait 2 seconds
@@ -87,7 +89,7 @@ When offline:
 5. You'll see a "THANK YOU" screen showing your name and score
 6. Press **SHIFT** to restart
 
-**Note**: Scores entered in offline mode are NOT saved. Start the Python script to enable score persistence.
+**Note**: Scores entered in offline mode are NOT saved. Start the keyboard companion to enable score persistence, volume monitoring, and media display.
 
 ## High Score File Format
 
@@ -125,12 +127,12 @@ The keyboard and computer communicate via Raw HID with these message types:
 
 - Ensure the keyboard is plugged in
 - Check that Raw HID is enabled in the firmware
-- Verify VID (0xFEED) and PID (0x1805) match your keyboard
+- Verify VID (0xFEED) and PID (0x0000) match your keyboard's keyboard.json
 
 ### Scores Not Saving
 
-- Check that the Python script is running
-- Verify file permissions in the keymap directory
+- Check that keyboard_monitor.py is running
+- Verify file permissions in the repository root directory
 - Check for error messages in the script output
 - **Remember**: Offline mode doesn't save scores - this is intentional for testing!
 
@@ -138,7 +140,7 @@ The keyboard and computer communicate via Raw HID with these message types:
 
 - Ensure you're using arrow keys and SHIFT
 - Check that you're on the name entry screen (not score display)
-- Try restarting the game and Python script
+- Try restarting the game and keyboard companion
 
 ### Game Stuck on "GAME OVER" Screen
 
@@ -146,7 +148,7 @@ The keyboard and computer communicate via Raw HID with these message types:
 - After 2 seconds without computer response, it automatically enters offline mode
 - If still stuck, try exiting with SHIFT and restarting the game
 
-### Want to Test Name Entry Without Python Script
+### Want to Test Name Entry Without Keyboard Companion
 
 - Just play the game normally!
 - When you die, wait 2 seconds
@@ -161,8 +163,8 @@ The keyboard and computer communicate via Raw HID with these message types:
 - `game_doodle.h` - Added game states and high score structures
 - `game_doodle.c` - Implemented name entry, score display, HID communication
 - `keymap.c` - Added game HID handling to existing Raw HID callback
-- `rules.mk` - Enabled Raw HID feature
-- `highscore_manager.py` - Computer-side score management script
+- `keyboard.json` - Enabled Raw HID feature
+- `keyboard_monitor.py` - Unified companion script (volume/media/datetime monitoring + high score management)
 
 ### Game States
 
@@ -185,4 +187,9 @@ The keyboard and computer communicate via Raw HID with these message types:
 ## Credits
 
 High score system implementation for the chocmanyl36 Doodle Jump game.
-Uses QMK Raw HID for keyboard-to-computer communication.
+Uses QMK Raw HID for bidirectional keyboard-to-computer communication.
+
+The keyboard companion (`keyboard_monitor.py`) provides unified monitoring and management:
+- System volume and media playback monitoring
+- Date/time synchronization for seasonal animations
+- Doodle Jump high score management and persistence
