@@ -450,6 +450,10 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
             break;
 
         default:
+            // Check if it's a game high score command (0x10-0x13)
+            if (command >= 0x10 && command <= 0x13) {
+                game_hid_receive(data, length);
+            }
             // Unknown command, ignore
             break;
     }
