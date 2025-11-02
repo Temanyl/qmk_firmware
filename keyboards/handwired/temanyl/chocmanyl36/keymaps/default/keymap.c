@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <string.h>
 #include <stdlib.h>
 #include "display/display.h"
-#include "game_doodle.h"
+#include "game_manager.h"
 
 // Custom keycodes
 enum custom_keycodes {
@@ -257,10 +257,10 @@ uint8_t mod_state;
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     mod_state = get_mods();
 
-    // Handle game input on arrow layer
+    // Handle game manager input on arrow layer
     if (layer_state_is(_MAC_ARROW)) {
-        if (!game_process_record(keycode, record, &current_display_layer)) {
-            return false;  // Game handled the key
+        if (!game_manager_process_record(keycode, record, &current_display_layer)) {
+            return false;  // Game manager handled the key
         }
     }
 
@@ -334,13 +334,13 @@ void keyboard_post_init_kb(void) {
 layer_state_t layer_state_set_user(layer_state_t state) {
     // Check if entering arrow layer
     if (layer_state_cmp(state, _MAC_ARROW) && !layer_state_cmp(layer_state, _MAC_ARROW)) {
-        // Entering arrow layer - initialize game
-        game_init();
+        // Entering arrow layer - initialize game manager
+        game_manager_init();
     }
     // Check if exiting arrow layer
     else if (!layer_state_cmp(state, _MAC_ARROW) && layer_state_cmp(layer_state, _MAC_ARROW)) {
-        // Exiting arrow layer - cleanup game and force display redraw
-        game_cleanup();
+        // Exiting arrow layer - cleanup game manager and force display redraw
+        game_manager_cleanup();
         // Invalidate display cache to force full redraw
         current_display_layer = 255;
     }
@@ -450,9 +450,10 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
             break;
 
         default:
-            // Check if it's a game high score command (0x10-0x13)
-            if (command >= 0x10 && command <= 0x13) {
-                game_hid_receive(data, length);
+            // Check if it's a game high score command
+            // Doodle Jump: 0x10-0x13, Tetris: 0x14-0x17
+            if (command >= 0x10 && command <= 0x17) {
+                game_manager_hid_receive(data, length);
             }
             // Unknown command, ignore
             break;
@@ -461,9 +462,9 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
 
 // Periodically check and update display based on active layer
 void housekeeping_task_user(void) {
-    // Handle game when on arrow layer
-    if (game_housekeeping(display)) {
-        return;  // Game handled the update, skip normal display updates
+    // Handle game manager when on arrow layer
+    if (game_manager_housekeeping(display)) {
+        return;  // Game manager handled the update, skip normal display updates
     }
 
     // Delegate all display-related housekeeping to the display module

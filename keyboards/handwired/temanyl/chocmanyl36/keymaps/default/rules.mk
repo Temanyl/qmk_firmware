@@ -8,8 +8,8 @@ SRC += display/framebuffer.c
 # Display and scene rendering
 SRC += display/display.c scenes/scenes.c
 
-# Game
-SRC += game_doodle.c
+# Games
+SRC += game_doodle.c game_tetris.c game_manager.c
 
 # Season modules
 SRC += seasons/winter/seasons_winter.c seasons/spring/seasons_spring.c seasons/summer/seasons_summer.c seasons/fall/seasons_fall.c seasons/halloween/seasons_halloween.c seasons/christmas/seasons_christmas.c
