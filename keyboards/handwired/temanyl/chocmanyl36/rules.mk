@@ -1,4 +1,3 @@
 BOOTLOADER = rp2040
 
-# Enable Raw HID for high score communication
-RAW_ENABLE = yes
+# Raw HID is enabled in keyboard.json for high score communication
