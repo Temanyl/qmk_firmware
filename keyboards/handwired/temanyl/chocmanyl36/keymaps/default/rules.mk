@@ -12,7 +12,7 @@ SRC += display/display.c scenes/scenes.c
 SRC += game_doodle.c game_tetris.c game_manager.c
 
 # Season modules
-SRC += seasons/winter/seasons_winter.c seasons/spring/seasons_spring.c seasons/summer/seasons_summer.c seasons/fall/seasons_fall.c seasons/halloween/seasons_halloween.c seasons/christmas/seasons_christmas.c
+SRC += seasons/winter/seasons_winter.c seasons/spring/seasons_spring.c seasons/summer/seasons_summer.c seasons/fall/seasons_fall.c seasons/halloween/seasons_halloween.c seasons/christmas/seasons_christmas.c seasons/newyear/seasons_newyear.c
 
 # Drawable objects
 SRC += objects/seasonal/pumpkin.c objects/seasonal/ghost.c objects/seasonal/snowman.c

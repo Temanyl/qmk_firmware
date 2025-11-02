@@ -25,13 +25,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "draw_logo.h"
 #include "../graphics/helvetica20.qff.c"
 #include "../objects/weather/cloud.h"
+#include "../objects/weather/smoke.h"
 #include "../seasons/winter/seasons_winter.h"
 #include "../seasons/spring/seasons_spring.h"
 #include "../seasons/summer/seasons_summer.h"
 #include "../seasons/fall/seasons_fall.h"
 #include "../seasons/halloween/seasons_halloween.h"
 #include "../seasons/christmas/seasons_christmas.h"
+#include "../seasons/newyear/seasons_newyear.h"
 #include "../objects/seasonal/ghost.h"
+#include "../objects/celestial/sun.h"
+#include "../objects/celestial/moon.h"
+#include "../objects/celestial/stars.h"
+#include "../objects/structures/tree.h"
+#include "../objects/structures/cabin.h"
 
 // Layer enum (from keymap.c)
 enum layer_names {
@@ -709,9 +716,9 @@ void display_housekeeping_task(void) {
         }
     }
 
-    // Handle snowflake animation (during winter season)
+    // Handle snowflake animation (during winter season, but not New Year's Eve)
     // Note: animate_snowflakes() handles its own region-based flushing
-    if (snowflake_initialized && snowflake_background_saved) {
+    if (snowflake_initialized && snowflake_background_saved && !is_new_years_eve()) {
         uint8_t season = get_season(current_month);
         if (season == 0) { // Winter season
             if (current_time - snowflake_animation_timer >= SNOWFLAKE_ANIMATION_SPEED) {
@@ -730,8 +737,8 @@ void display_housekeeping_task(void) {
     bool ghosts_updated = false;
     uint8_t num_active_clouds = (season == 3) ? 5 : 3;
 
-    // Update cloud positions if timer elapsed
-    if (cloud_initialized && cloud_background_saved) {
+    // Update cloud positions if timer elapsed (but not on New Year's Eve)
+    if (cloud_initialized && cloud_background_saved && !is_new_years_eve()) {
         if (current_time - cloud_animation_timer >= CLOUD_ANIMATION_SPEED) {
             // Store old positions
             for (uint8_t i = 0; i < num_active_clouds; i++) {
@@ -897,8 +904,8 @@ void display_housekeeping_task(void) {
         }
     }
 
-    // Handle Santa sleigh animation (on Christmas Day Dec 25 and after)
-    if (is_christmas_season() && current_day >= 25) {
+    // Handle Santa sleigh animation (on Christmas Day Dec 25 and after, but not New Year's Eve)
+    if (is_christmas_season() && current_day >= 25 && current_day < 31) {
         if (current_time - santa_animation_timer >= SANTA_ANIMATION_SPEED) {
             santa_animation_timer = current_time;
             update_santa_animation();
@@ -910,6 +917,79 @@ void display_housekeeping_task(void) {
         // Reset Santa state when not Christmas Day
         if (santa_initialized) {
             santa_initialized = false;
+        }
+    }
+
+    // Handle rocket animation (on New Year's Eve Dec 31)
+    if (is_new_years_eve()) {
+        if (current_time - rocket_animation_timer >= ROCKET_ANIMATION_SPEED) {
+            rocket_animation_timer = current_time;
+            update_rocket_animation();
+            // OPTIMIZATION: Clear and redraw sky with static elements
+            // Clear sky including rocket starting positions (y=0 to y=149)
+            // Rockets start at y=148, ground is at y=150, so clear up to y=149
+            fb_rect_hsv(0, 0, 134, 149, 170, 255, 30, true);
+            // Redraw logo (expensive but necessary - 120x120 at 7,10)
+            draw_amboss_logo(7, 10, 128, 255, 255);
+
+            // Redraw static scene elements
+            bool is_night = (current_hour >= 20 || current_hour < 6);
+
+            // Get sun/moon position
+            uint16_t celestial_x, celestial_y;
+            get_celestial_position(current_hour, &celestial_x, &celestial_y);
+
+            // Draw sun or moon
+            if (is_night) {
+                moon_t moon;
+                moon_init(&moon, celestial_x, celestial_y, current_day, current_hour);
+                moon_draw(&moon);
+                // Draw stars
+                stars_draw();
+            } else {
+                sun_t sun;
+                sun_init(&sun, celestial_x, celestial_y, current_hour);
+                sun_draw(&sun);
+            }
+
+            // Draw ground line
+            uint16_t ground_y = 150;
+            fb_rect_hsv(0, ground_y, 134, ground_y + 1, 85, 180, 100, true);
+
+            // Draw trees with layer color
+            uint8_t layer = get_highest_layer(layer_state);
+            uint8_t tree_hue, tree_sat, tree_val;
+            get_layer_color(layer, &tree_hue, &tree_sat, &tree_val);
+
+            // Use wrapper function from scenes.c for tree drawing
+            tree_t tree1, tree2;
+            tree_init(&tree1, 30, ground_y, 0, tree_hue, tree_sat, tree_val);  // season 0 = winter
+            tree_draw(&tree1);
+            tree_init(&tree2, 67, ground_y, 0, tree_hue, tree_sat, tree_val);
+            tree_draw(&tree2);
+
+            // Draw cabin
+            cabin_t cabin;
+            cabin_init(&cabin, 105, ground_y, 0);  // season 0 = winter
+            cabin_draw(&cabin);
+
+            // Redraw smoke particles (if active) to prevent flickering
+            if (smoke_initialized) {
+                for (uint8_t i = 0; i < NUM_SMOKE_PARTICLES; i++) {
+                    if (smoke_particles[i].brightness > 0) {
+                        smoke_draw(&smoke_particles[i]);
+                    }
+                }
+            }
+
+            // Draw rockets
+            draw_newyear_elements();
+            needs_flush = true;
+        }
+    } else {
+        // Reset rocket state when not New Year's Eve
+        if (rockets_initialized) {
+            reset_newyear_animations();
         }
     }
 

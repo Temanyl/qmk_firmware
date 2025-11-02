@@ -24,9 +24,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define NUM_CHRISTMAS_ITEMS 24
 #define SANTA_ANIMATION_SPEED 100  // Update every 100ms for smooth Santa flight
 
-// New Year's Eve fireworks (Dec 31)
-#define NUM_FIREWORKS 6
-
 // Christmas item types
 typedef enum {
     XMAS_PRESENT_RED, XMAS_PRESENT_GREEN, XMAS_PRESENT_BLUE,
@@ -60,7 +57,3 @@ void update_santa_animation(void);
 void draw_christmas_scene(void);
 void reset_christmas_animations(void);
 
-// New Year's Eve functions
-bool is_new_years_eve(void);
-void draw_static_firework(int16_t x, int16_t y, uint8_t hue, uint8_t size);
-void draw_fireworks_scene(void);

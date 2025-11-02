@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "scenes.h"
 #include "../display/display.h"
 #include "../display/framebuffer.h"
+#include "../display/draw_logo.h"
 
 // Include season-specific modules
 #include "../seasons/winter/seasons_winter.h"
@@ -29,6 +30,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../seasons/fall/seasons_fall.h"
 #include "../seasons/halloween/seasons_halloween.h"
 #include "../seasons/christmas/seasons_christmas.h"
+#include "../seasons/newyear/seasons_newyear.h"
 
 // Include drawable objects
 #include "../objects/weather/smoke.h"
@@ -65,6 +67,7 @@ void reset_scene_animations(void) {
     reset_fall_animations();
     reset_halloween_animations();
     reset_christmas_animations();
+    reset_newyear_animations();
     smoke_initialized = false;
     smoke_background_saved = false;
 }
@@ -335,6 +338,20 @@ void draw_seasonal_animation(void) {
     // Logo area: y=10 to y=130 (120x120 logo)
     // Animation extends from y=0 to y=152 (above date which starts at y=155)
 
+    // OPTIMIZATION: On New Year's Eve, draw full static scene only once
+    // After that, skip redraw - rockets animate separately in display_housekeeping_task()
+    if (is_new_years_eve()) {
+        if (newyear_scene_drawn) {
+            // Full scene already drawn with trees/cabin/moon, skip redraw
+            return;
+        }
+        // First time - clear sky and prepare for full scene draw below
+        fb_rect_hsv(0, 0, 134, 152, 170, 255, 30, true);  // Dark night sky
+        draw_amboss_logo(7, 10, 128, 255, 255);  // Logo
+        // Mark as drawn after all elements are rendered (at end of function)
+        // Continue to draw the rest of the static scene below (trees, cabin, moon, etc.)
+    }
+
     // Determine season based on month
     uint8_t season = get_season(current_month);
 
@@ -390,13 +407,17 @@ void draw_seasonal_animation(void) {
         draw_fall_scene_elements();
     }
 
-    // === HALLOWEEN/CHRISTMAS OVERLAYS ===
+    // === HALLOWEEN/CHRISTMAS/NEW YEAR OVERLAYS ===
     if (is_halloween_event()) {
         draw_halloween_elements();
     }
 
     if (is_christmas_season()) {
         draw_christmas_scene();
+    }
+
+    if (is_new_years_eve()) {
+        draw_newyear_elements();
     }
 
     // === INITIALIZE GHOSTS (if Halloween) ===
@@ -535,15 +556,15 @@ void draw_seasonal_animation(void) {
         }
     }
 
-    // === DRAW CLOUDS (winter and fall) ===
-    if ((season == 0 || season == 3) && cloud_initialized) {
+    // === DRAW CLOUDS (winter and fall, but not New Year's Eve) ===
+    if ((season == 0 || season == 3) && cloud_initialized && !is_new_years_eve()) {
         // Draw clouds with appropriate type based on season
         cloud_type_t type = (season == 3) ? CLOUD_TYPE_DARK : CLOUD_TYPE_LIGHT;
         for (uint8_t i = 0; i < NUM_CLOUDS; i++) {
             cloud_draw(&clouds[i], type);
         }
-    } else if (season != 0 && season != 3) {
-        // Not winter or fall - clean up cloud state
+    } else if ((season != 0 && season != 3) || is_new_years_eve()) {
+        // Not winter/fall OR New Year's Eve - clean up cloud state
         if (cloud_initialized) {
             cloud_initialized = false;
             cloud_background_saved = false;
@@ -566,19 +587,24 @@ void draw_seasonal_animation(void) {
         }
     }
 
-    // === DRAW SNOWFLAKES (winter only) ===
-    if (season == 0 && snowflake_initialized) {
+    // === DRAW SNOWFLAKES (winter only, but not New Year's Eve) ===
+    if (season == 0 && snowflake_initialized && !is_new_years_eve()) {
         // Draw snowflakes
         for (uint8_t i = 0; i < NUM_SNOWFLAKES; i++) {
             if (snowflakes[i].y >= 0 && snowflakes[i].y < 150) {
                 snowflake_draw(&snowflakes[i]);
             }
         }
-    } else if (season != 0) {
-        // Not winter - clean up snowflake state
+    } else if (season != 0 || is_new_years_eve()) {
+        // Not winter OR New Year's Eve - clean up snowflake state
         if (snowflake_initialized) {
             snowflake_initialized = false;
             snowflake_background_saved = false;
         }
+    }
+
+    // Mark New Year's Eve scene as drawn (so we don't redraw static elements)
+    if (is_new_years_eve() && !newyear_scene_drawn) {
+        newyear_scene_drawn = true;
     }
 }
