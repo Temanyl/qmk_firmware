@@ -16,7 +16,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include QMK_KEYBOARD_H
+#include <math.h>
 #include "seasons_christmas.h"
+#include "../newyear/seasons_newyear.h"
 #include "../../display/framebuffer.h"
 
 // Christmas animation state
@@ -279,8 +281,8 @@ void update_santa_animation(void) {
 void draw_christmas_scene(void) {
     if (!is_christmas_season()) return;
 
+    // Skip drawing on New Year's Eve (handled by newyear season)
     if (is_new_years_eve()) {
-        draw_fireworks_scene();
         return;
     }
 
@@ -294,85 +296,4 @@ void draw_christmas_scene(void) {
 // Reset Christmas animations
 void reset_christmas_animations(void) {
     santa_initialized = false;
-}
-
-// New Year's Eve check
-bool is_new_years_eve(void) {
-    return current_month == 12 && current_day == 31;
-}
-
-// Draw static firework
-void draw_static_firework(int16_t x, int16_t y, uint8_t hue, uint8_t size) {
-    // Draw center bright spot
-    fb_circle_hsv(x, y, size / 2, hue, 255, 255, true);
-
-    // Draw burst particles in 8 directions
-    for (uint8_t angle = 0; angle < 8; angle++) {
-        int8_t dx = 0, dy = 0;
-        switch (angle) {
-            case 0: dx = size; dy = 0; break;
-            case 1: dx = size; dy = -size; break;
-            case 2: dx = 0; dy = -size; break;
-            case 3: dx = -size; dy = -size; break;
-            case 4: dx = -size; dy = 0; break;
-            case 5: dx = -size; dy = size; break;
-            case 6: dx = 0; dy = size; break;
-            case 7: dx = size; dy = size; break;
-        }
-
-        int16_t px = x + dx;
-        int16_t py = y + dy;
-
-        // Draw particle
-        if (px >= 0 && px < 135 && py >= 0 && py < 152) {
-            fb_circle_hsv(px, py, 2, hue, 255, 220, true);
-        }
-
-        // Draw trail between center and particle
-        int16_t mid_x = x + (dx / 2);
-        int16_t mid_y = y + (dy / 2);
-        if (mid_x >= 0 && mid_x < 135 && mid_y >= 0 && mid_y < 152) {
-            fb_circle_hsv(mid_x, mid_y, 1, hue, 200, 180, true);
-        }
-    }
-}
-
-// Draw fireworks scene
-void draw_fireworks_scene(void) {
-    // Draw 6 colorful static firework bursts
-    const uint8_t colors[] = {0, 42, 85, 128, 170, 200};
-    const struct {int16_t x; int16_t y; uint8_t size;} positions[NUM_FIREWORKS] = {
-        {30, 50, 12},
-        {70, 35, 14},
-        {110, 55, 11},
-        {25, 90, 13},
-        {95, 80, 15},
-        {60, 105, 12}
-    };
-
-    for (uint8_t i = 0; i < NUM_FIREWORKS; i++) {
-        draw_static_firework(positions[i].x, positions[i].y, colors[i], positions[i].size);
-    }
-
-    // Draw "HNY" text at bottom
-    uint16_t text_x = 45;
-    uint16_t text_y = 130;
-
-    // H
-    fb_rect_hsv(text_x, text_y, text_x + 2, text_y + 12, 42, 255, 255, true);
-    fb_rect_hsv(text_x + 8, text_y, text_x + 10, text_y + 12, 42, 255, 255, true);
-    fb_rect_hsv(text_x, text_y + 5, text_x + 10, text_y + 7, 42, 255, 255, true);
-
-    // N
-    text_x += 15;
-    fb_rect_hsv(text_x, text_y, text_x + 2, text_y + 12, 42, 255, 255, true);
-    fb_rect_hsv(text_x + 8, text_y, text_x + 10, text_y + 12, 42, 255, 255, true);
-    fb_rect_hsv(text_x + 2, text_y + 4, text_x + 8, text_y + 8, 42, 255, 255, true);
-
-    // Y
-    text_x += 15;
-    fb_rect_hsv(text_x, text_y, text_x + 2, text_y + 6, 42, 255, 255, true);
-    fb_rect_hsv(text_x + 8, text_y, text_x + 10, text_y + 6, 42, 255, 255, true);
-    fb_rect_hsv(text_x + 2, text_y + 6, text_x + 8, text_y + 8, 42, 255, 255, true);
-    fb_rect_hsv(text_x + 4, text_y + 8, text_x + 6, text_y + 12, 42, 255, 255, true);
 }
