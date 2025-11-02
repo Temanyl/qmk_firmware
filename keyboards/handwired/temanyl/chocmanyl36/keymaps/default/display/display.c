@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../objects/weather/cloud.h"
 #include "../seasons/winter/seasons_winter.h"
 #include "../seasons/spring/seasons_spring.h"
+#include "../seasons/summer/seasons_summer.h"
 #include "../seasons/fall/seasons_fall.h"
 #include "../seasons/halloween/seasons_halloween.h"
 #include "../seasons/christmas/seasons_christmas.h"
@@ -680,6 +681,18 @@ void display_housekeeping_task(void) {
                 spring_animation_timer = current_time;
                 animate_spring();
                 // No needs_flush = true here - spring animation flushes its own regions
+            }
+        }
+    }
+
+    // Handle summer animations (bees and fireflies)
+    // Note: animate_summer() handles its own region-based flushing
+    if (summer_initialized && summer_background_saved) {
+        if (season == 2) { // Summer season
+            if (current_time - summer_animation_timer >= SUMMER_ANIMATION_SPEED) {
+                summer_animation_timer = current_time;
+                animate_summer();
+                // No needs_flush = true here - summer animation flushes its own regions
             }
         }
     }

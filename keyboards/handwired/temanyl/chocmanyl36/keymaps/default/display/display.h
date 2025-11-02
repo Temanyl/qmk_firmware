@@ -29,7 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // IMPORTANT: Comment out HARDCODE_DATE_TIME before merging to production!
 // ============================================================================
 
-#define HARDCODE_DATE_TIME
+// #define HARDCODE_DATE_TIME
 
 #ifdef HARDCODE_DATE_TIME
     // Set your test date/time here:
@@ -39,14 +39,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     //   New Year's: 12, 31, 2025, 23, 45  (Dec 31, 2025, 11:45 PM)
     //   Spring:     4, 15, 2025, 14, 0    (Apr 15, 2025, 2:00 PM)
     //   Summer:     7, 20, 2025, 12, 0    (Jul 20, 2025, noon)
+    //   Summer Eve: 7, 20, 2025, 20, 0    (Jul 20, 2025, 8:00 PM - with fireflies!)
     //   Fall:       10, 10, 2025, 16, 0   (Oct 10, 2025, 4:00 PM)
     //   Winter:     1, 15, 2025, 8, 0     (Jan 15, 2025, 8:00 AM)
 
-    #define HARDCODED_MONTH     1
-    #define HARDCODED_DAY       15
+    #define HARDCODED_MONTH     7
+    #define HARDCODED_DAY       20
     #define HARDCODED_YEAR      2025
-    #define HARDCODED_HOUR      14
-    #define HARDCODED_MINUTE    30
+    #define HARDCODED_HOUR      12
+    #define HARDCODED_MINUTE    0
 
     // When 1, HID date/time updates will be ignored
     #define IGNORE_HID_TIME_UPDATES 1
