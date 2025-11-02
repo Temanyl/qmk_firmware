@@ -31,6 +31,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../seasons/fall/seasons_fall.h"
 #include "../seasons/halloween/seasons_halloween.h"
 #include "../seasons/christmas/seasons_christmas.h"
+#include "../seasons/easter/seasons_easter.h"
 #include "../objects/seasonal/ghost.h"
 
 // Layer enum (from keymap.c)
@@ -718,6 +719,18 @@ void display_housekeeping_task(void) {
                 snowflake_animation_timer = current_time;
                 animate_snowflakes();
                 // No needs_flush = true here - snowflakes flush their own regions
+            }
+        }
+    }
+
+    // Handle Easter bunny animation (during Easter event)
+    // Note: animate_easter() handles its own region-based flushing
+    if (easter_initialized && easter_background_saved) {
+        if (is_easter_event()) {
+            if (current_time - easter_animation_timer >= BUNNY_ANIMATION_SPEED) {
+                easter_animation_timer = current_time;
+                animate_easter();
+                // No needs_flush = true here - easter animation flushes its own regions
             }
         }
     }

@@ -18,11 +18,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "flower.h"
 #include "../../display/framebuffer.h"
 
-// Flower data
+// Flower data - reduced count for better bunny visibility
 static const flower_t flowers[NUM_SPRING_FLOWERS] = {
-    {15, 234, 3, 5}, {28, 0, 4, 6}, {42, 42, 3, 5}, {58, 170, 5, 7}, {72, 200, 3, 5},
-    {88, 10, 4, 6}, {102, 85, 3, 5}, {118, 234, 5, 7}, {25, 42, 4, 6}, {50, 200, 3, 5},
-    {80, 0, 5, 7}, {95, 170, 3, 5}, {110, 234, 4, 6}, {35, 10, 5, 7}, {65, 42, 3, 5}
+    {15, 234, 3, 5}, {42, 42, 3, 5}, {72, 200, 3, 5},
+    {102, 85, 3, 5}, {118, 234, 5, 7}, {50, 200, 3, 5},
+    {95, 170, 3, 5}, {35, 10, 5, 7}
 };
 
 // Draw all spring flowers

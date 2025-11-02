@@ -29,6 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../seasons/fall/seasons_fall.h"
 #include "../seasons/halloween/seasons_halloween.h"
 #include "../seasons/christmas/seasons_christmas.h"
+#include "../seasons/easter/seasons_easter.h"
 
 // Include drawable objects
 #include "../objects/weather/smoke.h"
@@ -65,6 +66,7 @@ void reset_scene_animations(void) {
     reset_fall_animations();
     reset_halloween_animations();
     reset_christmas_animations();
+    reset_easter_animations();
     smoke_initialized = false;
     smoke_background_saved = false;
 }
@@ -390,13 +392,17 @@ void draw_seasonal_animation(void) {
         draw_fall_scene_elements();
     }
 
-    // === HALLOWEEN/CHRISTMAS OVERLAYS ===
+    // === HALLOWEEN/CHRISTMAS/EASTER OVERLAYS ===
     if (is_halloween_event()) {
         draw_halloween_elements();
     }
 
     if (is_christmas_season()) {
         draw_christmas_scene();
+    }
+
+    if (is_easter_event()) {
+        draw_easter_elements();
     }
 
     // === INITIALIZE GHOSTS (if Halloween) ===
@@ -410,6 +416,18 @@ void draw_seasonal_animation(void) {
         if (ghost_initialized) {
             ghost_initialized = false;
             ghost_background_saved = false;
+        }
+    }
+
+    // === INITIALIZE EASTER BUNNY (if Easter) ===
+    if (is_easter_event()) {
+        if (!easter_initialized) {
+            init_easter_animations();
+        }
+    } else {
+        if (easter_initialized) {
+            easter_initialized = false;
+            easter_background_saved = false;
         }
     }
 
@@ -442,6 +460,11 @@ void draw_seasonal_animation(void) {
         need_background = true;
     }
 
+    // Easter needs background for bunny
+    if (is_easter_event() && easter_initialized && !easter_background_saved) {
+        need_background = true;
+    }
+
     // Smoke needs background (all seasons except summer)
     if (season != 2 && smoke_initialized && !smoke_background_saved) {
         need_background = true;
@@ -471,6 +494,9 @@ void draw_seasonal_animation(void) {
         }
         if (is_halloween_event() && ghost_initialized) {
             ghost_background_saved = true;
+        }
+        if (is_easter_event() && easter_initialized) {
+            easter_background_saved = true;
         }
         if (season != 2 && smoke_initialized) {
             smoke_background_saved = true;

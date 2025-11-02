@@ -18,16 +18,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
+#include "../../objects/fauna/bunny.h"
 
-#define NUM_SPRING_FLOWERS 8
+// Easter event (March 15 - April 30)
+#define BUNNY_ANIMATION_SPEED 50  // Update every 50ms for smooth hopping
 
-// Spring flower structure
-typedef struct {
-    uint16_t x;
-    uint8_t hue;
-    uint8_t size;
-    uint8_t stem_height;
-} flower_t;
+// External state
+extern bool easter_initialized;
+extern bool easter_background_saved;
+extern uint32_t easter_animation_timer;
 
-// Draw all spring flowers on ground
-void flowers_draw_all(uint16_t ground_y);
+// Easter functions
+bool is_easter_event(void);
+void draw_easter_elements(void);
+void init_easter_animations(void);
+void animate_easter(void);
+void reset_easter_animations(void);
