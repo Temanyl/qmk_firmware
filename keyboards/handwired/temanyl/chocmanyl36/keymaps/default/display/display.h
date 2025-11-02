@@ -37,16 +37,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
     //   Halloween:  10, 28, 2025, 18, 30  (Oct 28, 2025, 6:30 PM)
     //   Christmas:  12, 15, 2025, 10, 0   (Dec 15, 2025, 10:00 AM)
     //   New Year's: 12, 31, 2025, 23, 45  (Dec 31, 2025, 11:45 PM)
+    //   Easter:     4, 10, 2025, 14, 0    (Apr 10, 2025, 2:00 PM)
     //   Spring:     4, 15, 2025, 14, 0    (Apr 15, 2025, 2:00 PM)
     //   Summer:     7, 20, 2025, 12, 0    (Jul 20, 2025, noon)
     //   Summer Eve: 7, 20, 2025, 20, 0    (Jul 20, 2025, 8:00 PM - with fireflies!)
     //   Fall:       10, 10, 2025, 16, 0   (Oct 10, 2025, 4:00 PM)
     //   Winter:     1, 15, 2025, 8, 0     (Jan 15, 2025, 8:00 AM)
 
-    #define HARDCODED_MONTH     7
-    #define HARDCODED_DAY       20
+    #define HARDCODED_MONTH     4
+    #define HARDCODED_DAY       10
     #define HARDCODED_YEAR      2025
-    #define HARDCODED_HOUR      12
+    #define HARDCODED_HOUR      14
     #define HARDCODED_MINUTE    0
 
     // When 1, HID date/time updates will be ignored
