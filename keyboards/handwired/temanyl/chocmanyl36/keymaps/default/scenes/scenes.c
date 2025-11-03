@@ -39,6 +39,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../objects/celestial/sun.h"
 #include "../objects/celestial/moon.h"
 #include "../objects/celestial/stars.h"
+#include "../objects/celestial/astronomical.h"
 #include "../objects/structures/tree.h"
 #include "../objects/structures/cabin.h"
 #include "../objects/fauna/bird.h"
@@ -55,9 +56,15 @@ uint32_t smoke_spawn_timer = 0;
 
 // Forward declarations from display.c
 extern uint8_t current_hour;
+extern uint8_t current_minute;
 extern uint8_t current_day;
 extern uint8_t current_month;
 extern painter_device_t display;
+
+// Astronomical times cache
+static astronomical_times_t cached_astro_times;
+static uint8_t cached_astro_day = 0;
+static uint8_t cached_astro_month = 0;
 
 // Reset all scene animation states
 void reset_scene_animations(void) {
@@ -104,47 +111,70 @@ void draw_cabin(uint16_t base_x, uint16_t base_y, uint8_t season) {
     }
 }
 
-// Get celestial object (sun/moon) position based on time
+// Get current astronomical times (with caching)
+static const astronomical_times_t* get_astronomical_times(void) {
+    // Recalculate if date has changed
+    if (cached_astro_day != current_day || cached_astro_month != current_month) {
+        astronomical_calculate_times(current_month, current_day, &cached_astro_times);
+        cached_astro_day = current_day;
+        cached_astro_month = current_month;
+    }
+    return &cached_astro_times;
+}
+
+// Get celestial object (sun/moon) position based on time with realistic astronomical calculations
 void get_celestial_position(uint8_t hour, uint16_t *x, uint16_t *y) {
-    // Sun/moon moves across sky throughout the day
-    // Hour 0-23: position from left to right
-    // Peak at noon (y lowest), near horizon at dawn/dusk (y highest)
+    const astronomical_times_t *astro = get_astronomical_times();
 
-    // X position: moves from left to right across the sky
-    // Map hour 0-23 to x position
-    if (hour >= 6 && hour <= 19) {
-        // Daytime: sun moves from left to right
-        // hour 6 -> x=20, hour 12 -> x=67, hour 19 -> x=114
-        *x = 20 + ((hour - 6) * 94) / 13;
+    // Screen bounds for celestial motion
+    const uint16_t x_min = 15;
+    const uint16_t x_max = 120;
+    const uint16_t y_peak = 15;     // Peak altitude (noon/midnight) - highest in sky
+    const uint16_t y_horizon = 50;  // Horizon level (sunrise/sunset) - lowest visible
 
-        // Y position: arc across sky (lowest at noon)
-        // hour 6 -> y=40, hour 12 -> y=20, hour 19 -> y=40
-        int16_t time_from_noon = hour - 12;
-        *y = 20 + (time_from_noon * time_from_noon) / 2;
+    bool is_daytime = astronomical_is_daytime(hour, current_minute, astro);
+
+    if (is_daytime) {
+        // DAYTIME: Sun moves from sunrise to sunset
+        // Progress: 0 at sunrise, 128 at solar noon, 255 at sunset
+        uint8_t day_progress = astronomical_get_cycle_progress(hour, current_minute, astro);
+
+        // X position: linear movement from left to right across day
+        *x = x_min + ((uint32_t)day_progress * (x_max - x_min)) / 255;
+
+        // Y position: parabolic arc, lowest at solar noon
+        // At sunrise/sunset: y = y_horizon
+        // At solar noon: y = y_peak
+        // Use parabolic curve: y = y_peak + (y_horizon - y_peak) * (2*progress/255 - 1)^2
+        int16_t progress_centered = (int16_t)day_progress - 128;  // Range: -128 to +127
+        // Square the centered progress to get parabola (lowest at center)
+        uint32_t arc_factor = (uint32_t)progress_centered * (uint32_t)progress_centered;  // 0 to 16384
+        // Scale to y range
+        *y = y_peak + ((y_horizon - y_peak) * arc_factor) / 16384;
+
     } else {
-        // Nighttime: moon moves from left to right (same direction as sun)
-        // Night: hour 20-23 (evening) and 0-5 (early morning)
-        // Map to continuous night progression: 20->0, 21->1, 22->2, 23->3, 0->4, 1->5, ..., 5->9
-        uint8_t night_hour;
-        if (hour >= 20) {
-            night_hour = hour - 20;  // 20->0, 21->1, 22->2, 23->3
-        } else {
-            night_hour = hour + 4;    // 0->4, 1->5, 2->6, 3->7, 4->8, 5->9
-        }
-        // night_hour 0-9: position from left to right (like sun)
-        // Starts at x=20 (hour 20) and ends at x=114 (hour 6)
-        *x = 20 + (night_hour * 94) / 9;
+        // NIGHTTIME: Moon moves from sunset to next sunrise
+        // Progress: 0 at sunset, 128 at midnight, 255 at sunrise
+        uint8_t night_progress = astronomical_get_cycle_progress(hour, current_minute, astro);
 
-        // Y position: arc across sky (lowest at midnight, which is night_hour=4)
-        int16_t time_from_midnight = night_hour - 4;
-        *y = 25 + (time_from_midnight * time_from_midnight) / 2;
+        // X position: linear movement from left to right across night
+        *x = x_min + ((uint32_t)night_progress * (x_max - x_min)) / 255;
+
+        // Y position: parabolic arc, lowest at midnight
+        // At sunset/sunrise: y = y_horizon
+        // At midnight: y = y_peak + 5 (moon is slightly lower than sun's peak)
+        int16_t progress_centered = (int16_t)night_progress - 128;  // Range: -128 to +127
+        uint32_t arc_factor = (uint32_t)progress_centered * (uint32_t)progress_centered;  // 0 to 16384
+        // Moon peak is slightly lower than sun peak
+        uint16_t moon_y_peak = y_peak + 5;
+        *y = moon_y_peak + ((y_horizon - moon_y_peak) * arc_factor) / 16384;
     }
 
-    // Clamp values
-    if (*x < 15) *x = 15;
-    if (*x > 120) *x = 120;
-    if (*y < 15) *y = 15;
-    if (*y > 50) *y = 50;
+    // Final clamping for safety
+    if (*x < x_min) *x = x_min;
+    if (*x > x_max) *x = x_max;
+    if (*y < y_peak) *y = y_peak;
+    if (*y > y_horizon) *y = y_horizon;
 }
 
 // Initialize smoke particles
@@ -341,10 +371,13 @@ void draw_seasonal_animation(void) {
     // Determine season based on month
     uint8_t season = get_season(current_month);
 
-    // Determine time of day based on hour (0-23)
-    bool is_night = (current_hour >= 20 || current_hour < 6);
+    // Get astronomical times for realistic day/night determination
+    const astronomical_times_t *astro = get_astronomical_times();
 
-    // Get sun/moon position based on time
+    // Determine time of day using realistic sunrise/sunset times
+    bool is_night = !astronomical_is_daytime(current_hour, current_minute, astro);
+
+    // Get sun/moon position based on time (now uses realistic astronomical calculations)
     uint16_t celestial_x, celestial_y;
     get_celestial_position(current_hour, &celestial_x, &celestial_y);
 
