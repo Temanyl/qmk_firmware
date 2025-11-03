@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // Halloween event (Oct 28 - Nov 3)
 #define NUM_PUMPKINS 3
 #define NUM_GHOSTS 3
-#define GHOST_ANIMATION_SPEED 80  // Update every 80ms for smooth floating motion
+#define GHOST_ANIMATION_SPEED 160  // Update every 160ms (~6fps)
 
 // External state
 extern ghost_t ghosts[NUM_GHOSTS];

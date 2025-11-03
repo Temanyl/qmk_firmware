@@ -23,7 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // Smoke animation (shared across seasons)
 #define NUM_SMOKE_PARTICLES 20  // Larger pool for time-based emission
-#define SMOKE_ANIMATION_SPEED 100  // Update every 100ms for smooth rising smoke
+#define SMOKE_ANIMATION_SPEED 200  // Update every 200ms (~5fps)
 #define SMOKE_SPAWN_INTERVAL_MIN 700   // Minimum spawn interval (0.7 seconds)
 #define SMOKE_SPAWN_INTERVAL_MAX 1000  // Maximum spawn interval (1.0 second)
 

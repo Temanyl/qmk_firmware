@@ -22,7 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // New Year's Eve event (Dec 31)
 #define NUM_ROCKETS 5  // 5 colorful rockets including yellow
-#define ROCKET_ANIMATION_SPEED 60  // Slightly slower update (was 50ms)
+#define ROCKET_ANIMATION_SPEED 120  // Update every 120ms (~8fps)
 #define NUM_EXPLOSION_PARTICLES 6  // Reduced for better performance
 
 // Rocket animation states

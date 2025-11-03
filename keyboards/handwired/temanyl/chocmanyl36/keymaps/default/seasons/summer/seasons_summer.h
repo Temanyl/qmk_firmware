@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdbool.h>
 
-#define SUMMER_ANIMATION_SPEED 40  // Update every 40ms for smooth bee/firefly animation
+#define SUMMER_ANIMATION_SPEED 80  // Update every 80ms (~12.5fps)
 
 // External state variables (defined in seasons_summer.c)
 extern bool summer_initialized;

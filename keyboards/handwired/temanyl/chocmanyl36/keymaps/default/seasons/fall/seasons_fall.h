@@ -23,7 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // Rain animation
 #define NUM_RAINDROPS 50
-#define RAIN_ANIMATION_SPEED 50  // Update every 50ms (20fps)
+#define RAIN_ANIMATION_SPEED 100  // Update every 100ms (~10fps)
 
 // External state
 extern bool rain_initialized;

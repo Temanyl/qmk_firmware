@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdbool.h>
 
 // Spring animation timing
-#define SPRING_ANIMATION_SPEED 50  // Update every 50ms for smooth animation
+#define SPRING_ANIMATION_SPEED 100  // Update every 100ms (~10fps)
 
 // External state
 extern bool spring_initialized;

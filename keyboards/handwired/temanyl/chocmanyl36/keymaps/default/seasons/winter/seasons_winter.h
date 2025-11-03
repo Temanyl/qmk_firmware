@@ -25,11 +25,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // Cloud animation
 #define NUM_CLOUDS 5  // 5 clouds total
-#define CLOUD_ANIMATION_SPEED 100  // Update every 100ms for smooth movement
+#define CLOUD_ANIMATION_SPEED 200  // Update every 200ms (~5fps)
 
 // Snowflake animation
 #define NUM_SNOWFLAKES 40  // Number of animated snowflakes
-#define SNOWFLAKE_ANIMATION_SPEED 60  // Update every 60ms (~16fps)
+#define SNOWFLAKE_ANIMATION_SPEED 120  // Update every 120ms (~8fps)
 
 // Snowman
 #define NUM_SNOWMEN 1  // Number of snowmen in the scene

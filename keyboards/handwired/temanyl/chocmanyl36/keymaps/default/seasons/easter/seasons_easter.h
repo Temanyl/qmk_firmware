@@ -22,7 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../../objects/fauna/bunny.h"
 
 // Easter event (March 15 - April 30)
-#define BUNNY_ANIMATION_SPEED 50  // Update every 50ms for smooth hopping
+#define BUNNY_ANIMATION_SPEED 100  // Update every 100ms (~10fps)
 
 // External state
 extern bool easter_initialized;

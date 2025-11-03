@@ -22,7 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // Christmas advent calendar (Dec 1-31)
 #define NUM_CHRISTMAS_ITEMS 24
-#define SANTA_ANIMATION_SPEED 100  // Update every 100ms for smooth Santa flight
+#define SANTA_ANIMATION_SPEED 200  // Update every 200ms (~5fps)
 
 // Christmas item types
 typedef enum {
