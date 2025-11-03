@@ -20,25 +20,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "timer.h"
 #include <math.h>
 
-// Bee animation states (exposed for per-object animation)
-bee_state_t bees[NUM_SUMMER_BEES];
-
-// Sunflower positions (matching sunflower.c configuration)
-// Sunflower data: {x, stem_height}, flower head is at (x+1, ground_y - stem_height - 3)
-// With ground_y = 150
-static const struct {
-    uint16_t center_x;
-    uint16_t center_y;
-    float orbit_radius;
-    float orbit_phase;
-} bee_config[NUM_SUMMER_BEES] = {
-    {23, 134, 8.0f, 0.0f},      // Bee 0: orbits sunflower 0
-    {53, 132, 9.0f, 1.3f},      // Bee 1: orbits sunflower 1
-    {79, 133, 8.5f, 2.6f},      // Bee 2: orbits sunflower 2
-    {103, 135, 7.5f, 3.9f},     // Bee 3: orbits sunflower 3
-    {123, 133, 8.0f, 5.2f}      // Bee 4: orbits sunflower 4
-};
-
 // Animation parameters
 #define BEE_ORBIT_FREQ 0.002f           // Circular orbit speed (slower than buzz)
 #define BEE_BUZZ_FREQ_X 0.025f          // Fast horizontal buzz frequency
@@ -46,64 +27,57 @@ static const struct {
 #define BEE_BUZZ_AMPLITUDE 1.5f         // Small buzz amplitude
 #define WING_FLAP_INTERVAL_BEE 60       // Very fast wing flap (60ms)
 
-// Initialize bee animations
-void bees_init(void) {
+// Initialize a single bee instance
+void bee_init(bee_t* bee, float center_x, float center_y, float orbit_radius, float orbit_phase) {
+    bee->center_x = center_x;
+    bee->center_y = center_y;
+    bee->orbit_radius = orbit_radius;
+    bee->orbit_phase = orbit_phase;
+    bee->buzz_phase_x = 0.0f;
+    bee->buzz_phase_y = 0.0f;
+    bee->x = center_x;
+    bee->y = center_y;
+    bee->wing_frame = 0;
+    bee->last_update = timer_read32();
+}
+
+// Update a single bee's animation state
+void bee_update(bee_t* bee) {
     uint32_t now = timer_read32();
-    for (uint8_t i = 0; i < NUM_SUMMER_BEES; i++) {
-        bees[i].center_x = bee_config[i].center_x;
-        bees[i].center_y = bee_config[i].center_y;
-        bees[i].orbit_radius = bee_config[i].orbit_radius;
-        bees[i].orbit_phase = bee_config[i].orbit_phase;
-        bees[i].buzz_phase_x = 0.0f;
-        bees[i].buzz_phase_y = 0.0f;
-        bees[i].x = bees[i].center_x;
-        bees[i].y = bees[i].center_y;
-        bees[i].wing_frame = 0;
-        bees[i].last_update = now;
+    uint32_t elapsed = now - bee->last_update;
+
+    // Update orbit phase (circular motion around flower)
+    bee->orbit_phase += BEE_ORBIT_FREQ * elapsed;
+
+    // Update buzz phases (fast vibration)
+    bee->buzz_phase_x += BEE_BUZZ_FREQ_X * elapsed;
+    bee->buzz_phase_y += BEE_BUZZ_FREQ_Y * elapsed;
+
+    // Calculate position: center + orbit + buzz
+    float orbit_x = bee->orbit_radius * cosf(bee->orbit_phase);
+    float orbit_y = bee->orbit_radius * sinf(bee->orbit_phase);
+
+    float buzz_x = BEE_BUZZ_AMPLITUDE * sinf(bee->buzz_phase_x);
+    float buzz_y = BEE_BUZZ_AMPLITUDE * sinf(bee->buzz_phase_y);
+
+    bee->x = bee->center_x + orbit_x + buzz_x;
+    bee->y = bee->center_y + orbit_y + buzz_y;
+
+    // Update wing animation frame (fast flapping)
+    if (elapsed >= WING_FLAP_INTERVAL_BEE) {
+        bee->wing_frame = (bee->wing_frame + 1) % 2;  // 2-frame animation
     }
+
+    // Always update timer
+    bee->last_update = now;
 }
 
-// Reset bee animations (same as init)
-void bees_reset(void) {
-    bees_init();
-}
+// Draw a single bee
+void bee_draw(const bee_t* bee) {
+    int16_t x = (int16_t)bee->x;
+    int16_t y = (int16_t)bee->y;
+    uint8_t wing_frame = bee->wing_frame;
 
-// Update bee animations
-void bees_update(void) {
-    uint32_t now = timer_read32();
-
-    for (uint8_t i = 0; i < NUM_SUMMER_BEES; i++) {
-        uint32_t elapsed = now - bees[i].last_update;
-
-        // Update orbit phase (circular motion around flower)
-        bees[i].orbit_phase += BEE_ORBIT_FREQ * elapsed;
-
-        // Update buzz phases (fast vibration)
-        bees[i].buzz_phase_x += BEE_BUZZ_FREQ_X * elapsed;
-        bees[i].buzz_phase_y += BEE_BUZZ_FREQ_Y * elapsed;
-
-        // Calculate position: center + orbit + buzz
-        float orbit_x = bees[i].orbit_radius * cosf(bees[i].orbit_phase);
-        float orbit_y = bees[i].orbit_radius * sinf(bees[i].orbit_phase);
-
-        float buzz_x = BEE_BUZZ_AMPLITUDE * sinf(bees[i].buzz_phase_x);
-        float buzz_y = BEE_BUZZ_AMPLITUDE * sinf(bees[i].buzz_phase_y);
-
-        bees[i].x = bees[i].center_x + orbit_x + buzz_x;
-        bees[i].y = bees[i].center_y + orbit_y + buzz_y;
-
-        // Update wing animation frame (fast flapping)
-        if (elapsed >= WING_FLAP_INTERVAL_BEE) {
-            bees[i].wing_frame = (bees[i].wing_frame + 1) % 2;  // 2-frame animation
-        }
-
-        // Always update timer
-        bees[i].last_update = now;
-    }
-}
-
-// Draw a single bee with current animation frame
-static void draw_bee(int16_t x, int16_t y, uint8_t wing_frame) {
     // Bee body (yellow with black stripes)
     // Draw rounded body (3 pixels tall)
     fb_set_pixel_hsv(x, y - 1, 42, 255, 200);  // Yellow top
@@ -127,15 +101,20 @@ static void draw_bee(int16_t x, int16_t y, uint8_t wing_frame) {
     fb_set_pixel_hsv(x, y - 2, 0, 0, 50);
 }
 
-// Draw a single bee by index
-void bee_draw_single(uint8_t index) {
-    if (index >= NUM_SUMMER_BEES) return;
-    draw_bee((int16_t)bees[index].x, (int16_t)bees[index].y, bees[index].wing_frame);
+// Get bee's bounding box
+void bee_get_bounds(const bee_t* bee, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2) {
+    int16_t x = (int16_t)bee->x;
+    int16_t y = (int16_t)bee->y;
+
+    *x1 = x - (BEE_WIDTH / 2);
+    *y1 = y - (BEE_HEIGHT / 2);
+    *x2 = x + (BEE_WIDTH / 2);
+    *y2 = y + (BEE_HEIGHT / 2);
 }
 
-// Draw all summer bees
-void bees_draw_all(void) {
-    for (uint8_t i = 0; i < NUM_SUMMER_BEES; i++) {
-        bee_draw_single(i);
-    }
+// Check if a point is inside the bee's bounds
+bool bee_contains_point(const bee_t* bee, int16_t px, int16_t py) {
+    int16_t x1, y1, x2, y2;
+    bee_get_bounds(bee, &x1, &y1, &x2, &y2);
+    return (px >= x1 && px <= x2 && py >= y1 && py <= y2);
 }

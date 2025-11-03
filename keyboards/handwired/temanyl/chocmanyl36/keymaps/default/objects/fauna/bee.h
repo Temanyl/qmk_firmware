@@ -20,11 +20,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdbool.h>
 
-#define NUM_SUMMER_BEES 5
 #define BEE_WIDTH 10   // Width for region-based updates
 #define BEE_HEIGHT 10  // Height for region-based updates
 
-// Bee animation state
+// Bee animation state (follows unified object interface)
 typedef struct {
     float x;                // Current X position
     float y;                // Current Y position
@@ -36,22 +35,19 @@ typedef struct {
     float buzz_phase_y;     // Phase for vertical buzz
     uint8_t wing_frame;     // Wing animation frame (0-1, simple flap)
     uint32_t last_update;   // Last update time
-} bee_state_t;
+} bee_t;
 
-// External access to bee array
-extern bee_state_t bees[NUM_SUMMER_BEES];
+// Initialize a single bee instance
+void bee_init(bee_t* bee, float center_x, float center_y, float orbit_radius, float orbit_phase);
 
-// Initialize bee animations
-void bees_init(void);
+// Update a single bee's animation state
+void bee_update(bee_t* bee);
 
-// Update bee animations (call from housekeeping)
-void bees_update(void);
+// Draw a single bee
+void bee_draw(const bee_t* bee);
 
-// Draw a single bee by index
-void bee_draw_single(uint8_t index);
+// Get bee's bounding box
+void bee_get_bounds(const bee_t* bee, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2);
 
-// Draw all summer bees
-void bees_draw_all(void);
-
-// Reset bee animations
-void bees_reset(void);
+// Check if a point is inside the bee's bounds
+bool bee_contains_point(const bee_t* bee, int16_t px, int16_t py);

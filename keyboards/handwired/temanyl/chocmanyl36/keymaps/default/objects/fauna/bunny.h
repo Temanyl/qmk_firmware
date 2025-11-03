@@ -20,11 +20,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdbool.h>
 
-#define NUM_EASTER_BUNNIES 1
 #define BUNNY_WIDTH 10
 #define BUNNY_HEIGHT 12
 
-// Bunny animation state
+// Bunny animation state (follows unified object interface)
 typedef struct {
     float x;                // Current X position
     float y;                // Current Y position (changes with hop)
@@ -36,22 +35,19 @@ typedef struct {
     uint8_t animation_frame; // Ear wiggle animation frame
     uint32_t last_hop;      // Last hop time
     uint32_t last_update;   // Last update time
-} bunny_state_t;
+} bunny_t;
 
-// External access to bunny array
-extern bunny_state_t bunnies[NUM_EASTER_BUNNIES];
+// Initialize a single bunny instance
+void bunny_init(bunny_t* bunny, float x, float base_y, float velocity_x, uint32_t last_hop_offset);
 
-// Initialize bunny animations
-void bunnies_init(void);
+// Update a single bunny's animation state
+void bunny_update(bunny_t* bunny);
 
-// Update bunny animations (call from housekeeping)
-void bunnies_update(void);
+// Draw a single bunny
+void bunny_draw(const bunny_t* bunny);
 
-// Draw a single bunny by index
-void bunny_draw_single(uint8_t index);
+// Get bunny's bounding box
+void bunny_get_bounds(const bunny_t* bunny, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2);
 
-// Draw all Easter bunnies
-void bunnies_draw_all(void);
-
-// Reset bunny animations
-void bunnies_reset(void);
+// Check if a point is inside the bunny's bounds
+bool bunny_contains_point(const bunny_t* bunny, int16_t px, int16_t py);

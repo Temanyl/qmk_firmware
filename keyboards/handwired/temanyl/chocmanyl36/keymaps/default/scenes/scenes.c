@@ -47,6 +47,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../objects/fauna/bee.h"
 #include "../objects/fauna/firefly.h"
 
+// External object arrays from season-specific files
+extern bird_t birds[];
+extern butterfly_t butterflies[];
+extern bee_t bees[];
+extern firefly_t fireflies[];
+
+// Array sizes from season files
+#define NUM_SPRING_BIRDS 6
+#define NUM_SPRING_BUTTERFLIES 8
+#define NUM_SUMMER_BEES 5
+#define NUM_SUMMER_FIREFLIES 12
+
 // Smoke animation state (shared across seasons)
 bool smoke_initialized = false;
 bool smoke_background_saved = false;
@@ -594,8 +606,12 @@ void draw_seasonal_animation(void) {
     // baking them into the background. They are drawn here once, then animated
     // by the region-based animation system in animate_spring().
     if (season == 1 && spring_initialized) {
-        birds_draw_all();
-        butterflies_draw_all();
+        for (uint8_t i = 0; i < NUM_SPRING_BIRDS; i++) {
+            bird_draw(&birds[i]);
+        }
+        for (uint8_t i = 0; i < NUM_SPRING_BUTTERFLIES; i++) {
+            butterfly_draw(&butterflies[i]);
+        }
     } else if (season != 1) {
         // Not spring - clean up spring animation state
         if (spring_initialized) {
@@ -609,11 +625,15 @@ void draw_seasonal_animation(void) {
     // baking them into the background. They are drawn here once, then animated
     // by the region-based animation system in animate_summer().
     if (season == 2 && summer_initialized) {
-        bees_draw_all();
+        for (uint8_t i = 0; i < NUM_SUMMER_BEES; i++) {
+            bee_draw(&bees[i]);
+        }
         // Fireflies are drawn by animate_summer() based on time-of-day
         // Check if it's evening/night for fireflies (18:00 - 6:00)
         if (current_hour >= 18 || current_hour < 6) {
-            fireflies_draw_all();
+            for (uint8_t i = 0; i < NUM_SUMMER_FIREFLIES; i++) {
+                firefly_draw(&fireflies[i]);
+            }
         }
     } else if (season != 2) {
         // Not summer - clean up summer animation state

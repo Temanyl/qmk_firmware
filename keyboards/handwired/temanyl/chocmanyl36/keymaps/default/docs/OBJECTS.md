@@ -22,19 +22,44 @@ An object is a self-contained, reusable visual element with its own:
 - **Behavior** (movement, animation logic)
 - **Rendering** (how it draws itself)
 
+### Unified Object Interface
+
+**All objects follow a standard interface pattern:**
+
+```c
+// Standard methods (where applicable):
+<type>_init(<type>_t* obj, ...params)           // Initialize single instance
+<type>_draw(const <type>_t* obj, ...)           // Draw single instance
+<type>_update(<type>_t* obj)                    // Update animation (animated objects)
+<type>_get_bounds(const <type>_t* obj, ...)     // Get bounding box
+<type>_contains_point(const <type>_t* obj, ...) // Point containment test
+```
+
+**Key Principles:**
+- Objects operate on **single instances**, not arrays
+- Array management happens in **scene managers**, not in object code
+- All objects use **singular naming** (bird_draw, not birds_draw_all)
+
 ### Why Use Objects?
 
 **Modularity:**
 - Write once, use in multiple seasons/events
-- Example: `cloud.c` used in spring, summer, and monsoon
+- Example: `cloud.c` used in winter, fall, and monsoon
 
 **Maintainability:**
 - All code for one element in one place
 - Easy to modify without affecting other code
+- Consistent interface across all object types
 
 **Testability:**
 - Can be tested independently
-- Clear interface with init/draw/update functions
+- Clear interface with standard method names
+- No hidden dependencies on global arrays
+
+**Object-Agnostic Scene Management:**
+- Scene managers can treat all objects uniformly
+- Same update/draw loop pattern for all objects
+- Easy to add new object types
 
 ### Object Architecture
 
@@ -357,35 +382,59 @@ SRC += objects/fauna/butterfly.c
 
 ### Step 4: Use in Animated Season
 
+**Key Point:** Arrays are managed by the scene manager, not the object.
+
+In `seasons/spring/seasons_spring.h`:
+
+```c
+// Array size - exposed to other modules
+#define NUM_SPRING_BUTTERFLIES 5
+```
+
 In `seasons/spring/seasons_spring.c`:
 
 ```c
 #include "../../objects/fauna/butterfly.h"
 
-// Animation state
-#define NUM_BUTTERFLIES 5
-#define BUTTERFLY_ANIMATION_SPEED 60  // 60ms = ~16fps
+// Animation state (scene manager owns the array)
+#define NUM_SPRING_BUTTERFLIES 5
+butterfly_t butterflies[NUM_SPRING_BUTTERFLIES];
 
-static butterfly_t butterflies[NUM_BUTTERFLIES];
 static bool butterflies_initialized = false;
 static bool butterflies_background_saved = false;
 static uint32_t butterflies_animation_timer = 0;
 
+// Configuration data
+static const struct {
+    int16_t x, y;
+    int8_t vx, vy;
+    uint8_t wing_hue;
+} butterfly_config[NUM_SPRING_BUTTERFLIES] = {
+    {40, 60, 1, 1, 300},    // Pink
+    {100, 50, -1, 1, 43},   // Yellow
+    {160, 70, 1, -1, 170},  // Blue
+    {200, 55, -1, -1, 85},  // Green
+    {80, 80, 1, 1, 0}       // Red
+};
+
 void init_spring_butterflies(void) {
     if (!butterflies_initialized) {
-        butterfly_init(&butterflies[0], 40, 60, 1, 1, 300);   // Pink
-        butterfly_init(&butterflies[1], 100, 50, -1, 1, 43);  // Yellow
-        butterfly_init(&butterflies[2], 160, 70, 1, -1, 170); // Blue
-        butterfly_init(&butterflies[3], 200, 55, -1, -1, 85); // Green
-        butterfly_init(&butterflies[4], 80, 80, 1, 1, 0);     // Red
-
+        // Initialize each butterfly using the unified interface
+        for (uint8_t i = 0; i < NUM_SPRING_BUTTERFLIES; i++) {
+            butterfly_init(&butterflies[i],
+                          butterfly_config[i].x,
+                          butterfly_config[i].y,
+                          butterfly_config[i].vx,
+                          butterfly_config[i].vy,
+                          butterfly_config[i].wing_hue);
+        }
         butterflies_initialized = true;
     }
 }
 
 void animate_spring_butterflies(void) {
     // Throttle animation
-    if (timer_elapsed32(butterflies_animation_timer) < BUTTERFLY_ANIMATION_SPEED) {
+    if (timer_elapsed32(butterflies_animation_timer) < 60) {
         return;
     }
     butterflies_animation_timer = timer_read32();
@@ -396,8 +445,8 @@ void animate_spring_butterflies(void) {
         butterflies_background_saved = true;
     }
 
-    // Update each butterfly
-    for (int i = 0; i < NUM_BUTTERFLIES; i++) {
+    // Update and draw each butterfly using the unified interface
+    for (uint8_t i = 0; i < NUM_SPRING_BUTTERFLIES; i++) {
         // Get old bounds
         int16_t x1, y1, x2, y2;
         butterfly_get_bounds(&butterflies[i], &x1, &y1, &x2, &y2);
@@ -405,10 +454,10 @@ void animate_spring_butterflies(void) {
         // Restore background
         fb_restore_from_background(x1, y1, x2, y2);
 
-        // Update position and animation
+        // Update position and animation (single instance method)
         butterfly_update(&butterflies[i]);
 
-        // Draw at new position
+        // Draw at new position (single instance method)
         butterfly_draw(&butterflies[i]);
 
         // Get new bounds and flush
@@ -430,21 +479,11 @@ void reset_spring_animations(void) {
 }
 ```
 
-### Step 5: Call Animation from Housekeeping
-
-In `keymap.c`:
-
-```c
-void housekeeping_task_user(void) {
-    // ... other code ...
-
-    if (get_season(current_month) == SPRING) {
-        animate_spring_butterflies();
-    }
-
-    // ... other code ...
-}
-```
+**Note the pattern:**
+- Scene manager declares array: `butterfly_t butterflies[NUM_SPRING_BUTTERFLIES]`
+- Scene manager owns configuration data
+- Scene manager loops calling single-instance methods: `butterfly_init(&butterflies[i], ...)`
+- Object code has NO knowledge of arrays
 
 ---
 

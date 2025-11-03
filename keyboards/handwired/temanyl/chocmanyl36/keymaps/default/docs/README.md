@@ -262,7 +262,22 @@ Located in `objects/` directory, organized by category.
 
 #### Object Structure Pattern
 
-All objects follow this pattern:
+**All objects follow the unified interface pattern** with standardized method names and single-instance operations. Objects operate on individual instances; scene managers own and manage arrays.
+
+**Key Principles:**
+- Objects operate on **single instances**, not arrays
+- Array management happens in **scene managers**, not in object code
+- All objects use **singular naming** (e.g., `bird_draw()`, not `birds_draw_all()`)
+- Consistent method signatures across all object types
+
+**Standard Methods** (where applicable):
+```c
+<type>_init(<type>_t* obj, ...params)           // Initialize single instance
+<type>_draw(const <type>_t* obj, ...)           // Draw single instance
+<type>_update(<type>_t* obj)                    // Update animation (animated objects)
+<type>_get_bounds(const <type>_t* obj, ...)     // Get bounding box
+<type>_contains_point(const <type>_t* obj, ...) // Point containment test
+```
 
 **Header file (`object.h`):**
 ```c
@@ -318,7 +333,11 @@ void object_update(object_t* obj) {
 }
 ```
 
+**See:** `objects/object_interface.h` for comprehensive documentation and examples.
+
 #### Using Objects in Scenes
+
+**Scene managers own arrays and loop over single-instance methods.** This follows the unified interface pattern.
 
 Example from `seasons_halloween.c`:
 
@@ -326,26 +345,29 @@ Example from `seasons_halloween.c`:
 #include "../../objects/seasonal/ghost.h"
 #include "../../objects/seasonal/pumpkin.h"
 
+// Scene manager owns the array
 #define NUM_GHOSTS 3
 static ghost_t ghosts[NUM_GHOSTS];
 
 void init_ghosts(void) {
+    // Loop over array, calling single-instance init
     ghost_init(&ghosts[0], 40, 60, 1, 0);
     ghost_init(&ghosts[1], 120, 70, -1, 53);
     ghost_init(&ghosts[2], 200, 50, 1, 106);
 }
 
 void animate_ghosts(void) {
+    // Loop over array, calling single-instance methods
     for (int i = 0; i < NUM_GHOSTS; i++) {
         // Restore background before moving
         int16_t x1, y1, x2, y2;
         ghost_get_bounds(&ghosts[i], &x1, &y1, &x2, &y2);
         fb_restore_from_background(x1, y1, x2, y2);
 
-        // Update position
+        // Update position (single-instance method)
         ghost_update(&ghosts[i]);
 
-        // Draw at new position
+        // Draw at new position (single-instance method)
         ghost_draw(&ghosts[i]);
 
         // Flush changed region
@@ -353,6 +375,8 @@ void animate_ghosts(void) {
     }
 }
 ```
+
+**Note:** Objects no longer have plural methods like `ghosts_draw_all()`. Scene managers loop over arrays calling singular methods like `ghost_draw(&ghost)`.
 
 ---
 

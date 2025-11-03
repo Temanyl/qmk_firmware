@@ -20,78 +20,55 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "timer.h"
 #include <math.h>
 
-// Bird animation states (exposed for per-object animation)
-bird_state_t birds[NUM_SPRING_BIRDS];
-
-// Initial bird configuration (base_y, velocity_x, bob_phase)
-static const struct {
-    uint16_t base_y;
-    float velocity_x;
-    float bob_phase;
-} bird_config[NUM_SPRING_BIRDS] = {
-    {50, 0.25f, 0.0f},      // Bird 0: slow, starts at phase 0
-    {40, 0.35f, 1.0f},      // Bird 1: medium-fast, offset phase
-    {70, 0.20f, 2.5f},      // Bird 2: slow, different phase
-    {45, 0.30f, 0.8f},      // Bird 3: medium, offset phase
-    {75, 0.28f, 1.7f},      // Bird 4: medium, different phase
-    {65, 0.22f, 3.2f}       // Bird 5: slow-medium, offset phase
-};
-
 // Animation parameters
 #define BIRD_BOB_AMPLITUDE 3.0f      // Vertical bobbing range
 #define BIRD_BOB_FREQUENCY 0.003f    // Bobbing speed
 #define WING_FLAP_INTERVAL 150       // ms between wing animation frames
 #define BIRD_WRAP_MARGIN 15          // Pixels to wrap before edge
 
-// Initialize bird animations
-void birds_init(void) {
-    for (uint8_t i = 0; i < NUM_SPRING_BIRDS; i++) {
-        birds[i].x = (i * 25.0f) + 15.0f;  // Spread birds across sky
-        birds[i].base_y = bird_config[i].base_y;
-        birds[i].y = birds[i].base_y;
-        birds[i].velocity_x = bird_config[i].velocity_x;
-        birds[i].bob_phase = bird_config[i].bob_phase;
-        birds[i].wing_frame = 0;
-        birds[i].last_update = timer_read32();
-    }
+// Initialize a single bird instance
+void bird_init(bird_t* bird, float x, float base_y, float velocity_x, float bob_phase) {
+    bird->x = x;
+    bird->base_y = base_y;
+    bird->y = base_y;
+    bird->velocity_x = velocity_x;
+    bird->bob_phase = bob_phase;
+    bird->wing_frame = 0;
+    bird->last_update = timer_read32();
 }
 
-// Reset bird animations (same as init)
-void birds_reset(void) {
-    birds_init();
-}
-
-// Update bird animations
-void birds_update(void) {
+// Update a single bird's animation state
+void bird_update(bird_t* bird) {
     uint32_t now = timer_read32();
+    uint32_t elapsed = now - bird->last_update;
 
-    for (uint8_t i = 0; i < NUM_SPRING_BIRDS; i++) {
-        uint32_t elapsed = now - birds[i].last_update;
+    // Update horizontal position
+    bird->x += bird->velocity_x;
 
-        // Update horizontal position
-        birds[i].x += birds[i].velocity_x;
-
-        // Wrap around screen with margin
-        if (birds[i].x > FB_WIDTH + BIRD_WRAP_MARGIN) {
-            birds[i].x = -BIRD_WRAP_MARGIN;
-        }
-
-        // Update vertical bobbing using sine wave
-        birds[i].bob_phase += BIRD_BOB_FREQUENCY * elapsed;
-        birds[i].y = birds[i].base_y + (BIRD_BOB_AMPLITUDE * sinf(birds[i].bob_phase));
-
-        // Update wing animation frame
-        if (elapsed >= WING_FLAP_INTERVAL) {
-            birds[i].wing_frame = (birds[i].wing_frame + 1) % 4;  // 4-frame animation
-        }
-
-        // Always update timer (not just on wing flap)
-        birds[i].last_update = now;
+    // Wrap around screen with margin
+    if (bird->x > FB_WIDTH + BIRD_WRAP_MARGIN) {
+        bird->x = -BIRD_WRAP_MARGIN;
     }
+
+    // Update vertical bobbing using sine wave
+    bird->bob_phase += BIRD_BOB_FREQUENCY * elapsed;
+    bird->y = bird->base_y + (BIRD_BOB_AMPLITUDE * sinf(bird->bob_phase));
+
+    // Update wing animation frame
+    if (elapsed >= WING_FLAP_INTERVAL) {
+        bird->wing_frame = (bird->wing_frame + 1) % 4;  // 4-frame animation
+    }
+
+    // Always update timer
+    bird->last_update = now;
 }
 
-// Draw a single bird with current animation frame
-static void draw_bird(int16_t x, int16_t y, uint8_t wing_frame) {
+// Draw a single bird
+void bird_draw(const bird_t* bird) {
+    int16_t x = (int16_t)bird->x;
+    int16_t y = (int16_t)bird->y;
+    uint8_t wing_frame = bird->wing_frame;
+
     // Wing shapes vary based on animation frame
     // Frame 0: Wings up (V shape pointing up)
     // Frame 1: Wings mid-up
@@ -144,15 +121,20 @@ static void draw_bird(int16_t x, int16_t y, uint8_t wing_frame) {
     }
 }
 
-// Draw a single bird by index
-void bird_draw_single(uint8_t index) {
-    if (index >= NUM_SPRING_BIRDS) return;
-    draw_bird((int16_t)birds[index].x, (int16_t)birds[index].y, birds[index].wing_frame);
+// Get bird's bounding box
+void bird_get_bounds(const bird_t* bird, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2) {
+    int16_t x = (int16_t)bird->x;
+    int16_t y = (int16_t)bird->y;
+
+    *x1 = x - (BIRD_WIDTH / 2);
+    *y1 = y - 4;  // Above center for wing spread
+    *x2 = x + (BIRD_WIDTH / 2);
+    *y2 = y + 3;  // Below center for wing spread
 }
 
-// Draw all spring birds
-void birds_draw_all(void) {
-    for (uint8_t i = 0; i < NUM_SPRING_BIRDS; i++) {
-        bird_draw_single(i);
-    }
+// Check if a point is inside the bird's bounds
+bool bird_contains_point(const bird_t* bird, int16_t px, int16_t py) {
+    int16_t x1, y1, x2, y2;
+    bird_get_bounds(bird, &x1, &y1, &x2, &y2);
+    return (px >= x1 && px <= x2 && py >= y1 && py <= y2);
 }

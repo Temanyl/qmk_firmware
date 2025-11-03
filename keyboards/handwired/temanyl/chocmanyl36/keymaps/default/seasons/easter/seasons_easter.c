@@ -26,6 +26,11 @@ bool easter_initialized = false;
 bool easter_background_saved = false;
 uint32_t easter_animation_timer = 0;
 
+// Easter bunny configuration
+#define NUM_EASTER_BUNNIES 1
+#define BUNNY_GROUND_Y 138  // Ground level (150 - bunny_height)
+bunny_t bunnies[NUM_EASTER_BUNNIES];
+
 // Forward declarations
 extern painter_device_t display;
 extern uint8_t current_month;
@@ -54,7 +59,13 @@ void init_easter_animations(void) {
     easter_eggs_init();
 
     // Initialize hopping bunny
-    bunnies_init();
+    for (uint8_t i = 0; i < NUM_EASTER_BUNNIES; i++) {
+        bunny_init(&bunnies[i],
+                   20.0f + (i * 40.0f),  // Starting x position
+                   BUNNY_GROUND_Y,        // Base y (ground level)
+                   0.6f,                  // Horizontal velocity
+                   0);                    // Last hop offset
+    }
 
     easter_initialized = true;
 }
@@ -79,7 +90,9 @@ void animate_easter(void) {
     }
 
     // Update bunny positions
-    bunnies_update();
+    for (uint8_t i = 0; i < NUM_EASTER_BUNNIES; i++) {
+        bunny_update(&bunnies[i]);
+    }
 
     // Restore background and redraw each bunny
     for (uint8_t i = 0; i < NUM_EASTER_BUNNIES; i++) {
@@ -93,7 +106,7 @@ void animate_easter(void) {
         fb_restore_from_background(old_x1, old_y1, old_x2, old_y2);
 
         // Draw bunny at new position
-        bunny_draw_single(i);
+        bunny_draw(&bunnies[i]);
 
         // Calculate region to flush (union of old and new positions)
         int16_t new_x1 = (int16_t)bunnies[i].x - 2;

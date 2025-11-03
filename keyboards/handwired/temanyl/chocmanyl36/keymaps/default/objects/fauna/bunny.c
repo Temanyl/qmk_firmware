@@ -21,15 +21,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <math.h>
 #include <stdlib.h>
 
-// Bunny animation states
-bunny_state_t bunnies[NUM_EASTER_BUNNIES];
-
 // Animation parameters
 #define HOP_DURATION 800         // ms for complete hop
 #define HOP_HEIGHT 20.0f         // Maximum hop height
 #define HOP_MIN_INTERVAL 2000    // Minimum time between hops
 #define HOP_MAX_INTERVAL 5000    // Maximum time between hops
-#define BUNNY_GROUND_Y 138       // Ground level (150 - bunny_height)
 #define EAR_WIGGLE_INTERVAL 100  // ms between ear animation frames
 
 // Bunny colors (HSV)
@@ -38,88 +34,76 @@ bunny_state_t bunnies[NUM_EASTER_BUNNIES];
 #define BUNNY_VAL 200
 #define BUNNY_PINK_HUE 240       // Pink for nose/ears
 
-// Initialize bunny animations
-void bunnies_init(void) {
-    uint32_t now = timer_read32();
-    for (uint8_t i = 0; i < NUM_EASTER_BUNNIES; i++) {
-        bunnies[i].x = 20.0f + (i * 40.0f);
-        bunnies[i].base_y = BUNNY_GROUND_Y;
-        bunnies[i].y = BUNNY_GROUND_Y;
-        bunnies[i].velocity_x = 0.6f;
-        bunnies[i].velocity_y = 0.0f;
-        bunnies[i].hop_phase = 0.0f;
-        bunnies[i].is_hopping = false;
-        bunnies[i].animation_frame = 0;
-        bunnies[i].last_hop = now;
-        bunnies[i].last_update = now;
-    }
-}
-
-// Reset bunny animations
-void bunnies_reset(void) {
-    bunnies_init();
-}
-
-// Start a hop for a bunny
-static void start_hop(uint8_t index) {
-    bunnies[index].is_hopping = true;
-    bunnies[index].hop_phase = 0.0f;
-    bunnies[index].last_hop = timer_read32();
-}
-
-// Update bunny animations
-void bunnies_update(void) {
+// Initialize a single bunny instance
+void bunny_init(bunny_t* bunny, float x, float base_y, float velocity_x, uint32_t last_hop_offset) {
     uint32_t now = timer_read32();
 
-    for (uint8_t i = 0; i < NUM_EASTER_BUNNIES; i++) {
-        uint32_t elapsed = now - bunnies[i].last_update;
-
-        // Update horizontal position (continuous slow movement)
-        bunnies[i].x += bunnies[i].velocity_x;
-
-        // Wrap around screen
-        if (bunnies[i].x > FB_WIDTH + BUNNY_WIDTH) {
-            bunnies[i].x = -BUNNY_WIDTH;
-        }
-
-        // Update ear wiggle animation
-        if (elapsed >= EAR_WIGGLE_INTERVAL) {
-            bunnies[i].animation_frame = (bunnies[i].animation_frame + 1) % 4;
-        }
-
-        // Check if bunny should start hopping
-        uint32_t time_since_hop = now - bunnies[i].last_hop;
-        if (!bunnies[i].is_hopping && time_since_hop > HOP_MIN_INTERVAL) {
-            // Random chance to hop (or forced after max interval)
-            if (time_since_hop > HOP_MAX_INTERVAL || (rand() % 100) < 5) {
-                start_hop(i);
-            }
-        }
-
-        // Update hop animation
-        if (bunnies[i].is_hopping) {
-            bunnies[i].hop_phase += (float)elapsed / HOP_DURATION;
-
-            if (bunnies[i].hop_phase >= 1.0f) {
-                // Hop complete
-                bunnies[i].is_hopping = false;
-                bunnies[i].hop_phase = 0.0f;
-                bunnies[i].y = bunnies[i].base_y;
-            } else {
-                // Parabolic hop motion: y = 4h * phase * (1 - phase)
-                float normalized_phase = bunnies[i].hop_phase;
-                bunnies[i].y = bunnies[i].base_y - (4.0f * HOP_HEIGHT * normalized_phase * (1.0f - normalized_phase));
-            }
-        }
-
-        bunnies[i].last_update = now;
-    }
+    bunny->x = x;
+    bunny->base_y = base_y;
+    bunny->y = base_y;
+    bunny->velocity_x = velocity_x;
+    bunny->velocity_y = 0.0f;
+    bunny->hop_phase = 0.0f;
+    bunny->is_hopping = false;
+    bunny->animation_frame = 0;
+    bunny->last_hop = now - last_hop_offset;
+    bunny->last_update = now;
 }
 
-// Draw a bunny sprite
-static void draw_bunny(int16_t x, int16_t y, uint8_t animation_frame, bool is_hopping) {
-    // Bunny is drawn from top to bottom
-    // Structure: ears, head, body, feet
+// Update a single bunny's animation state
+void bunny_update(bunny_t* bunny) {
+    uint32_t now = timer_read32();
+    uint32_t elapsed = now - bunny->last_update;
+
+    // Update horizontal position (continuous slow movement)
+    bunny->x += bunny->velocity_x;
+
+    // Wrap around screen
+    if (bunny->x > FB_WIDTH + BUNNY_WIDTH) {
+        bunny->x = -BUNNY_WIDTH;
+    }
+
+    // Update ear wiggle animation
+    if (elapsed >= EAR_WIGGLE_INTERVAL) {
+        bunny->animation_frame = (bunny->animation_frame + 1) % 4;
+    }
+
+    // Check if bunny should start hopping
+    uint32_t time_since_hop = now - bunny->last_hop;
+    if (!bunny->is_hopping && time_since_hop > HOP_MIN_INTERVAL) {
+        // Random chance to hop (or forced after max interval)
+        if (time_since_hop > HOP_MAX_INTERVAL || (rand() % 100) < 5) {
+            bunny->is_hopping = true;
+            bunny->hop_phase = 0.0f;
+            bunny->last_hop = now;
+        }
+    }
+
+    // Update hop animation
+    if (bunny->is_hopping) {
+        bunny->hop_phase += (float)elapsed / HOP_DURATION;
+
+        if (bunny->hop_phase >= 1.0f) {
+            // Hop complete
+            bunny->is_hopping = false;
+            bunny->hop_phase = 0.0f;
+            bunny->y = bunny->base_y;
+        } else {
+            // Parabolic hop motion: y = 4h * phase * (1 - phase)
+            float normalized_phase = bunny->hop_phase;
+            bunny->y = bunny->base_y - (4.0f * HOP_HEIGHT * normalized_phase * (1.0f - normalized_phase));
+        }
+    }
+
+    bunny->last_update = now;
+}
+
+// Draw a single bunny
+void bunny_draw(const bunny_t* bunny) {
+    int16_t x = (int16_t)bunny->x;
+    int16_t y = (int16_t)bunny->y;
+    uint8_t animation_frame = bunny->animation_frame;
+    bool is_hopping = bunny->is_hopping;
 
     // Calculate ear wiggle offset
     int8_t left_ear_offset = (animation_frame < 2) ? 0 : -1;
@@ -129,12 +113,12 @@ static void draw_bunny(int16_t x, int16_t y, uint8_t animation_frame, bool is_ho
     // Left ear
     fb_rect_hsv(x + 1, y + left_ear_offset, x + 2, y + 4 + left_ear_offset,
                 BUNNY_HUE, BUNNY_SAT, BUNNY_VAL, true);
-    fb_set_pixel_hsv(x + 2, y + 1 + left_ear_offset, BUNNY_PINK_HUE, 180, 150); // Pink inner ear
+    fb_set_pixel_hsv(x + 2, y + 1 + left_ear_offset, BUNNY_PINK_HUE, 180, 150);
 
     // Right ear
     fb_rect_hsv(x + 6, y + right_ear_offset, x + 7, y + 4 + right_ear_offset,
                 BUNNY_HUE, BUNNY_SAT, BUNNY_VAL, true);
-    fb_set_pixel_hsv(x + 6, y + 1 + right_ear_offset, BUNNY_PINK_HUE, 180, 150); // Pink inner ear
+    fb_set_pixel_hsv(x + 6, y + 1 + right_ear_offset, BUNNY_PINK_HUE, 180, 150);
 
     // Head (round)
     fb_circle_hsv(x + 4, y + 6, 3, BUNNY_HUE, BUNNY_SAT, BUNNY_VAL, true);
@@ -164,16 +148,20 @@ static void draw_bunny(int16_t x, int16_t y, uint8_t animation_frame, bool is_ho
     fb_circle_hsv(x + 8, y + 10, 2, 0, 0, 255, true);
 }
 
-// Draw a single bunny by index
-void bunny_draw_single(uint8_t index) {
-    if (index >= NUM_EASTER_BUNNIES) return;
-    draw_bunny((int16_t)bunnies[index].x, (int16_t)bunnies[index].y,
-               bunnies[index].animation_frame, bunnies[index].is_hopping);
+// Get bunny's bounding box
+void bunny_get_bounds(const bunny_t* bunny, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2) {
+    int16_t x = (int16_t)bunny->x;
+    int16_t y = (int16_t)bunny->y;
+
+    *x1 = x;
+    *y1 = y;
+    *x2 = x + BUNNY_WIDTH;
+    *y2 = y + BUNNY_HEIGHT;
 }
 
-// Draw all Easter bunnies
-void bunnies_draw_all(void) {
-    for (uint8_t i = 0; i < NUM_EASTER_BUNNIES; i++) {
-        bunny_draw_single(i);
-    }
+// Check if a point is inside the bunny's bounds
+bool bunny_contains_point(const bunny_t* bunny, int16_t px, int16_t py) {
+    int16_t x1, y1, x2, y2;
+    bunny_get_bounds(bunny, &x1, &y1, &x2, &y2);
+    return (px >= x1 && px <= x2 && py >= y1 && py <= y2);
 }

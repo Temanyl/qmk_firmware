@@ -29,6 +29,50 @@ bool summer_initialized = false;
 bool summer_background_saved = false;
 uint32_t summer_animation_timer = 0;
 
+// Summer bee configuration
+#define NUM_SUMMER_BEES 5
+bee_t bees[NUM_SUMMER_BEES];
+
+// Sunflower positions (matching sunflower.c configuration)
+// Sunflower data: {x, stem_height}, flower head is at (x+1, ground_y - stem_height - 3)
+// With ground_y = 150
+static const struct {
+    uint16_t center_x;
+    uint16_t center_y;
+    float orbit_radius;
+    float orbit_phase;
+} bee_config[NUM_SUMMER_BEES] = {
+    {23, 134, 8.0f, 0.0f},      // Bee 0: orbits sunflower 0
+    {53, 132, 9.0f, 1.3f},      // Bee 1: orbits sunflower 1
+    {79, 133, 8.5f, 2.6f},      // Bee 2: orbits sunflower 2
+    {103, 135, 7.5f, 3.9f},     // Bee 3: orbits sunflower 3
+    {123, 133, 8.0f, 5.2f}      // Bee 4: orbits sunflower 4
+};
+
+// Summer firefly configuration
+#define NUM_SUMMER_FIREFLIES 12
+firefly_t fireflies[NUM_SUMMER_FIREFLIES];
+
+static const struct {
+    uint16_t base_x;
+    uint16_t base_y;
+    float drift_phase_x;
+    float drift_phase_y;
+} firefly_config[NUM_SUMMER_FIREFLIES] = {
+    {30,  120, 0.0f, 0.0f},
+    {60,  110, 1.5f, 0.8f},
+    {90,  125, 3.0f, 1.6f},
+    {120, 115, 4.5f, 2.4f},
+    {40,  105, 2.0f, 3.2f},
+    {70,  130, 3.5f, 4.0f},
+    {100, 108, 5.0f, 4.8f},
+    {130, 122, 0.7f, 5.6f},
+    {50,  118, 1.0f, 2.5f},
+    {80,  135, 2.5f, 1.2f},
+    {110, 112, 4.0f, 3.8f},
+    {140, 128, 0.3f, 4.5f}
+};
+
 // Forward declarations
 extern painter_device_t display;
 extern uint8_t current_month;
@@ -40,9 +84,25 @@ extern bool smoke_background_saved;
 void init_summer_animations(void) {
     if (summer_initialized) return;
 
-    // Initialize animated creatures
-    bees_init();
-    fireflies_init();
+    // Initialize bees
+    for (uint8_t i = 0; i < NUM_SUMMER_BEES; i++) {
+        bee_init(&bees[i],
+                 bee_config[i].center_x,
+                 bee_config[i].center_y,
+                 bee_config[i].orbit_radius,
+                 bee_config[i].orbit_phase);
+    }
+
+    // Initialize fireflies
+    for (uint8_t i = 0; i < NUM_SUMMER_FIREFLIES; i++) {
+        firefly_init(&fireflies[i],
+                     firefly_config[i].base_x,
+                     firefly_config[i].base_y,
+                     firefly_config[i].drift_phase_x,
+                     firefly_config[i].drift_phase_y,
+                     i * 200);  // Blink offset
+    }
+
     summer_initialized = true;
 }
 
@@ -82,9 +142,14 @@ void animate_summer(void) {
     }
 
     // Update all positions
-    bees_update();
+    for (uint8_t i = 0; i < NUM_SUMMER_BEES; i++) {
+        bee_update(&bees[i]);
+    }
+
     if (is_evening) {
-        fireflies_update();
+        for (uint8_t i = 0; i < NUM_SUMMER_FIREFLIES; i++) {
+            firefly_update(&fireflies[i]);
+        }
     }
 
     // Animate each bee individually
@@ -110,7 +175,7 @@ void animate_summer(void) {
         int16_t new_x = (int16_t)bees[i].x;
         int16_t new_y = (int16_t)bees[i].y;
         if (new_x >= 0 && new_x < FB_WIDTH && new_y >= 0 && new_y < 150) {
-            bee_draw_single(i);
+            bee_draw(&bees[i]);
 
             // Redraw smoke if it overlaps new position
             if (smoke_initialized && smoke_background_saved) {
@@ -154,7 +219,7 @@ void animate_summer(void) {
             int16_t new_x = (int16_t)fireflies[i].x;
             int16_t new_y = (int16_t)fireflies[i].y;
             if (new_x >= 0 && new_x < FB_WIDTH && new_y >= 0 && new_y < 150) {
-                firefly_draw_single(i);  // Only draws if lit
+                firefly_draw(&fireflies[i]);  // Only draws if lit
 
                 // Redraw smoke if it overlaps new position
                 if (smoke_initialized && smoke_background_saved) {
@@ -181,8 +246,6 @@ void reset_summer_animations(void) {
     // Reset all animated elements to initial state
     summer_initialized = false;
     summer_background_saved = false;
-    bees_reset();
-    fireflies_reset();
 }
 
 // Draw summer-specific scene elements

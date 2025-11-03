@@ -20,29 +20,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "timer.h"
 #include <math.h>
 
-// Butterfly animation states (exposed for per-object animation)
-butterfly_state_t butterflies[NUM_SPRING_BUTTERFLIES];
-
-// Initial butterfly configuration (base_x, base_y, hue, flutter_phase_x, flutter_phase_y, amp_x, amp_y)
-static const struct {
-    uint16_t base_x;
-    uint16_t base_y;
-    uint8_t hue;
-    float flutter_phase_x;
-    float flutter_phase_y;
-    float amplitude_x;
-    float amplitude_y;
-} butterfly_config[NUM_SPRING_BUTTERFLIES] = {
-    {20,  115, 234, 0.0f,  0.0f,  3.0f, 2.5f},   // Purple: small flutter
-    {45,  125, 170, 1.2f,  0.5f,  5.0f, 4.0f},   // Blue: larger movements
-    {65,  120, 42,  2.4f,  1.0f,  4.0f, 3.0f},   // Yellow: medium flutter
-    {85,  130, 200, 3.6f,  1.5f,  6.0f, 3.5f},   // Light blue: wide horizontal
-    {125, 135, 234, 2.0f,  2.5f,  4.5f, 2.0f},   // Purple: wide shallow
-    {35,  128, 85,  1.5f,  0.8f,  5.5f, 3.5f},   // Green: large movements
-    {75,  122, 42,  3.0f,  1.8f,  2.5f, 3.0f},   // Yellow: tight pattern
-    {95,  133, 170, 0.5f,  2.2f,  4.0f, 5.0f}    // Blue: tall flutter
-};
-
 // Animation parameters
 #define BUTTERFLY_FLUTTER_FREQ_X 0.004f          // Horizontal flutter frequency
 #define BUTTERFLY_FLUTTER_FREQ_Y 0.006f          // Vertical flutter frequency (faster for figure-8)
@@ -52,117 +29,111 @@ static const struct {
 #define BUTTERFLY_WANDER_DURATION 3000           // How long a wander lasts (3 sec)
 #define BUTTERFLY_WANDER_DISTANCE 15.0f          // Max distance to wander from base
 
-// Initialize butterfly animations
-void butterflies_init(void) {
-    uint32_t now = timer_read32();
-    for (uint8_t i = 0; i < NUM_SPRING_BUTTERFLIES; i++) {
-        butterflies[i].base_x = butterfly_config[i].base_x;
-        butterflies[i].base_y = butterfly_config[i].base_y;
-        butterflies[i].x = butterflies[i].base_x;
-        butterflies[i].y = butterflies[i].base_y;
-        butterflies[i].hue = butterfly_config[i].hue;
-        butterflies[i].flutter_phase_x = butterfly_config[i].flutter_phase_x;
-        butterflies[i].flutter_phase_y = butterfly_config[i].flutter_phase_y;
-        butterflies[i].amplitude_x = butterfly_config[i].amplitude_x;
-        butterflies[i].amplitude_y = butterfly_config[i].amplitude_y;
-        butterflies[i].wander_offset_x = 0.0f;
-        butterflies[i].wander_offset_y = 0.0f;
-        butterflies[i].is_wandering = false;
-        // Stagger initial wander timers so they don't all wander at once
-        butterflies[i].wander_timer = now + (i * 1000);
-        butterflies[i].wing_frame = 0;
-        butterflies[i].last_update = now;
-    }
-}
-
-// Reset butterfly animations (same as init)
-void butterflies_reset(void) {
-    butterflies_init();
-}
-
-// Pseudo-random number generator using timer and index
+// Pseudo-random number generator using timer and seed
 static float pseudo_random(uint32_t seed, uint8_t index) {
     uint32_t hash = seed * 1103515245 + index * 12345;
     return (float)(hash % 1000) / 1000.0f;
 }
 
-// Update butterfly animations
-void butterflies_update(void) {
+// Initialize a single butterfly instance
+void butterfly_init(butterfly_t* butterfly, float base_x, float base_y, uint8_t hue,
+                    float flutter_phase_x, float flutter_phase_y, float amplitude_x, float amplitude_y,
+                    uint32_t wander_timer_offset) {
     uint32_t now = timer_read32();
 
-    for (uint8_t i = 0; i < NUM_SPRING_BUTTERFLIES; i++) {
-        uint32_t elapsed = now - butterflies[i].last_update;
-
-        // Check wander state transitions
-        if (!butterflies[i].is_wandering) {
-            // Not wandering - check if it's time to start a new wander
-            if (now - butterflies[i].wander_timer >= BUTTERFLY_WANDER_MIN_INTERVAL) {
-                // Use pseudo-random to decide if we should wander now
-                float rand_val = pseudo_random(now, i);
-                uint32_t wander_interval = BUTTERFLY_WANDER_MIN_INTERVAL +
-                    (uint32_t)(rand_val * (BUTTERFLY_WANDER_MAX_INTERVAL - BUTTERFLY_WANDER_MIN_INTERVAL));
-
-                if (now - butterflies[i].wander_timer >= wander_interval) {
-                    // Start wandering!
-                    butterflies[i].is_wandering = true;
-                    butterflies[i].wander_timer = now;
-
-                    // Pick a random wander target (relative to base position)
-                    float rand_x = pseudo_random(now + i, i * 2);
-                    float rand_y = pseudo_random(now + i * 2, i * 3);
-
-                    // Convert to -1.0 to 1.0 range, then scale by wander distance
-                    butterflies[i].wander_offset_x = (rand_x * 2.0f - 1.0f) * BUTTERFLY_WANDER_DISTANCE;
-                    butterflies[i].wander_offset_y = (rand_y * 2.0f - 1.0f) * BUTTERFLY_WANDER_DISTANCE;
-                }
-            }
-        } else {
-            // Currently wandering - check if wander duration is over
-            if (now - butterflies[i].wander_timer >= BUTTERFLY_WANDER_DURATION) {
-                butterflies[i].is_wandering = false;
-                butterflies[i].wander_timer = now;
-                // Gradually return to base (offsets will decay below)
-            }
-        }
-
-        // Gradually apply or remove wander offset
-        if (butterflies[i].is_wandering) {
-            // Already at wander offset (set when entering wander mode)
-            // Keep it steady
-        } else {
-            // Not wandering - gradually return to base position
-            if (fabsf(butterflies[i].wander_offset_x) > 0.1f || fabsf(butterflies[i].wander_offset_y) > 0.1f) {
-                butterflies[i].wander_offset_x *= 0.95f;  // Decay by 5% each frame
-                butterflies[i].wander_offset_y *= 0.95f;
-            } else {
-                butterflies[i].wander_offset_x = 0.0f;
-                butterflies[i].wander_offset_y = 0.0f;
-            }
-        }
-
-        // Update flutter phases
-        butterflies[i].flutter_phase_x += BUTTERFLY_FLUTTER_FREQ_X * elapsed;
-        butterflies[i].flutter_phase_y += BUTTERFLY_FLUTTER_FREQ_Y * elapsed;
-
-        // Calculate position: base + wander_offset + flutter pattern
-        float flutter_x = butterflies[i].amplitude_x * sinf(butterflies[i].flutter_phase_x);
-        float flutter_y = butterflies[i].amplitude_y * sinf(butterflies[i].flutter_phase_y);
-
-        butterflies[i].x = butterflies[i].base_x + butterflies[i].wander_offset_x + flutter_x;
-        butterflies[i].y = butterflies[i].base_y + butterflies[i].wander_offset_y + flutter_y;
-
-        // Update wing animation frame
-        if (elapsed >= WING_FLAP_INTERVAL_BUTTERFLY) {
-            butterflies[i].wing_frame = (butterflies[i].wing_frame + 1) % 4;  // 4-frame animation
-        }
-
-        // Always update timer (not just on wing flap)
-        butterflies[i].last_update = now;
-    }
+    butterfly->base_x = base_x;
+    butterfly->base_y = base_y;
+    butterfly->x = base_x;
+    butterfly->y = base_y;
+    butterfly->hue = hue;
+    butterfly->flutter_phase_x = flutter_phase_x;
+    butterfly->flutter_phase_y = flutter_phase_y;
+    butterfly->amplitude_x = amplitude_x;
+    butterfly->amplitude_y = amplitude_y;
+    butterfly->wander_offset_x = 0.0f;
+    butterfly->wander_offset_y = 0.0f;
+    butterfly->is_wandering = false;
+    butterfly->wander_timer = now + wander_timer_offset;
+    butterfly->wing_frame = 0;
+    butterfly->last_update = now;
 }
 
-// Draw a single butterfly with current animation frame
-static void draw_butterfly(int16_t x, int16_t y, uint8_t hue, uint8_t wing_frame) {
+// Update a single butterfly's animation state
+void butterfly_update(butterfly_t* butterfly) {
+    uint32_t now = timer_read32();
+    uint32_t elapsed = now - butterfly->last_update;
+
+    // Check wander state transitions
+    if (!butterfly->is_wandering) {
+        // Not wandering - check if it's time to start a new wander
+        if (now - butterfly->wander_timer >= BUTTERFLY_WANDER_MIN_INTERVAL) {
+            // Use pseudo-random to decide if we should wander now
+            float rand_val = pseudo_random(now, (uint8_t)(butterfly->base_x + butterfly->base_y));
+            uint32_t wander_interval = BUTTERFLY_WANDER_MIN_INTERVAL +
+                (uint32_t)(rand_val * (BUTTERFLY_WANDER_MAX_INTERVAL - BUTTERFLY_WANDER_MIN_INTERVAL));
+
+            if (now - butterfly->wander_timer >= wander_interval) {
+                // Start wandering!
+                butterfly->is_wandering = true;
+                butterfly->wander_timer = now;
+
+                // Pick a random wander target (relative to base position)
+                float rand_x = pseudo_random(now + (uint32_t)butterfly->base_x, (uint8_t)(butterfly->base_x * 2));
+                float rand_y = pseudo_random(now + (uint32_t)butterfly->base_y * 2, (uint8_t)(butterfly->base_y * 3));
+
+                // Convert to -1.0 to 1.0 range, then scale by wander distance
+                butterfly->wander_offset_x = (rand_x * 2.0f - 1.0f) * BUTTERFLY_WANDER_DISTANCE;
+                butterfly->wander_offset_y = (rand_y * 2.0f - 1.0f) * BUTTERFLY_WANDER_DISTANCE;
+            }
+        }
+    } else {
+        // Currently wandering - check if wander duration is over
+        if (now - butterfly->wander_timer >= BUTTERFLY_WANDER_DURATION) {
+            butterfly->is_wandering = false;
+            butterfly->wander_timer = now;
+            // Gradually return to base (offsets will decay below)
+        }
+    }
+
+    // Gradually apply or remove wander offset
+    if (!butterfly->is_wandering) {
+        // Not wandering - gradually return to base position
+        if (fabsf(butterfly->wander_offset_x) > 0.1f || fabsf(butterfly->wander_offset_y) > 0.1f) {
+            butterfly->wander_offset_x *= 0.95f;  // Decay by 5% each frame
+            butterfly->wander_offset_y *= 0.95f;
+        } else {
+            butterfly->wander_offset_x = 0.0f;
+            butterfly->wander_offset_y = 0.0f;
+        }
+    }
+
+    // Update flutter phases
+    butterfly->flutter_phase_x += BUTTERFLY_FLUTTER_FREQ_X * elapsed;
+    butterfly->flutter_phase_y += BUTTERFLY_FLUTTER_FREQ_Y * elapsed;
+
+    // Calculate position: base + wander_offset + flutter pattern
+    float flutter_x = butterfly->amplitude_x * sinf(butterfly->flutter_phase_x);
+    float flutter_y = butterfly->amplitude_y * sinf(butterfly->flutter_phase_y);
+
+    butterfly->x = butterfly->base_x + butterfly->wander_offset_x + flutter_x;
+    butterfly->y = butterfly->base_y + butterfly->wander_offset_y + flutter_y;
+
+    // Update wing animation frame
+    if (elapsed >= WING_FLAP_INTERVAL_BUTTERFLY) {
+        butterfly->wing_frame = (butterfly->wing_frame + 1) % 4;  // 4-frame animation
+    }
+
+    // Always update timer
+    butterfly->last_update = now;
+}
+
+// Draw a single butterfly
+void butterfly_draw(const butterfly_t* butterfly) {
+    int16_t x = (int16_t)butterfly->x;
+    int16_t y = (int16_t)butterfly->y;
+    uint8_t hue = butterfly->hue;
+    uint8_t wing_frame = butterfly->wing_frame;
+
     // Wing positions vary based on animation frame
     // Frame 0: Wings fully open
     // Frame 1: Wings partially open
@@ -225,16 +196,20 @@ static void draw_butterfly(int16_t x, int16_t y, uint8_t hue, uint8_t wing_frame
     }
 }
 
-// Draw a single butterfly by index
-void butterfly_draw_single(uint8_t index) {
-    if (index >= NUM_SPRING_BUTTERFLIES) return;
-    draw_butterfly((int16_t)butterflies[index].x, (int16_t)butterflies[index].y,
-                  butterflies[index].hue, butterflies[index].wing_frame);
+// Get butterfly's bounding box
+void butterfly_get_bounds(const butterfly_t* butterfly, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2) {
+    int16_t x = (int16_t)butterfly->x;
+    int16_t y = (int16_t)butterfly->y;
+
+    *x1 = x - (BUTTERFLY_WIDTH / 2);
+    *y1 = y - (BUTTERFLY_HEIGHT / 2);
+    *x2 = x + (BUTTERFLY_WIDTH / 2);
+    *y2 = y + (BUTTERFLY_HEIGHT / 2);
 }
 
-// Draw all spring butterflies
-void butterflies_draw_all(void) {
-    for (uint8_t i = 0; i < NUM_SPRING_BUTTERFLIES; i++) {
-        butterfly_draw_single(i);
-    }
+// Check if a point is inside the butterfly's bounds
+bool butterfly_contains_point(const butterfly_t* butterfly, int16_t px, int16_t py) {
+    int16_t x1, y1, x2, y2;
+    butterfly_get_bounds(butterfly, &x1, &y1, &x2, &y2);
+    return (px >= x1 && px <= x2 && py >= y1 && py <= y2);
 }

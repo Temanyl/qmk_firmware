@@ -20,11 +20,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdbool.h>
 
-#define NUM_SUMMER_FIREFLIES 12
 #define FIREFLY_WIDTH 8   // Width for region-based updates (includes glow)
 #define FIREFLY_HEIGHT 8  // Height for region-based updates (includes glow)
 
-// Firefly animation state
+// Firefly animation state (follows unified object interface)
 typedef struct {
     float x;                // Current X position
     float y;                // Current Y position
@@ -37,22 +36,19 @@ typedef struct {
     uint32_t next_blink_duration;  // How long until next state change
     uint8_t brightness;     // Current brightness (for fade in/out)
     uint32_t last_update;   // Last update time
-} firefly_state_t;
+} firefly_t;
 
-// External access to firefly array
-extern firefly_state_t fireflies[NUM_SUMMER_FIREFLIES];
+// Initialize a single firefly instance
+void firefly_init(firefly_t* firefly, float base_x, float base_y, float drift_phase_x, float drift_phase_y, uint32_t blink_offset);
 
-// Initialize firefly animations
-void fireflies_init(void);
+// Update a single firefly's animation state
+void firefly_update(firefly_t* firefly);
 
-// Update firefly animations (call from housekeeping)
-void fireflies_update(void);
+// Draw a single firefly (only if lit)
+void firefly_draw(const firefly_t* firefly);
 
-// Draw a single firefly by index (only if lit)
-void firefly_draw_single(uint8_t index);
+// Get firefly's bounding box
+void firefly_get_bounds(const firefly_t* firefly, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2);
 
-// Draw all summer fireflies (only those that are lit)
-void fireflies_draw_all(void);
-
-// Reset firefly animations
-void fireflies_reset(void);
+// Check if a point is inside the firefly's bounds
+bool firefly_contains_point(const firefly_t* firefly, int16_t px, int16_t py);

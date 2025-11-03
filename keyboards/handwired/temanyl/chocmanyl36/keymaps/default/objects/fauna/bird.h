@@ -20,11 +20,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdbool.h>
 
-#define NUM_SPRING_BIRDS 6
-#define BIRD_WIDTH 12   // Wingspan: 5 left + 1 body + 5 right + margin
-#define BIRD_HEIGHT 7   // Vertical extent including wing animations
+#define BIRD_WIDTH 12   // Width for region-based updates
+#define BIRD_HEIGHT 7   // Height for region-based updates
 
-// Bird animation state
+// Bird animation state (follows unified object interface)
 typedef struct {
     float x;                // Current X position (floating point for smooth movement)
     float y;                // Current Y position (with vertical bobbing)
@@ -33,22 +32,19 @@ typedef struct {
     float bob_phase;        // Phase offset for vertical bobbing
     uint8_t wing_frame;     // Wing animation frame (0-3)
     uint32_t last_update;   // Last update time for animation
-} bird_state_t;
+} bird_t;
 
-// External access to bird array
-extern bird_state_t birds[NUM_SPRING_BIRDS];
+// Initialize a single bird instance
+void bird_init(bird_t* bird, float x, float base_y, float velocity_x, float bob_phase);
 
-// Initialize bird animations
-void birds_init(void);
+// Update a single bird's animation state
+void bird_update(bird_t* bird);
 
-// Update bird animations (call from housekeeping)
-void birds_update(void);
+// Draw a single bird
+void bird_draw(const bird_t* bird);
 
-// Draw a single bird by index
-void bird_draw_single(uint8_t index);
+// Get bird's bounding box
+void bird_get_bounds(const bird_t* bird, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2);
 
-// Draw all spring birds in the sky
-void birds_draw_all(void);
-
-// Reset bird animations
-void birds_reset(void);
+// Check if a point is inside the bird's bounds
+bool bird_contains_point(const bird_t* bird, int16_t px, int16_t py);

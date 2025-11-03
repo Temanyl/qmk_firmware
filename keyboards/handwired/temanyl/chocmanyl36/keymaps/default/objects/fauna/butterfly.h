@@ -20,11 +20,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 #include <stdbool.h>
 
-#define NUM_SPRING_BUTTERFLIES 8
-#define BUTTERFLY_WIDTH 12  // Wing radius 3 on each side + body + margin + flutter range
-#define BUTTERFLY_HEIGHT 12 // Vertical extent including wing animations + flutter range
+#define BUTTERFLY_WIDTH 12  // Width for region-based updates
+#define BUTTERFLY_HEIGHT 12 // Height for region-based updates
 
-// Butterfly animation state
+// Butterfly animation state (follows unified object interface)
 typedef struct {
     float x;                // Current X position
     float y;                // Current Y position
@@ -41,22 +40,21 @@ typedef struct {
     uint8_t hue;            // Wing color
     uint8_t wing_frame;     // Wing animation frame (0-3)
     uint32_t last_update;   // Last update time
-} butterfly_state_t;
+} butterfly_t;
 
-// External access to butterfly array
-extern butterfly_state_t butterflies[NUM_SPRING_BUTTERFLIES];
+// Initialize a single butterfly instance
+void butterfly_init(butterfly_t* butterfly, float base_x, float base_y, uint8_t hue,
+                    float flutter_phase_x, float flutter_phase_y, float amplitude_x, float amplitude_y,
+                    uint32_t wander_timer_offset);
 
-// Initialize butterfly animations
-void butterflies_init(void);
+// Update a single butterfly's animation state
+void butterfly_update(butterfly_t* butterfly);
 
-// Update butterfly animations (call from housekeeping)
-void butterflies_update(void);
+// Draw a single butterfly
+void butterfly_draw(const butterfly_t* butterfly);
 
-// Draw a single butterfly by index
-void butterfly_draw_single(uint8_t index);
+// Get butterfly's bounding box
+void butterfly_get_bounds(const butterfly_t* butterfly, int16_t* x1, int16_t* y1, int16_t* x2, int16_t* y2);
 
-// Draw all spring butterflies
-void butterflies_draw_all(void);
-
-// Reset butterfly animations
-void butterflies_reset(void);
+// Check if a point is inside the butterfly's bounds
+bool butterfly_contains_point(const butterfly_t* butterfly, int16_t px, int16_t py);
