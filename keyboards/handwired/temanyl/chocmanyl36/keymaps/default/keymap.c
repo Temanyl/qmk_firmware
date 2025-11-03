@@ -441,14 +441,11 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
                 time_received = true;
                 last_uptime_update = timer_read32();
 
-                // Update tracking variables for hour/day change detection
-                last_hour = current_hour;
-                last_day = current_day;
-
-                // Defer full redraw of scene to avoid blocking matrix scan
-                // (season and sun/moon position depend on time)
-                deferred_display_update_pending = true;
-                deferred_display_update_timer = timer_read32();
+                // Note: We do NOT trigger deferred_display_update_pending here for time changes
+                // The hour/day change detection in display_housekeeping_task() (display.c:638-653)
+                // will handle updates intelligently by only resetting background_saved flags
+                // rather than doing a full animation reset. This allows animated elements
+                // (snowflakes, rain, clouds, etc.) to persist across hour changes.
             }
             break;
 

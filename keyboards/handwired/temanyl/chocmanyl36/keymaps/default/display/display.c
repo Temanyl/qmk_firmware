@@ -639,12 +639,15 @@ void display_housekeeping_task(void) {
     if (hour_changed || day_changed) {
         // Reset background flags to force re-saving with updated scene
         // (sun/moon positions change, so background buffer must be updated)
-        spring_background_saved = false;
-        rain_background_saved = false;
-        ghost_background_saved = false;
-        smoke_background_saved = false;
-        cloud_background_saved = false;
-        snowflake_background_saved = false;
+        // Only reset flags for currently active animations to avoid unnecessary work
+        uint8_t current_season = get_season(current_month);
+
+        if (current_season == 1) spring_background_saved = false;
+        if (current_season == 3) rain_background_saved = false;
+        if (is_halloween_event()) ghost_background_saved = false;
+        if (current_season != 2) smoke_background_saved = false;  // Smoke in all seasons except summer
+        if (current_season == 0 || current_season == 3) cloud_background_saved = false;  // Clouds in winter/fall
+        if (current_season == 0) snowflake_background_saved = false;
 
         draw_seasonal_animation();
         last_hour = current_hour;
