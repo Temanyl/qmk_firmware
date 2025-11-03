@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "scenes.h"
 #include "../display/display.h"
 #include "../display/framebuffer.h"
+#include "../display/draw_logo.h"
 
 // Include season-specific modules
 #include "../seasons/winter/seasons_winter.h"
@@ -346,6 +347,34 @@ void draw_seasonal_animation(void) {
     // Get sun/moon position based on time
     uint16_t celestial_x, celestial_y;
     get_celestial_position(current_hour, &celestial_x, &celestial_y);
+
+    // === SKY BACKGROUND ===
+
+    // Draw sky background based on time of day and weather conditions
+    // Sky area: y=0 to y=152 (above date which starts at y=155)
+    if (is_night) {
+        // Night sky: dark blue (like New Year's Eve)
+        // HSV: Hue=170 (blue), Saturation=200, Value=30 (dark)
+        fb_rect_hsv(0, 0, 134, 152, 170, 200, 30, true);
+    } else {
+        // Daytime sky depends on weather conditions
+        // Check if there are clouds (winter and fall have clouds)
+        if (season == 0 || season == 3) {
+            // Cloudy/rainy day: darker grayish sky
+            // HSV: Hue=170 (blue-gray), Saturation=40 (low saturation for gray), Value=50 (darker)
+            fb_rect_hsv(0, 0, 134, 152, 170, 40, 50, true);
+        } else {
+            // Clear day: light blue sky
+            // HSV: Hue=170 (blue), Saturation=200, Value=180 (bright)
+            fb_rect_hsv(0, 0, 134, 152, 170, 200, 180, true);
+        }
+    }
+
+    // === LOGO ===
+
+    // Draw the Amboss logo in teal (always the same color)
+    // Logo is 120x120, centered horizontally at x=7, positioned at y=10
+    draw_amboss_logo(7, 10, 128, 255, 255);
 
     // === SKY AND CELESTIAL OBJECTS ===
 
