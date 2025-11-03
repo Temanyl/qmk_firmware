@@ -62,6 +62,8 @@ extern painter_font_handle_t media_font;
 extern uint8_t current_display_layer;
 extern uint8_t backlight_brightness;
 extern uint32_t last_uptime_update;
+extern bool deferred_display_update_pending;
+extern uint32_t deferred_display_update_timer;
 
 // Volume indicator state
 extern uint8_t current_volume;

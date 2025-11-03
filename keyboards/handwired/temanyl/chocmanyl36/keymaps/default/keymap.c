@@ -339,10 +339,12 @@ layer_state_t layer_state_set_user(layer_state_t state) {
     }
     // Check if exiting arrow layer
     else if (!layer_state_cmp(state, _MAC_ARROW) && layer_state_cmp(layer_state, _MAC_ARROW)) {
-        // Exiting arrow layer - cleanup game manager and force display redraw
+        // Exiting arrow layer - cleanup game manager
         game_manager_cleanup();
-        // Invalidate display cache to force full redraw
-        current_display_layer = 255;
+        // Defer the full display redraw by 50ms to allow next keystroke to be processed
+        // This prevents blocking the matrix scan during expensive seasonal animation redraws
+        deferred_display_update_pending = true;
+        deferred_display_update_timer = timer_read32();
     }
     return state;
 }
@@ -443,9 +445,10 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
                 last_hour = current_hour;
                 last_day = current_day;
 
-                // Force full redraw of scene (season and sun/moon position depend on time)
-                current_display_layer = 255;  // Invalidate layer cache
-                update_display_for_layer();
+                // Defer full redraw of scene to avoid blocking matrix scan
+                // (season and sun/moon position depend on time)
+                deferred_display_update_pending = true;
+                deferred_display_update_timer = timer_read32();
             }
             break;
 

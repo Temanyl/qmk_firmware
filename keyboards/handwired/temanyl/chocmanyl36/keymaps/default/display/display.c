@@ -50,6 +50,8 @@ painter_font_handle_t media_font = NULL;
 uint8_t current_display_layer = 255;
 uint8_t backlight_brightness = 102;
 uint32_t last_uptime_update = 0;
+bool deferred_display_update_pending = false;
+uint32_t deferred_display_update_timer = 0;
 
 // Volume indicator state
 uint8_t current_volume = 0;
@@ -570,9 +572,19 @@ void init_display(void) {
 
 // Display housekeeping task - handles all display animations and updates
 void display_housekeeping_task(void) {
+    uint32_t current_time = timer_read32();
+
+    // Check for deferred display update (used to prevent blocking matrix scan on layer switch)
+    if (deferred_display_update_pending) {
+        if (timer_elapsed32(deferred_display_update_timer) >= 50) {  // 50ms delay
+            // Enough time has passed, do the full redraw now
+            current_display_layer = 255;  // Force full redraw
+            deferred_display_update_pending = false;
+        }
+    }
+
     update_display_for_layer();
 
-    uint32_t current_time = timer_read32();
     bool needs_flush = false;
 
     // Check if hour or day changed (for seasonal animation updates)
@@ -645,10 +657,10 @@ void display_housekeeping_task(void) {
         if (current_time - brightness_display_timer >= BRIGHTNESS_DISPLAY_TIMEOUT) {
             // Timeout expired, hide brightness indicator
             brightness_display_active = false;
-            // Force a full redraw by invalidating the current layer
-            current_display_layer = 255;
-            update_display_for_layer();
-            needs_flush = true;
+            // Defer full redraw to avoid blocking matrix scan
+            deferred_display_update_pending = true;
+            deferred_display_update_timer = current_time;
+            needs_flush = false;  // Will be flushed when deferred update runs
         }
     }
 
