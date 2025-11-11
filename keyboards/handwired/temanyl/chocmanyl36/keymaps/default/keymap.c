@@ -21,7 +21,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <string.h>
 #include <stdlib.h>
 #include "display/display.h"
+#include "display/framebuffer.h"
 #include "game_manager.h"
+#include "weather_transition.h"
+#include "scenes/scenes.h"
 
 // Custom keycodes
 enum custom_keycodes {
@@ -356,6 +359,7 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
     //   0x01 = Volume update (Byte 1: volume 0-100)
     //   0x02 = Media text update (Bytes 1-31: null-terminated string)
     //   0x03 = Date/Time update (Bytes 1-7: year_low, year_high, month, day, hour, minute, second)
+    //   0x04 = Weather control (Byte 1: weather state 0=sunny, 1=rain, 2=snow)
 
     if (length < 2) return;  // Need at least 2 bytes
 
@@ -446,6 +450,33 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
                 // will handle updates intelligently by only resetting background_saved flags
                 // rather than doing a full animation reset. This allows animated elements
                 // (snowflakes, rain, clouds, etc.) to persist across hour changes.
+            }
+            break;
+
+        case 0x04:  // Weather control
+            if (length >= 2) {
+                uint8_t weather = data[1];
+
+                // Validate weather state (0=sunny, 1=rain, 2=snow)
+                if (weather <= 2) {
+                    weather_transition_set_target((weather_state_t)weather);
+
+                    // Reset animation flags to force re-initialization
+                    // This ensures particles are redrawn when weather changes
+                    extern bool rain_initialized, rain_background_saved;
+                    extern bool snowflake_initialized, snowflake_background_saved;
+                    extern bool cloud_initialized, cloud_background_saved;
+
+                    rain_initialized = false;
+                    rain_background_saved = false;
+                    snowflake_initialized = false;
+                    snowflake_background_saved = false;
+                    cloud_initialized = false;
+                    cloud_background_saved = false;
+
+                    // Redraw the scene immediately with new weather
+                    draw_seasonal_animation();
+                }
             }
             break;
 

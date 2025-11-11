@@ -54,4 +54,5 @@ void draw_cloud(int16_t x, int16_t y);
 void animate_clouds(void);
 void animate_snowflakes(void);
 void reset_winter_animations(void);
-void draw_winter_scene_elements(void);
+void draw_snow_weather_elements(void);   // Weather-based snow (no snowman/drifts)
+void draw_winter_scene_elements(void);   // Seasonal winter (snow + snowman + drifts)

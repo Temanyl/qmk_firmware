@@ -122,15 +122,8 @@ void animate_snowflakes(void) {
         return;
     }
 
-    // Get current season
-    uint8_t season = (current_month == 12 || current_month <= 2) ? 0 :
-                     (current_month >= 3 && current_month <= 5) ? 1 :
-                     (current_month >= 6 && current_month <= 8) ? 2 : 3;
-
-    // Only animate during winter (season 0)
-    if (season != 0) {
-        return;
-    }
+    // Animation logic controlled by weather state (checked in display.c)
+    // No season check needed here anymore
 
     // Animate each snowflake
     for (uint8_t i = 0; i < NUM_SNOWFLAKES; i++) {
@@ -187,9 +180,9 @@ void reset_winter_animations(void) {
     snowman_initialized = false;
 }
 
-// Draw winter-specific scene elements
-void draw_winter_scene_elements(void) {
-    // Winter clouds - animated (will be drawn after background is saved)
+// Draw SNOW WEATHER effects (weather-based, not seasonal)
+void draw_snow_weather_elements(void) {
+    // Snow clouds - animated (will be drawn after background is saved)
     if (!cloud_initialized) {
         init_clouds();
     }
@@ -210,10 +203,7 @@ void draw_winter_scene_elements(void) {
         snowflake_initialized = true;
     }
 
-    // NOTE: Snowflakes are NOT drawn here - they're drawn after background is saved
-    // to prevent them from being baked into the background image
-
-    // Initialize and draw snowman
+    // Initialize and draw snowman (weather-based: you need snow to build a snowman)
     if (!snowman_initialized) {
         // Place snowman to the left of the first tree, on the ground
         snowman_init(&snowmen[0], 15, 150, 6);
@@ -223,7 +213,17 @@ void draw_winter_scene_elements(void) {
     // Draw snowman (static, part of background)
     snowman_draw(&snowmen[0]);
 
-    // Snow on ground with drifts
+    // Snow drifts on ground (weather-based: appears with snow)
     uint16_t ground_y = 150;
     snow_drifts_draw(ground_y);
+
+    // NOTE: Snowflakes are NOT drawn here - they're drawn after background is saved
+    // to prevent them from being baked into the background image
+}
+
+// Draw winter-specific scene elements (SEASONAL - only decorations, no weather)
+void draw_winter_scene_elements(void) {
+    // Winter season: bare trees (no leaves)
+    // Trees are already drawn with season=0 parameter in scenes.c
+    // No additional seasonal decorations needed for winter
 }

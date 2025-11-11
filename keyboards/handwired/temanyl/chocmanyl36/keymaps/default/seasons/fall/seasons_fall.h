@@ -34,4 +34,5 @@ extern uint32_t rain_animation_timer;
 // Fall functions
 void animate_raindrops(void);
 void reset_fall_animations(void);
-void draw_fall_scene_elements(void);
+void draw_rain_weather_elements(void);  // Weather-based rain (no leaves)
+void draw_fall_scene_elements(void);    // Seasonal fall (rain + leaves)

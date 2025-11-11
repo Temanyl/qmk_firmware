@@ -33,6 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../seasons/christmas/seasons_christmas.h"
 #include "../seasons/easter/seasons_easter.h"
 #include "../objects/seasonal/ghost.h"
+#include "../weather_transition.h"
 
 // Layer enum (from keymap.c)
 enum layer_names {
@@ -506,6 +507,9 @@ void init_display(void) {
     // Initialize framebuffer system
     fb_init();
 
+    // Initialize weather transition system
+    weather_transition_init();
+
 #if FRAMEBUFFER_TEST
     // Run framebuffer quick test (shows test pattern for 2 seconds)
     fb_quick_test();
@@ -573,6 +577,27 @@ void init_display(void) {
 // Display housekeeping task - handles all display animations and updates
 void display_housekeeping_task(void) {
     uint32_t current_time = timer_read32();
+
+    // Update weather transition progress
+    // If transition just completed, redraw scene with new weather
+    if (weather_transition_update()) {
+        // Transition completed - reset flags and redraw
+        extern bool rain_initialized, rain_background_saved;
+        extern bool snowflake_initialized, snowflake_background_saved;
+        extern bool cloud_initialized, cloud_background_saved;
+
+        rain_initialized = false;
+        rain_background_saved = false;
+        snowflake_initialized = false;
+        snowflake_background_saved = false;
+        cloud_initialized = false;
+        cloud_background_saved = false;
+
+        // Redraw scene with completed weather state
+        draw_seasonal_animation();
+    }
+
+    // Media player text is updated via HID commands from host
 
     // Check for deferred display update (used to prevent blocking matrix scan on layer switch)
     if (deferred_display_update_pending) {
@@ -713,10 +738,11 @@ void display_housekeeping_task(void) {
         }
     }
 
-    // Handle rain animation (during fall season)
+    // Handle rain animation (when weather is rain)
     // Note: animate_raindrops() handles its own region-based flushing
     if (rain_initialized && rain_background_saved) {
-        if (season == 3) { // Fall season
+        weather_state_t current_weather = weather_transition_get_current();
+        if (current_weather == WEATHER_RAIN) { // Rain weather
             if (current_time - rain_animation_timer >= RAIN_ANIMATION_SPEED) {
                 rain_animation_timer = current_time;
                 animate_raindrops();
@@ -725,11 +751,11 @@ void display_housekeeping_task(void) {
         }
     }
 
-    // Handle snowflake animation (during winter season)
+    // Handle snowflake animation (when weather is snow)
     // Note: animate_snowflakes() handles its own region-based flushing
     if (snowflake_initialized && snowflake_background_saved) {
-        uint8_t season = get_season(current_month);
-        if (season == 0) { // Winter season
+        weather_state_t current_weather = weather_transition_get_current();
+        if (current_weather == WEATHER_SNOW) { // Snow weather
             if (current_time - snowflake_animation_timer >= SNOWFLAKE_ANIMATION_SPEED) {
                 snowflake_animation_timer = current_time;
                 animate_snowflakes();

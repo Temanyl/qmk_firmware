@@ -40,15 +40,8 @@ void animate_raindrops(void) {
         return;
     }
 
-    // Get current season
-    uint8_t season = (current_month == 12 || current_month <= 2) ? 0 :
-                     (current_month >= 3 && current_month <= 5) ? 1 :
-                     (current_month >= 6 && current_month <= 8) ? 2 : 3;
-
-    // Only animate during fall (season 3)
-    if (season != 3) {
-        return;
-    }
+    // Animation logic controlled by weather state (checked in display.c)
+    // No season check needed here anymore
 
     // Animate each raindrop
     for (uint8_t i = 0; i < NUM_RAINDROPS; i++) {
@@ -105,15 +98,12 @@ void reset_fall_animations(void) {
     rain_background_saved = false;
 }
 
-// Draw fall-specific scene elements
-void draw_fall_scene_elements(void) {
-    // Fall clouds - animated (will be drawn after background is saved)
+// Draw RAIN WEATHER effects (weather-based, not seasonal)
+void draw_rain_weather_elements(void) {
+    // Rain clouds - animated (will be drawn after background is saved)
     if (!cloud_initialized) {
         init_clouds();
     }
-
-    // Draw fallen leaves on the ground
-    fallen_leaves_draw_all();
 
     // Initialize rain if not already done (but don't draw yet - draw after background is saved)
     if (!rain_initialized) {
@@ -134,4 +124,10 @@ void draw_fall_scene_elements(void) {
 
     // NOTE: Raindrops are NOT drawn here - they're drawn after background is saved
     // to prevent them from being baked into the background image
+}
+
+// Draw fall-specific scene elements (SEASONAL - only decorations, no weather)
+void draw_fall_scene_elements(void) {
+    // Draw fallen leaves on the ground (seasonal decoration)
+    fallen_leaves_draw_all();
 }
