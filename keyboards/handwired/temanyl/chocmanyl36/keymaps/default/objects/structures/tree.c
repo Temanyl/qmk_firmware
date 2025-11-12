@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "tree.h"
 #include "../../display/framebuffer.h"
+#include "../../weather_transition.h"
 
 // Initialize tree
 void tree_init(tree_t *tree, uint16_t base_x, uint16_t base_y, uint8_t season, uint8_t hue, uint8_t sat, uint8_t val) {
@@ -68,41 +69,6 @@ void tree_draw(const tree_t *tree) {
         // Side twigs extending from main branches
         fb_rect_hsv(base_x - 14, base_y - trunk_height - 6, base_x - 12, base_y - trunk_height - 4, 20, 120, 70, true);
         fb_rect_hsv(base_x + 12, base_y - trunk_height - 6, base_x + 14, base_y - trunk_height - 4, 20, 120, 70, true);
-
-        // Add snow accumulation on branches (thicker and more coverage)
-        // Snow on main upward branches (thicker patches)
-        fb_rect_hsv(base_x - 9, base_y - trunk_height - 11, base_x - 5, base_y - trunk_height - 9, 170, 40, 255, true);
-        fb_rect_hsv(base_x + 5, base_y - trunk_height - 11, base_x + 9, base_y - trunk_height - 9, 170, 40, 255, true);
-
-        // Snow on horizontal/angled branch sections (larger)
-        fb_rect_hsv(base_x - 13, base_y - trunk_height - 9, base_x - 7, base_y - trunk_height - 7, 170, 40, 255, true);
-        fb_rect_hsv(base_x + 7, base_y - trunk_height - 9, base_x + 13, base_y - trunk_height - 7, 170, 40, 255, true);
-
-        // Snow on middle branches (thicker)
-        fb_rect_hsv(base_x - 7, base_y - trunk_height - 7, base_x - 3, base_y - trunk_height - 5, 170, 40, 255, true);
-        fb_rect_hsv(base_x + 3, base_y - trunk_height - 7, base_x + 7, base_y - trunk_height - 5, 170, 40, 255, true);
-
-        // Additional snow on mid-trunk branches
-        fb_rect_hsv(base_x - 6, base_y - trunk_height - 3, base_x - 3, base_y - trunk_height - 1, 170, 40, 255, true);
-        fb_rect_hsv(base_x + 3, base_y - trunk_height - 3, base_x + 6, base_y - trunk_height - 1, 170, 40, 255, true);
-
-        // Snow on lower outward branches (larger)
-        fb_rect_hsv(base_x - 11, base_y - trunk_height + 3, base_x - 7, base_y - trunk_height + 5, 170, 40, 255, true);
-        fb_rect_hsv(base_x + 7, base_y - trunk_height + 3, base_x + 11, base_y - trunk_height + 5, 170, 40, 255, true);
-
-        // Additional snow lower down
-        fb_rect_hsv(base_x - 9, base_y - trunk_height + 6, base_x - 7, base_y - trunk_height + 8, 170, 40, 255, true);
-        fb_rect_hsv(base_x + 7, base_y - trunk_height + 6, base_x + 9, base_y - trunk_height + 8, 170, 40, 255, true);
-
-        // Snow patches on twigs (larger and brighter)
-        fb_rect_hsv(base_x - 11, base_y - trunk_height - 13, base_x - 8, base_y - trunk_height - 11, 0, 0, 255, true);
-        fb_rect_hsv(base_x + 8, base_y - trunk_height - 13, base_x + 11, base_y - trunk_height - 11, 0, 0, 255, true);
-        fb_rect_hsv(base_x - 4, base_y - trunk_height - 14, base_x - 1, base_y - trunk_height - 12, 0, 0, 255, true);
-        fb_rect_hsv(base_x + 1, base_y - trunk_height - 14, base_x + 4, base_y - trunk_height - 12, 0, 0, 255, true);
-
-        // Side twig snow
-        fb_rect_hsv(base_x - 15, base_y - trunk_height - 7, base_x - 11, base_y - trunk_height - 5, 170, 40, 255, true);
-        fb_rect_hsv(base_x + 11, base_y - trunk_height - 7, base_x + 15, base_y - trunk_height - 5, 170, 40, 255, true);
     } else if (season == 1) { // Spring - green leaves with pink blossoms
         // Tree shape with green base
         fb_circle_hsv(base_x, base_y - trunk_height - 7, 15, 85, 220, 200, true); // Light green
@@ -146,5 +112,46 @@ void tree_draw(const tree_t *tree) {
         fb_circle_hsv(base_x, base_y - trunk_height - 7, 15, 20, 255, 200, true);      // Orange
         fb_circle_hsv(base_x - 8, base_y - trunk_height - 4, 10, 10, 255, 220, true);  // Red-orange
         fb_circle_hsv(base_x + 8, base_y - trunk_height - 4, 10, 30, 255, 200, true);  // Yellow-orange
+    }
+
+    // Add snow on branches based on WEATHER (not season)
+    uint8_t snow_coverage = snow_accumulation_get_tree();
+    if (snow_coverage > 0 && season == 0) { // Only winter trees (bare branches) can have snow
+        // Scale snow brightness based on accumulation (0-255)
+        uint8_t snow_brightness = snow_coverage;
+
+        // Snow on main upward branches (thicker patches)
+        fb_rect_hsv(base_x - 9, base_y - trunk_height - 11, base_x - 5, base_y - trunk_height - 9, 170, 40, snow_brightness, true);
+        fb_rect_hsv(base_x + 5, base_y - trunk_height - 11, base_x + 9, base_y - trunk_height - 9, 170, 40, snow_brightness, true);
+
+        // Snow on horizontal/angled branch sections (larger)
+        fb_rect_hsv(base_x - 13, base_y - trunk_height - 9, base_x - 7, base_y - trunk_height - 7, 170, 40, snow_brightness, true);
+        fb_rect_hsv(base_x + 7, base_y - trunk_height - 9, base_x + 13, base_y - trunk_height - 7, 170, 40, snow_brightness, true);
+
+        // Snow on middle branches (thicker)
+        fb_rect_hsv(base_x - 7, base_y - trunk_height - 7, base_x - 3, base_y - trunk_height - 5, 170, 40, snow_brightness, true);
+        fb_rect_hsv(base_x + 3, base_y - trunk_height - 7, base_x + 7, base_y - trunk_height - 5, 170, 40, snow_brightness, true);
+
+        // Additional snow on mid-trunk branches
+        fb_rect_hsv(base_x - 6, base_y - trunk_height - 3, base_x - 3, base_y - trunk_height - 1, 170, 40, snow_brightness, true);
+        fb_rect_hsv(base_x + 3, base_y - trunk_height - 3, base_x + 6, base_y - trunk_height - 1, 170, 40, snow_brightness, true);
+
+        // Snow on lower outward branches (larger)
+        fb_rect_hsv(base_x - 11, base_y - trunk_height + 3, base_x - 7, base_y - trunk_height + 5, 170, 40, snow_brightness, true);
+        fb_rect_hsv(base_x + 7, base_y - trunk_height + 3, base_x + 11, base_y - trunk_height + 5, 170, 40, snow_brightness, true);
+
+        // Additional snow lower down
+        fb_rect_hsv(base_x - 9, base_y - trunk_height + 6, base_x - 7, base_y - trunk_height + 8, 170, 40, snow_brightness, true);
+        fb_rect_hsv(base_x + 7, base_y - trunk_height + 6, base_x + 9, base_y - trunk_height + 8, 170, 40, snow_brightness, true);
+
+        // Snow patches on twigs (brighter white)
+        fb_rect_hsv(base_x - 11, base_y - trunk_height - 13, base_x - 8, base_y - trunk_height - 11, 0, 0, snow_brightness, true);
+        fb_rect_hsv(base_x + 8, base_y - trunk_height - 13, base_x + 11, base_y - trunk_height - 11, 0, 0, snow_brightness, true);
+        fb_rect_hsv(base_x - 4, base_y - trunk_height - 14, base_x - 1, base_y - trunk_height - 12, 0, 0, snow_brightness, true);
+        fb_rect_hsv(base_x + 1, base_y - trunk_height - 14, base_x + 4, base_y - trunk_height - 12, 0, 0, snow_brightness, true);
+
+        // Side twig snow
+        fb_rect_hsv(base_x - 15, base_y - trunk_height - 7, base_x - 11, base_y - trunk_height - 5, 170, 40, snow_brightness, true);
+        fb_rect_hsv(base_x + 11, base_y - trunk_height - 7, base_x + 15, base_y - trunk_height - 5, 170, 40, snow_brightness, true);
     }
 }

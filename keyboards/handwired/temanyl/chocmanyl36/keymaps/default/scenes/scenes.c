@@ -457,32 +457,9 @@ void draw_seasonal_animation(void) {
     draw_tree(67, ground_y, season, tree_hue, tree_sat, tree_val);
     draw_cabin(105, ground_y, season);
 
-    // === SNOW ACCUMULATION OVERLAYS ===
-    // Draw snow on surfaces based on accumulation level
-    uint8_t snow_ground = snow_accumulation_get_ground();
-    uint8_t snow_tree = snow_accumulation_get_tree();
-    uint8_t snow_cabin = snow_accumulation_get_cabin();
-
-    if (snow_ground > 0) {
-        // Draw white snow on ground with opacity based on accumulation
-        uint8_t brightness = (snow_ground * 255) / 255;
-        fb_rect_hsv(0, ground_y, 134, ground_y + 1, 0, 0, brightness, true);
-    }
-
-    // Draw snow on trees (simple white caps on top)
-    if (snow_tree > 0) {
-        uint8_t tree_brightness = (snow_tree * 255) / 255;
-        // Small snow cap on top of each tree
-        fb_rect_hsv(28, ground_y - 10, 32, ground_y - 9, 0, 0, tree_brightness, true);
-        fb_rect_hsv(65, ground_y - 10, 69, ground_y - 9, 0, 0, tree_brightness, true);
-    }
-
-    // Draw snow on cabin roof
-    if (snow_cabin > 0) {
-        uint8_t cabin_brightness = (snow_cabin * 255) / 255;
-        // Snow on cabin roof top edge
-        fb_rect_hsv(103, ground_y - 12, 128, ground_y - 11, 0, 0, cabin_brightness, true);
-    }
+    // === SNOW ACCUMULATION ===
+    // Snow coverage on ground/trees/cabin is now handled by snow_drifts_draw()
+    // in the snow weather elements (no simple overlay lines needed)
 
     // === SEASONAL DECORATIONS (always drawn based on calendar season) ===
 

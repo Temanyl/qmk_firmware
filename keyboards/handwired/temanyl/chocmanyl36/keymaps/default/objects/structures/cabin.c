@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "cabin.h"
 #include "../../display/framebuffer.h"
+#include "../../weather_transition.h"
 
 // Initialize cabin
 void cabin_init(cabin_t *cabin, uint16_t base_x, uint16_t base_y, uint8_t season) {
@@ -29,7 +30,7 @@ void cabin_init(cabin_t *cabin, uint16_t base_x, uint16_t base_y, uint8_t season
 void cabin_draw(const cabin_t *cabin) {
     uint16_t base_x = cabin->base_x;
     uint16_t base_y = cabin->base_y;
-    uint8_t season = cabin->season;
+    // season variable removed - snow is now weather-based, not season-based
 
     // Cabin dimensions
     uint8_t cabin_width = 24;
@@ -84,21 +85,25 @@ void cabin_draw(const cabin_t *cabin) {
 
     // Note: Smoke is animated separately and not drawn here
 
-    // Add snow on roof in winter
-    if (season == 0) {
+    // Add snow on roof based on WEATHER (not season)
+    uint8_t snow_coverage = snow_accumulation_get_cabin();
+    if (snow_coverage > 0) {
+        // Scale snow brightness based on accumulation (0-255)
+        uint8_t snow_brightness = snow_coverage;
+
         // Snow on left side of roof
         for (uint8_t i = 0; i < roof_height; i++) {
             uint8_t roof_y = base_y - cabin_height - i;
             uint8_t roof_left = base_x - (cabin_width/2 + roof_height - i);
             uint8_t roof_right = base_x - (cabin_width/2 - i);
-            fb_rect_hsv(roof_left, roof_y - 2, roof_right, roof_y - 1, 170, 40, 255, true);
+            fb_rect_hsv(roof_left, roof_y - 2, roof_right, roof_y - 1, 170, 40, snow_brightness, true);
         }
         // Snow on right side of roof
         for (uint8_t i = 0; i < roof_height; i++) {
             uint8_t roof_y = base_y - cabin_height - i;
             uint8_t roof_left = base_x + (cabin_width/2 - i);
             uint8_t roof_right = base_x + (cabin_width/2 + roof_height - i);
-            fb_rect_hsv(roof_left, roof_y - 2, roof_right, roof_y - 1, 170, 40, 255, true);
+            fb_rect_hsv(roof_left, roof_y - 2, roof_right, roof_y - 1, 170, 40, snow_brightness, true);
         }
     }
 }
