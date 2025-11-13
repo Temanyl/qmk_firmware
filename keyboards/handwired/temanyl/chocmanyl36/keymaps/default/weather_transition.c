@@ -62,7 +62,7 @@ void weather_transition_set_target(weather_state_t target) {
     // Change current weather IMMEDIATELY for particle rendering
     weather_transition.current_weather = target;
 
-    // Set snow accumulation IMMEDIATELY based on weather
+    // Set snow accumulation IMMEDIATELY
     if (target == WEATHER_SNOW) {
         snow_accumulation.ground_coverage = 255;
         snow_accumulation.tree_coverage = 255;
@@ -73,7 +73,7 @@ void weather_transition_set_target(weather_state_t target) {
         snow_accumulation.cabin_coverage = 0;
     }
 
-    // No transition needed anymore - everything is instant
+    // No transition needed - everything is instant
     weather_transition.transition_active = false;
     weather_transition.transition_progress = 255;
 }
@@ -84,7 +84,7 @@ void weather_transition_set_target(weather_state_t target) {
  * Returns true if transition just completed (to trigger redraw)
  */
 bool weather_transition_update(void) {
-    // No gradual transitions anymore - everything is instant
+    // No gradual transitions - everything is instant
     return false;
 }
 

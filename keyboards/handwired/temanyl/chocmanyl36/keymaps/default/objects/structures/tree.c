@@ -114,11 +114,27 @@ void tree_draw(const tree_t *tree) {
         fb_circle_hsv(base_x + 8, base_y - trunk_height - 4, 10, 30, 255, 200, true);  // Yellow-orange
     }
 
-    // Add snow on branches based on WEATHER (not season)
+    // Add snow on tree based on WEATHER (not season)
     uint8_t snow_coverage = snow_accumulation_get_tree();
-    if (snow_coverage > 0 && season == 0) { // Only winter trees (bare branches) can have snow
+    if (snow_coverage > 0) {
         // Scale snow brightness based on accumulation (0-255)
         uint8_t snow_brightness = snow_coverage;
+
+        // For seasons with foliage (spring/summer/fall), completely cover tree in white snow
+        if (season == 1) { // Spring - completely white over green canopy
+            fb_circle_hsv(base_x, base_y - trunk_height - 7, 15, 0, 0, snow_brightness, true); // Filled white
+        } else if (season == 2) { // Summer - completely white over cherry tree
+            fb_circle_hsv(base_x, base_y - trunk_height - 7, 16, 0, 0, snow_brightness, true);       // Center filled
+            fb_circle_hsv(base_x - 9, base_y - trunk_height - 4, 11, 0, 0, snow_brightness, true);  // Left filled
+            fb_circle_hsv(base_x + 9, base_y - trunk_height - 4, 11, 0, 0, snow_brightness, true);  // Right filled
+        } else if (season == 3) { // Fall - completely white over autumn leaves
+            fb_circle_hsv(base_x, base_y - trunk_height - 7, 15, 0, 0, snow_brightness, true);      // Center filled
+            fb_circle_hsv(base_x - 8, base_y - trunk_height - 4, 10, 0, 0, snow_brightness, true);  // Left filled
+            fb_circle_hsv(base_x + 8, base_y - trunk_height - 4, 10, 0, 0, snow_brightness, true);  // Right filled
+        }
+
+        // For winter, snow on bare branches (existing code)
+        if (season == 0) {
 
         // Snow on main upward branches (thicker patches)
         fb_rect_hsv(base_x - 9, base_y - trunk_height - 11, base_x - 5, base_y - trunk_height - 9, 170, 40, snow_brightness, true);
@@ -153,5 +169,6 @@ void tree_draw(const tree_t *tree) {
         // Side twig snow
         fb_rect_hsv(base_x - 15, base_y - trunk_height - 7, base_x - 11, base_y - trunk_height - 5, 170, 40, snow_brightness, true);
         fb_rect_hsv(base_x + 11, base_y - trunk_height - 7, base_x + 15, base_y - trunk_height - 5, 170, 40, snow_brightness, true);
+        }
     }
 }

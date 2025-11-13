@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../../objects/effects/snowflake.h"
 #include "../../objects/effects/snow_drift.h"
 #include "../../objects/seasonal/snowman.h"
+#include "../../weather_transition.h"
 
 // Cloud animation state
 cloud_t clouds[NUM_CLOUDS];
@@ -203,19 +204,28 @@ void draw_snow_weather_elements(void) {
         snowflake_initialized = true;
     }
 
-    // Initialize and draw snowman (weather-based: you need snow to build a snowman)
-    if (!snowman_initialized) {
-        // Place snowman to the left of the first tree, on the ground
-        snowman_init(&snowmen[0], 15, 150, 6);
-        snowman_initialized = true;
-    }
+    // Get ground snow accumulation (0-255)
+    uint8_t ground_snow = snow_accumulation_get_ground();
 
-    // Draw snowman (static, part of background)
-    snowman_draw(&snowmen[0]);
-
-    // Snow drifts on ground (weather-based: appears with snow)
+    // Snow drifts on ground fade in/out gradually based on accumulation
     uint16_t ground_y = 150;
-    snow_drifts_draw(ground_y);
+    snow_drifts_draw(ground_y, ground_snow);
+
+    // Snowman appears only when enough snow has accumulated (>80%)
+    // You need enough snow on the ground to build a snowman!
+    // Appears AFTER trees and cabin are covered
+    if (ground_snow > 204) {
+        if (!snowman_initialized) {
+            // Place snowman to the left of the first tree, on the ground
+            snowman_init(&snowmen[0], 15, 150, 6);
+            snowman_initialized = true;
+        }
+        // Draw snowman (static, part of background)
+        snowman_draw(&snowmen[0]);
+    } else {
+        // Not enough snow - snowman melted/not built yet
+        snowman_initialized = false;
+    }
 
     // NOTE: Snowflakes are NOT drawn here - they're drawn after background is saved
     // to prevent them from being baked into the background image

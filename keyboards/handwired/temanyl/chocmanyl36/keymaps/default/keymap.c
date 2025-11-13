@@ -474,8 +474,16 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
                     cloud_initialized = false;
                     cloud_background_saved = false;
 
+                    // Force a complete display redraw to clear old weather particles
+                    extern uint8_t current_display_layer;
+                    extern painter_device_t display;
+                    current_display_layer = 255;  // Force full redraw on next update
+
                     // Redraw the scene immediately with new weather
                     draw_seasonal_animation();
+
+                    // Flush the entire scene to display to clear old particles
+                    fb_flush(display);
                 }
             }
             break;

@@ -20,4 +20,4 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <stdint.h>
 
 // Draw snow on ground with drifts
-void snow_drifts_draw(uint16_t ground_y);
+void snow_drifts_draw(uint16_t ground_y, uint8_t opacity);

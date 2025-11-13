@@ -579,23 +579,7 @@ void display_housekeeping_task(void) {
     uint32_t current_time = timer_read32();
 
     // Update weather transition progress
-    // If transition just completed, redraw scene with new weather
-    if (weather_transition_update()) {
-        // Transition completed - reset flags and redraw
-        extern bool rain_initialized, rain_background_saved;
-        extern bool snowflake_initialized, snowflake_background_saved;
-        extern bool cloud_initialized, cloud_background_saved;
-
-        rain_initialized = false;
-        rain_background_saved = false;
-        snowflake_initialized = false;
-        snowflake_background_saved = false;
-        cloud_initialized = false;
-        cloud_background_saved = false;
-
-        // Redraw scene with completed weather state
-        draw_seasonal_animation();
-    }
+    weather_transition_update();
 
     // Media player text is updated via HID commands from host
 

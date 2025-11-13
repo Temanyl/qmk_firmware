@@ -47,6 +47,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../objects/fauna/butterfly.h"
 #include "../objects/fauna/bee.h"
 #include "../objects/fauna/firefly.h"
+#include "../objects/effects/snow_drift.h"
+#include "../objects/seasonal/snowman.h"
 
 // External object arrays from season-specific files
 extern bird_t birds[];
@@ -487,8 +489,49 @@ void draw_seasonal_animation(void) {
     } else if (current_weather == WEATHER_RAIN) {
         // Rain: rain drops + clouds
         draw_rain_weather_elements();
+
+        // Continue drawing ground snow while it melts
+        uint8_t ground_snow = snow_accumulation_get_ground();
+        if (ground_snow > 0) {
+            uint16_t ground_y = 150;
+            snow_drifts_draw(ground_y, ground_snow);
+
+            // Draw snowman if still enough snow
+            if (ground_snow > 204) {
+                extern snowman_t snowmen[];
+                extern bool snowman_initialized;
+                if (!snowman_initialized) {
+                    snowman_init(&snowmen[0], 15, 150, 6);
+                    snowman_initialized = true;
+                }
+                snowman_draw(&snowmen[0]);
+            } else {
+                extern bool snowman_initialized;
+                snowman_initialized = false;
+            }
+        }
+    } else {
+        // SUNNY weather: continue drawing ground snow while it melts
+        uint8_t ground_snow = snow_accumulation_get_ground();
+        if (ground_snow > 0) {
+            uint16_t ground_y = 150;
+            snow_drifts_draw(ground_y, ground_snow);
+
+            // Draw snowman if still enough snow
+            if (ground_snow > 204) {
+                extern snowman_t snowmen[];
+                extern bool snowman_initialized;
+                if (!snowman_initialized) {
+                    snowman_init(&snowmen[0], 15, 150, 6);
+                    snowman_initialized = true;
+                }
+                snowman_draw(&snowmen[0]);
+            } else {
+                extern bool snowman_initialized;
+                snowman_initialized = false;
+            }
+        }
     }
-    // SUNNY weather: no additional effects
 
     // === HALLOWEEN/CHRISTMAS/EASTER OVERLAYS ===
     if (is_halloween_event()) {

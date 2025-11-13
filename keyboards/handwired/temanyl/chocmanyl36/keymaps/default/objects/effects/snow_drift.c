@@ -24,13 +24,17 @@ static const struct { uint16_t x; uint8_t height; } snow_drifts[] = {
 };
 
 // Draw snow on ground with drifts
-void snow_drifts_draw(uint16_t ground_y) {
-    // Base snow layer
-    fb_rect_hsv(0, ground_y - 2, 134, ground_y, 0, 0, 240, true);
+void snow_drifts_draw(uint16_t ground_y, uint8_t opacity) {
+    if (opacity == 0) return; // No snow to draw
 
-    // Snow drifts
+    // Base snow layer with scaled brightness
+    uint8_t base_brightness = (240 * opacity) / 255;
+    fb_rect_hsv(0, ground_y - 2, 134, ground_y, 0, 0, base_brightness, true);
+
+    // Snow drifts with scaled brightness
+    uint8_t drift_brightness = opacity; // Full white for drifts
     for (uint8_t i = 0; i < 6; i++) {
         fb_rect_hsv(snow_drifts[i].x, ground_y - snow_drifts[i].height,
-                    snow_drifts[i].x + 20, ground_y, 170, 40, 255, true);
+                    snow_drifts[i].x + 20, ground_y, 170, 40, drift_brightness, true);
     }
 }
