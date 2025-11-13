@@ -430,17 +430,42 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
 #endif
                 // Extract date/time components
                 current_year = data[1] | (data[2] << 8);  // 16-bit year
-                current_month = data[3];
+                uint8_t new_month = data[3];
                 current_day = data[4];
                 current_hour = data[5];
                 current_minute = data[6];
                 // data[7] is seconds, but we don't display it
 
                 // Validate ranges
-                if (current_month < 1 || current_month > 12) current_month = 1;
+                if (new_month < 1 || new_month > 12) new_month = 1;
                 if (current_day < 1 || current_day > 31) current_day = 1;
                 if (current_hour > 23) current_hour = 0;
                 if (current_minute > 59) current_minute = 0;
+
+                // If month changed, update weather to match new season default
+                if (new_month != current_month) {
+                    current_month = new_month;
+                    weather_transition_init(current_month);
+
+                    // Reset animation flags for new season/weather
+                    extern bool rain_initialized, rain_background_saved;
+                    extern bool snowflake_initialized, snowflake_background_saved;
+                    extern bool cloud_initialized, cloud_background_saved;
+
+                    rain_initialized = false;
+                    rain_background_saved = false;
+                    snowflake_initialized = false;
+                    snowflake_background_saved = false;
+                    cloud_initialized = false;
+                    cloud_background_saved = false;
+
+                    // Force complete display redraw
+                    current_display_layer = 255;
+                    draw_seasonal_animation();
+                    fb_flush(display);
+                } else {
+                    current_month = new_month;
+                }
 
                 time_received = true;
                 last_uptime_update = timer_read32();
