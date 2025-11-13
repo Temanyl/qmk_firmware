@@ -36,15 +36,40 @@ snow_accumulation_t snow_accumulation = {
 };
 
 /**
- * Initialize weather transition system
+ * Initialize weather transition system with season-based defaults
+ * month: 1-12 (January = 1, December = 12)
+ * Defaults: Winter = Snow, Spring = Sunny, Summer = Sunny, Fall = Rain
  */
-void weather_transition_init(void) {
-    weather_transition.current_weather = WEATHER_SUNNY;
-    weather_transition.target_weather = WEATHER_SUNNY;
+void weather_transition_init(uint8_t month) {
+    // Determine season from month
+    uint8_t season = (month == 12 || month <= 2) ? 0 :    // Winter
+                     (month >= 3 && month <= 5) ? 1 :      // Spring
+                     (month >= 6 && month <= 8) ? 2 : 3;   // Summer : Fall
+
+    // Set default weather based on season
+    weather_state_t default_weather;
+    if (season == 0) {
+        default_weather = WEATHER_SNOW;  // Winter
+    } else if (season == 3) {
+        default_weather = WEATHER_RAIN;  // Fall
+    } else {
+        default_weather = WEATHER_SUNNY; // Spring and Summer
+    }
+
+    weather_transition.current_weather = default_weather;
+    weather_transition.target_weather = default_weather;
     weather_transition.transition_active = false;
-    weather_transition.transition_progress = 0;
+    weather_transition.transition_progress = 255;
     weather_transition.transition_timer = timer_read32();
-    snow_accumulation_reset();
+
+    // Set initial snow accumulation based on default weather
+    if (default_weather == WEATHER_SNOW) {
+        snow_accumulation.ground_coverage = 255;
+        snow_accumulation.tree_coverage = 255;
+        snow_accumulation.cabin_coverage = 255;
+    } else {
+        snow_accumulation_reset();
+    }
 }
 
 /**

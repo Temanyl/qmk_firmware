@@ -49,7 +49,7 @@ extern weather_transition_t weather_transition;
 extern snow_accumulation_t snow_accumulation;
 
 // Weather transition functions
-void weather_transition_init(void);
+void weather_transition_init(uint8_t month);
 void weather_transition_set_target(weather_state_t target);
 bool weather_transition_update(void);  // Returns true if transition just completed
 uint8_t weather_transition_get_progress(void);

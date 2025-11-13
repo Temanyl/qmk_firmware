@@ -507,8 +507,8 @@ void init_display(void) {
     // Initialize framebuffer system
     fb_init();
 
-    // Initialize weather transition system
-    weather_transition_init();
+    // Initialize weather transition system with season-based defaults
+    weather_transition_init(current_month);
 
 #if FRAMEBUFFER_TEST
     // Run framebuffer quick test (shows test pattern for 2 seconds)
