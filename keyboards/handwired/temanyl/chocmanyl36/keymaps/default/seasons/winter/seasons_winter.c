@@ -49,15 +49,16 @@ extern painter_device_t display;
 void init_clouds(void) {
     if (cloud_initialized) return;
 
-    // Initialize 5 clouds spread across a wide area
-    // All clouds move at same speed to prevent overlap artifacts
-    // Spacing: ~55 pixels apart for continuous flow (not all visible at once)
+    // Initialize 5 clouds to fully cover the sky without excessive overlap
+    // Cloud width is ~34 pixels (x-16 to x+18)
+    // Display width is 135 pixels, so space clouds ~30 pixels apart
+    // Y positions vary between 25-42 for natural appearance
 
-    cloud_init(&clouds[0], 10, 35, -1);
-    cloud_init(&clouds[1], 65, 28, -1);
-    cloud_init(&clouds[2], 120, 42, -1);
-    cloud_init(&clouds[3], 175, 32, -1);
-    cloud_init(&clouds[4], 230, 38, -1);
+    cloud_init(&clouds[0], 17, 32, -1);   // Left edge
+    cloud_init(&clouds[1], 47, 38, -1);   // Lower
+    cloud_init(&clouds[2], 77, 26, -1);   // Higher
+    cloud_init(&clouds[3], 107, 35, -1);  // Mid-height
+    cloud_init(&clouds[4], 137, 29, -1);  // Right edge (higher)
 
     cloud_initialized = true;
 }
@@ -88,8 +89,8 @@ void animate_clouds(void) {
         return;
     }
 
-    // Determine how many clouds to animate based on season
-    uint8_t num_active_clouds = is_fall ? 5 : 4;  // 5 clouds in fall, 4 in winter
+    // All 5 clouds are now active to ensure full sky coverage
+    uint8_t num_active_clouds = 5;
 
     // Update cloud positions
     for (uint8_t i = 0; i < num_active_clouds; i++) {
@@ -107,8 +108,8 @@ void animate_clouds(void) {
                     rightmost_x = clouds[j].x;
                 }
             }
-            // Place this cloud 55 pixels to the right of the rightmost cloud
-            clouds[i].x = rightmost_x + 55;
+            // Place this cloud 30 pixels to the right of the rightmost cloud (for continuous coverage)
+            clouds[i].x = rightmost_x + 30;
             // Vary y position slightly (between 25-45)
             clouds[i].y = 25 + ((i * 7) % 20);
         }

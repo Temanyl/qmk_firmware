@@ -19,7 +19,7 @@ SRC += weather_transition.c
 
 # Drawable objects
 SRC += objects/seasonal/pumpkin.c objects/seasonal/ghost.c objects/seasonal/snowman.c objects/seasonal/easter_egg.c
-SRC += objects/weather/smoke.c objects/weather/cloud.c objects/weather/raindrop.c objects/weather/unified_particle.c
+SRC += objects/weather/smoke.c objects/weather/cloud.c objects/weather/raindrop.c
 SRC += objects/celestial/sun.c objects/celestial/moon.c objects/celestial/stars.c objects/celestial/astronomical.c
 SRC += objects/structures/tree.c objects/structures/cabin.c
 SRC += objects/flora/flower.c objects/flora/sunflower.c objects/flora/fallen_leaf.c
