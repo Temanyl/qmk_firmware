@@ -19,9 +19,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../../display/framebuffer.h"
 
 // Initialize moon
-void moon_init(moon_t *moon, int16_t x, int16_t y, uint8_t day, uint8_t hour) {
+void moon_init(moon_t *moon, int16_t x, int16_t y, uint16_t year, uint8_t month, uint8_t day, uint8_t hour) {
     moon->x = x;
     moon->y = y;
+    moon->year = year;
+    moon->month = month;
     moon->day = day;
     moon->hour = hour;
 }
@@ -42,18 +44,69 @@ static uint16_t isqrt(uint16_t n) {
     return result;
 }
 
+// Calculate Julian Day Number from Gregorian date
+// Based on algorithm from "Astronomical Algorithms" by Jean Meeus
+static int32_t calculate_julian_day(uint16_t year, uint8_t month, uint8_t day, uint8_t hour) {
+    // Adjust for Julian calendar algorithm (treat Jan/Feb as months 13/14 of previous year)
+    int32_t a = (14 - month) / 12;
+    int32_t y = year + 4800 - a;
+    int32_t m = month + 12 * a - 3;
+
+    // Calculate JDN at midnight
+    int32_t jdn = day + (153 * m + 2) / 5 + 365 * y + y / 4 - y / 100 + y / 400 - 32045;
+
+    // Add fractional day for the hour (simplified: hour/24)
+    // We multiply by 100 to keep precision (will divide later)
+    return jdn * 100 + (hour * 100) / 24;
+}
+
+// Calculate moon phase (0-29) based on astronomical lunar cycle
+// Uses the synodic month period of 29.530588853 days
+// Reference: New moon on January 6, 2000 at 18:14 UTC (JD 2451550.26)
+static uint8_t calculate_moon_phase(uint16_t year, uint8_t month, uint8_t day, uint8_t hour) {
+    // Calculate current Julian Day (scaled by 100 for precision)
+    int32_t current_jd_scaled = calculate_julian_day(year, month, day, hour);
+
+    // Reference new moon: Jan 6, 2000, 18:14 UTC
+    // JD = 2451550.26, scaled by 100 = 245155026
+    const int32_t reference_jd_scaled = 245155026;
+
+    // Calculate days since reference new moon (scaled by 100)
+    int32_t days_since_ref_scaled = current_jd_scaled - reference_jd_scaled;
+
+    // Synodic month = 29.530588853 days
+    // Scaled by 100: 2953.0588853, approximated as 2953
+    const int32_t synodic_month_scaled = 2953;
+
+    // Calculate position in lunar cycle
+    // We want: (days_since_ref % synodic_month) / synodic_month * 29.53
+    // This gives us the phase as a value from 0 to 29.53
+
+    // First, get the remainder when dividing by synodic month
+    int32_t phase_scaled = days_since_ref_scaled % synodic_month_scaled;
+
+    // Handle negative remainders (for dates before reference)
+    if (phase_scaled < 0) {
+        phase_scaled += synodic_month_scaled;
+    }
+
+    // Convert to phase 0-29
+    // phase_scaled is in range [0, 2953), representing days in the cycle
+    // Map to [0, 29]: multiply by 29 and divide by synodic_month_scaled
+    uint8_t moon_phase = (uint8_t)((phase_scaled * 29) / synodic_month_scaled);
+
+    // Clamp to 0-29 range
+    if (moon_phase > 29) {
+        moon_phase = 29;
+    }
+
+    return moon_phase;
+}
+
 // Draw moon with phase using geometrically correct crescents
 void moon_draw(const moon_t *moon) {
-    // Calculate moon day for phase
-    uint8_t moon_day;
-    if (moon->hour < 6) {
-        // Early morning: this is the end of yesterday's night
-        moon_day = (moon->day > 1) ? (moon->day - 1) : 31;
-    } else {
-        // Evening (hours 20-23): this is the start of today's night
-        moon_day = moon->day;
-    }
-    uint8_t moon_phase = (moon_day * 29) / 31; // Map day 1-31 to phase 0-29
+    // Calculate astronomically accurate moon phase
+    uint8_t moon_phase = calculate_moon_phase(moon->year, moon->month, moon->day, moon->hour);
 
     const int16_t radius = 8;
     const int16_t cx = moon->x;

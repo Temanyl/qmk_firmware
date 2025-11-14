@@ -437,9 +437,9 @@ void draw_seasonal_animation(void) {
 
     // Draw sun or moon with appropriate coloring based on time
     if (is_night) {
-        // Draw moon with phase
+        // Draw moon with astronomically accurate phase
         moon_t moon;
-        moon_init(&moon, celestial_x, celestial_y, current_day, current_hour);
+        moon_init(&moon, celestial_x, celestial_y, current_year, current_month, current_day, current_hour);
         moon_draw(&moon);
 
         // Add stars scattered across the night sky
