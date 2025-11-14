@@ -23,6 +23,9 @@ import platform
 import sys
 import argparse
 import json
+import urllib.request
+import urllib.error
+import urllib.parse
 from datetime import datetime
 from pathlib import Path
 
@@ -56,10 +59,11 @@ USAGE = 0x0061
 # HID packet size (32 bytes for Raw HID)
 HID_PACKET_SIZE = 32
 
-# Command IDs for monitor protocol (0x01-0x03: computer → keyboard)
+# Command IDs for monitor protocol (0x01-0x04: computer → keyboard)
 CMD_VOLUME_UPDATE = 0x01
 CMD_MEDIA_UPDATE = 0x02
 CMD_DATETIME_UPDATE = 0x03
+CMD_WEATHER_UPDATE = 0x04
 
 # Command IDs for game protocol (0x10-0x13: bidirectional)
 MSG_SCORE_SUBMIT = 0x10  # Keyboard → Computer: score submission
@@ -71,6 +75,7 @@ MSG_NAME_SUBMIT = 0x13   # Keyboard → Computer: name + score
 POLL_INTERVAL = 0.1
 MEDIA_POLL_INTERVAL = 1.0  # Check media every second
 DATETIME_UPDATE_INTERVAL = 60.0  # Send time every 60 seconds
+WEATHER_UPDATE_INTERVAL = 600.0  # Check weather every 10 minutes (600 seconds)
 
 # High score file
 SCRIPT_DIR = Path(__file__).parent
@@ -160,6 +165,146 @@ class HighScoreManager:
             print("=" * 40 + "\n")
         else:
             print("\n📊 No high scores yet!\n")
+
+
+# ============================================================================
+# WEATHER MONITORING
+# ============================================================================
+
+# Weather state constants (match keyboard firmware)
+WEATHER_SUNNY = 0
+WEATHER_RAIN = 1
+WEATHER_SNOW = 2
+
+# Default location (Otterndorf, Germany)
+DEFAULT_WEATHER_LATITUDE = 53.800
+DEFAULT_WEATHER_LONGITUDE = 8.900
+DEFAULT_WEATHER_LOCATION = "Otterndorf, Germany"
+
+
+def get_weather_openmeteo(latitude, longitude):
+    """
+    Fetch weather from Open-Meteo API (no API key required).
+
+    Args:
+        latitude: Location latitude
+        longitude: Location longitude
+
+    Returns:
+        Weather state (WEATHER_SUNNY, WEATHER_RAIN, WEATHER_SNOW) or None on error
+    """
+    try:
+        # Open-Meteo API endpoint
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current_weather=true"
+
+        with urllib.request.urlopen(url, timeout=10) as response:
+            data = json.loads(response.read().decode())
+
+            # Get current weather code
+            # WMO Weather interpretation codes (WW)
+            # https://open-meteo.com/en/docs
+            weather_code = data['current_weather']['weathercode']
+
+            # Map WMO codes to our weather states
+            # 0: Clear sky
+            # 1-3: Mainly clear, partly cloudy, overcast
+            # 45, 48: Fog
+            # 51-55: Drizzle
+            # 56-57: Freezing drizzle
+            # 61-65: Rain
+            # 66-67: Freezing rain
+            # 71-75: Snow fall
+            # 77: Snow grains
+            # 80-82: Rain showers
+            # 85-86: Snow showers
+            # 95: Thunderstorm
+            # 96, 99: Thunderstorm with hail
+
+            if weather_code in [71, 73, 75, 77, 85, 86]:
+                # Snow
+                return WEATHER_SNOW
+            elif weather_code in [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99]:
+                # Rain (includes drizzle, freezing rain, showers, thunderstorms)
+                return WEATHER_RAIN
+            else:
+                # Clear/Cloudy/Fog -> Sunny
+                return WEATHER_SUNNY
+
+    except Exception as e:
+        print(f"⚠ Error fetching weather from Open-Meteo: {e}")
+        return None
+
+
+def get_weather_wttr(location):
+    """
+    Fetch weather from wttr.in API (no API key required).
+
+    Args:
+        location: City name (e.g., "San Francisco" or "London,UK")
+
+    Returns:
+        Weather state (WEATHER_SUNNY, WEATHER_RAIN, WEATHER_SNOW) or None on error
+    """
+    try:
+        # wttr.in API endpoint
+        # Encode location for URL
+        location_encoded = urllib.parse.quote(location)
+        url = f"https://wttr.in/{location_encoded}?format=j1"
+
+        with urllib.request.urlopen(url, timeout=10) as response:
+            data = json.loads(response.read().decode())
+
+            # Get current condition
+            current = data['current_condition'][0]
+            weather_desc = current['weatherDesc'][0]['value'].lower()
+            weather_code = int(current['weatherCode'])
+
+            # Map wttr.in weather codes to our states
+            # Full list: https://github.com/chubin/wttr.in/blob/master/lib/constants.py
+            # Snow codes: 179, 182, 185, 227, 230, 281, 284, 311, 314, 317, 320, 323, 326, 329, 332, 335, 338, 350, 371, 374, 377, 392, 395
+            # Rain codes: 176, 263, 266, 281, 284, 293, 296, 299, 302, 305, 308, 353, 356, 359, 362, 365, 368, 386, 389
+
+            snow_codes = [179, 182, 185, 227, 230, 281, 284, 311, 314, 317, 320, 323, 326, 329, 332, 335, 338, 350, 371, 374, 377, 392, 395]
+            rain_codes = [176, 263, 266, 293, 296, 299, 302, 305, 308, 353, 356, 359, 362, 365, 368, 386, 389]
+
+            if weather_code in snow_codes or 'snow' in weather_desc or 'blizzard' in weather_desc:
+                return WEATHER_SNOW
+            elif weather_code in rain_codes or 'rain' in weather_desc or 'drizzle' in weather_desc or 'shower' in weather_desc:
+                return WEATHER_RAIN
+            else:
+                return WEATHER_SUNNY
+
+    except Exception as e:
+        print(f"⚠ Error fetching weather from wttr.in: {e}")
+        return None
+
+
+def get_current_weather(location=None, latitude=None, longitude=None):
+    """
+    Get current weather condition using available APIs.
+
+    Args:
+        location: City name (for wttr.in)
+        latitude: Latitude (for Open-Meteo)
+        longitude: Longitude (for Open-Meteo)
+
+    Returns:
+        Weather state (WEATHER_SUNNY, WEATHER_RAIN, WEATHER_SNOW) or None
+    """
+    # Try Open-Meteo first if coordinates provided
+    if latitude is not None and longitude is not None:
+        weather = get_weather_openmeteo(latitude, longitude)
+        if weather is not None:
+            return weather
+
+    # Try wttr.in if location provided
+    if location is not None:
+        weather = get_weather_wttr(location)
+        if weather is not None:
+            return weather
+
+    # All APIs failed
+    return None
 
 
 # ============================================================================
@@ -451,6 +596,36 @@ def send_datetime_update(device, override_datetime=None):
         return False
 
 
+def send_weather_update(device, weather_state):
+    """Send weather update to keyboard via Raw HID.
+
+    Args:
+        device: HID device handle
+        weather_state: Weather state (WEATHER_SUNNY=0, WEATHER_RAIN=1, WEATHER_SNOW=2)
+
+    Returns:
+        True on success, False on failure
+    """
+    # Create HID packet (32 bytes)
+    packet = bytearray(HID_PACKET_SIZE)
+    packet[0] = CMD_WEATHER_UPDATE  # Command ID (0x04)
+    packet[1] = weather_state        # Weather state (0-2)
+
+    try:
+        # Send the packet
+        bytes_written = device.write([0] + list(packet))
+
+        # Check if write was successful
+        if bytes_written <= 0:
+            print(f"✗ Weather write failed: {bytes_written} bytes written")
+            return False
+
+        return True
+    except Exception as e:
+        print(f"✗ Error sending weather packet: {e}")
+        return False
+
+
 def send_enter_name(device, rank):
     """Send ENTER_NAME message to keyboard"""
     data = bytearray(HID_PACKET_SIZE)
@@ -627,12 +802,24 @@ def main():
     """Main loop: monitor volume/media, send datetime, handle game messages."""
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
-        description="QMK Keyboard Companion - Volume/media monitoring + High score management",
+        description="QMK Keyboard Companion - Volume/media/weather monitoring + High score management",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Normal operation (monitor + high scores)
+  # Normal operation (weather enabled by default for Otterndorf, Germany)
   python3 keyboard_monitor.py
+
+  # Disable weather monitoring
+  python3 keyboard_monitor.py --no-weather
+
+  # Override weather location with city name
+  python3 keyboard_monitor.py --weather-location "San Francisco"
+
+  # Override weather location with coordinates (more accurate)
+  python3 keyboard_monitor.py --weather-latitude 37.7749 --weather-longitude -122.4194
+
+  # Custom weather update interval (5 minutes instead of 10)
+  python3 keyboard_monitor.py --weather-interval 300
 
   # Test winter night scene (January 1st at 11 PM)
   python3 keyboard_monitor.py --test-date "2025-01-01 23:00"
@@ -644,6 +831,9 @@ Features:
   • Monitors system volume and sends to keyboard display
   • Tracks media playback (Music/Spotify on macOS)
   • Syncs date/time for seasonal animations
+  • Fetches live weather data (Open-Meteo/wttr.in - no API key!)
+  • Default location: Otterndorf, Germany
+  • Default update interval: 10 minutes
   • Manages Doodle Jump high scores via Raw HID
   • Auto-reconnects if keyboard is unplugged
         """
@@ -654,17 +844,82 @@ Features:
         metavar='DATETIME',
         help='Override date/time for testing animations (format: YYYY-MM-DD HH:MM or YYYY-MM-DD HH:MM:SS)'
     )
+    parser.add_argument(
+        '--weather-location',
+        type=str,
+        metavar='LOCATION',
+        help='Location for weather updates (e.g., "San Francisco" or "London,UK"). Overrides default location.'
+    )
+    parser.add_argument(
+        '--weather-latitude',
+        type=float,
+        metavar='LAT',
+        help='Latitude for weather updates (use with --weather-longitude). Overrides default location.'
+    )
+    parser.add_argument(
+        '--weather-longitude',
+        type=float,
+        metavar='LON',
+        help='Longitude for weather updates (use with --weather-latitude). Overrides default location.'
+    )
+    parser.add_argument(
+        '--weather-interval',
+        type=int,
+        default=600,
+        metavar='SECONDS',
+        help='Weather update interval in seconds (default: 600 = 10 minutes)'
+    )
+    parser.add_argument(
+        '--no-weather',
+        action='store_true',
+        help='Disable weather monitoring (weather is enabled by default with Otterndorf, Germany)'
+    )
     args = parser.parse_args()
 
     print("=" * 60)
     print("    QMK KEYBOARD COMPANION")
-    print("    Volume Monitor + High Score Manager")
+    print("    Volume/Media/Weather Monitor + High Score Manager")
     print("=" * 60)
+
+    # Validate weather configuration
+    # Weather is enabled by default with default location unless --no-weather is specified
+    weather_enabled = not args.no_weather
+
+    # Determine which location to use
+    weather_latitude = args.weather_latitude
+    weather_longitude = args.weather_longitude
+    weather_location = args.weather_location
+
+    # If no custom location provided, use defaults
+    if weather_enabled and weather_latitude is None and weather_longitude is None and weather_location is None:
+        weather_latitude = DEFAULT_WEATHER_LATITUDE
+        weather_longitude = DEFAULT_WEATHER_LONGITUDE
+        weather_location = DEFAULT_WEATHER_LOCATION
+        using_default = True
+    else:
+        using_default = False
+
+    if weather_enabled:
+        print(f"\n🌤️  WEATHER: Enabled")
+        if weather_latitude is not None and weather_longitude is not None:
+            location_str = f"{weather_latitude}, {weather_longitude}"
+            if using_default:
+                location_str += f" ({DEFAULT_WEATHER_LOCATION})"
+            print(f"   Location: {location_str}")
+            print(f"   API: Open-Meteo (primary)")
+        if weather_location and not (weather_latitude and weather_longitude):
+            print(f"   Location: {weather_location}")
+            print(f"   API: wttr.in (primary)")
+        print(f"   Update interval: {args.weather_interval} seconds ({args.weather_interval // 60} minutes)")
+    else:
+        print(f"\n🌤️  WEATHER: Disabled (use --weather-location or remove --no-weather to enable)")
+
     if args.test_date:
-        print(f"🧪 TEST MODE: Using override date/time")
+        print(f"\n🧪 TEST MODE: Using override date/time")
         print(f"   {args.test_date.strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"   Season: {get_season_name(args.test_date.month)}")
         print(f"   Time: {get_time_of_day_name(args.test_date.hour)}")
+
     print("\n⏳ Waiting for keyboard... (Press Ctrl+C to quit)\n")
 
     # Initialize high score manager
@@ -674,6 +929,7 @@ Features:
     device = None
     last_volume = None
     last_media = None
+    last_weather = None  # Last weather state sent
     reconnect_delay = 2.0  # Wait 2 seconds between reconnection attempts
     last_connect_attempt = 0
     first_connection = True  # Track if this is the first connection
@@ -681,6 +937,7 @@ Features:
     last_connection_check = 0
     last_media_check = 0  # Last time we checked media
     last_datetime_update = 0  # Last time we sent date/time
+    last_weather_check = 0  # Last time we checked weather
 
     try:
         while True:
@@ -722,6 +979,7 @@ Features:
                                 device = None
                                 last_volume = None
                                 last_media = None
+                                last_weather = None
                                 continue
                         else:
                             # Reset last_volume to force update on next successful read
@@ -744,6 +1002,24 @@ Features:
                         else:
                             print("✗ DateTime sync failed")
 
+                        # Immediately send current weather on (re)connect if enabled
+                        if weather_enabled:
+                            current_weather = get_current_weather(
+                                location=weather_location,
+                                latitude=weather_latitude,
+                                longitude=weather_longitude
+                            )
+                            if current_weather is not None:
+                                weather_names = {WEATHER_SUNNY: "Sunny", WEATHER_RAIN: "Rain", WEATHER_SNOW: "Snow"}
+                                print(f"🌤️  Syncing weather: {weather_names.get(current_weather, 'Unknown')}")
+                                if send_weather_update(device, current_weather):
+                                    last_weather = current_weather
+                                    last_weather_check = current_time
+                                else:
+                                    print("✗ Weather sync failed")
+                            else:
+                                print("⚠ Weather fetch failed")
+
                 # Wait before next iteration
                 time.sleep(0.5)
                 continue
@@ -760,6 +1036,8 @@ Features:
                         pass
                     device = None
                     last_volume = None
+                    last_media = None
+                    last_weather = None
                     continue
 
             # Check for incoming messages from keyboard (non-blocking)
@@ -780,6 +1058,7 @@ Features:
                         device = None
                         last_volume = None
                         last_media = None
+                        last_weather = None
                         continue
             except Exception as e:
                 # Read error doesn't necessarily mean disconnection
@@ -807,6 +1086,7 @@ Features:
                             device = None
                             last_volume = None
                             last_media = None
+                            last_weather = None
                             continue
 
                 # Check media info periodically (every MEDIA_POLL_INTERVAL)
@@ -834,6 +1114,7 @@ Features:
                             device = None
                             last_volume = None
                             last_media = None
+                            last_weather = None
                             continue
 
                 # Periodically send date/time updates (every minute, unless using test date)
@@ -852,7 +1133,46 @@ Features:
                         device = None
                         last_volume = None
                         last_media = None
+                        last_weather = None
                         continue
+
+                # Periodically check weather (if enabled)
+                if weather_enabled and current_time - last_weather_check >= args.weather_interval:
+                    current_weather = get_current_weather(
+                        location=weather_location,
+                        latitude=weather_latitude,
+                        longitude=weather_longitude
+                    )
+
+                    if current_weather is not None:
+                        # Only send update if weather changed
+                        if current_weather != last_weather:
+                            weather_names = {WEATHER_SUNNY: "Sunny", WEATHER_RAIN: "Rain", WEATHER_SNOW: "Snow"}
+                            print(f"🌤️  Weather changed: {weather_names.get(current_weather, 'Unknown')}")
+
+                            if send_weather_update(device, current_weather):
+                                last_weather = current_weather
+                                last_weather_check = current_time
+                            else:
+                                # Send failed, likely disconnected
+                                print("✗ Weather send failed, keyboard may be disconnected")
+                                print("⏳ Waiting for keyboard to reconnect...\n")
+                                try:
+                                    device.close()
+                                except:
+                                    pass
+                                device = None
+                                last_volume = None
+                                last_media = None
+                                last_weather = None
+                                continue
+                        else:
+                            # Weather unchanged, just update check time
+                            last_weather_check = current_time
+                    else:
+                        # Weather fetch failed, try again next interval
+                        print("⚠ Weather fetch failed, will retry next interval")
+                        last_weather_check = current_time
 
                 # Wait before next poll
                 time.sleep(POLL_INTERVAL)
@@ -868,6 +1188,7 @@ Features:
                 device = None
                 last_volume = None
                 last_media = None
+                last_weather = None
 
     except KeyboardInterrupt:
         print("\n\n👋 Stopping keyboard companion...")
