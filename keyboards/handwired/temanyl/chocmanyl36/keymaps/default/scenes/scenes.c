@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../display/framebuffer.h"
 #include "../display/draw_logo.h"
 #include "../weather_transition.h"
+#include "../weather_effects.h"
 
 // Include season-specific modules
 #include "../seasons/winter/seasons_winter.h"
@@ -83,10 +84,9 @@ static uint8_t cached_astro_month = 0;
 
 // Reset all scene animation states
 void reset_scene_animations(void) {
-    reset_winter_animations();
+    weather_effects_reset_all();  // Reset all weather effects (clouds, rain, snow)
     reset_spring_animations();
     reset_summer_animations();
-    reset_fall_animations();
     reset_halloween_animations();
     reset_christmas_animations();
     reset_easter_animations();
@@ -409,7 +409,7 @@ void draw_seasonal_animation(void) {
     } else {
         // Daytime sky depends on weather conditions
         // Check if there are clouds (rain or snow weather)
-        if (weather_is_raining(current_weather) || current_weather == WEATHER_SNOW) {
+        if (weather_is_raining(current_weather) || weather_is_snowing(current_weather)) {
             // Cloudy/rainy/snowy day: darker grayish sky
             // HSV: Hue=170 (blue-gray), Saturation=40 (low saturation for gray), Value=50 (darker)
             fb_rect_hsv(0, 0, 134, 152, 170, 40, 50, true);
@@ -483,8 +483,8 @@ void draw_seasonal_animation(void) {
 
     // current_weather already declared above for sky rendering
 
-    if (current_weather == WEATHER_SNOW) {
-        // Snow: snowflakes + clouds + snowman + snow coverage on trees/house
+    if (weather_is_snowing(current_weather)) {
+        // Snow: snowflakes + clouds + snowman + snow coverage on trees/house (intensity based on weather state)
         draw_snow_weather_elements();
     } else if (weather_is_raining(current_weather)) {
         // Rain: rain drops + clouds (intensity based on weather state)
@@ -593,7 +593,7 @@ void draw_seasonal_animation(void) {
     }
 
     // Snow weather needs background for snowflakes (weather-based, not seasonal)
-    if (bg_check_weather == WEATHER_SNOW && snowflake_initialized && !snowflake_background_saved) {
+    if (weather_is_snowing(bg_check_weather) && snowflake_initialized && !snowflake_background_saved) {
         need_background = true;
     }
 
@@ -613,7 +613,7 @@ void draw_seasonal_animation(void) {
     }
 
     // Rain and snow weather need background for clouds (weather-based, not seasonal)
-    if ((weather_is_raining(bg_check_weather) || bg_check_weather == WEATHER_SNOW) && cloud_initialized && !cloud_background_saved) {
+    if ((weather_is_raining(bg_check_weather) || weather_is_snowing(bg_check_weather)) && cloud_initialized && !cloud_background_saved) {
         need_background = true;
     }
 
@@ -634,7 +634,7 @@ void draw_seasonal_animation(void) {
         if (weather_is_raining(bg_weather) && rain_initialized) {
             rain_background_saved = true;
         }
-        if (bg_weather == WEATHER_SNOW && snowflake_initialized) {
+        if (weather_is_snowing(bg_weather) && snowflake_initialized) {
             snowflake_background_saved = true;
         }
         if (is_halloween_event() && ghost_initialized) {
@@ -646,7 +646,7 @@ void draw_seasonal_animation(void) {
         if (season != 2 && smoke_initialized) {
             smoke_background_saved = true;
         }
-        if ((weather_is_raining(bg_weather) || bg_weather == WEATHER_SNOW) && cloud_initialized) {
+        if ((weather_is_raining(bg_weather) || weather_is_snowing(bg_weather)) && cloud_initialized) {
             cloud_background_saved = true;
         }
     }
@@ -717,12 +717,18 @@ void draw_seasonal_animation(void) {
     // === DRAW CLOUDS (rain and snow weather) ===
     // Clouds are weather-based, not seasonal
     weather_state_t draw_weather = weather_transition_get_current();
-    if ((weather_is_raining(draw_weather) || draw_weather == WEATHER_SNOW) && cloud_initialized) {
+    if ((weather_is_raining(draw_weather) || weather_is_snowing(draw_weather)) && cloud_initialized) {
         // Determine cloud type and count based on weather and intensity
         cloud_type_t type;
         uint8_t num_clouds_to_draw;
 
-        if (draw_weather == WEATHER_SNOW) {
+        if (draw_weather == WEATHER_SNOW_LIGHT) {
+            type = CLOUD_TYPE_LIGHT;
+            num_clouds_to_draw = 3;
+        } else if (draw_weather == WEATHER_SNOW_MEDIUM) {
+            type = CLOUD_TYPE_LIGHT;
+            num_clouds_to_draw = 4;
+        } else if (draw_weather == WEATHER_SNOW_HEAVY) {
             type = CLOUD_TYPE_LIGHT;
             num_clouds_to_draw = 5;
         } else if (draw_weather == WEATHER_RAIN_LIGHT) {
@@ -775,14 +781,20 @@ void draw_seasonal_animation(void) {
 
     // === DRAW SNOWFLAKES (snow weather) ===
     // Snowflakes are weather-based, not seasonal
-    if (draw_weather == WEATHER_SNOW && snowflake_initialized) {
+    if (weather_is_snowing(draw_weather) && snowflake_initialized) {
+        // Get active snowflake count based on intensity
+        uint8_t intensity = weather_get_snow_intensity(draw_weather);
+        uint8_t active_flakes = (intensity == 1) ? NUM_SNOWFLAKES / 4 :
+                                (intensity == 2) ? NUM_SNOWFLAKES / 2 :
+                                NUM_SNOWFLAKES;
+
         // Draw snowflakes
-        for (uint8_t i = 0; i < NUM_SNOWFLAKES; i++) {
+        for (uint8_t i = 0; i < active_flakes; i++) {
             if (snowflakes[i].y >= 0 && snowflakes[i].y < 150) {
                 snowflake_draw(&snowflakes[i]);
             }
         }
-    } else if (draw_weather != WEATHER_SNOW) {
+    } else if (!weather_is_snowing(draw_weather)) {
         // Not snowy weather - clean up snowflake state
         if (snowflake_initialized) {
             snowflake_initialized = false;

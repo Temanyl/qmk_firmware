@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "framebuffer.h"
 #include "draw_logo.h"
 #include "../graphics/helvetica20.qff.c"
+#include "../weather_effects.h"
 #include "../objects/weather/cloud.h"
 #include "../seasons/winter/seasons_winter.h"
 #include "../seasons/spring/seasons_spring.h"
@@ -723,26 +724,26 @@ void display_housekeeping_task(void) {
     }
 
     // Handle rain animation (when weather is any rain type)
-    // Note: animate_raindrops() handles its own region-based flushing
+    // Note: weather_rain_animate() handles its own region-based flushing
     if (rain_initialized && rain_background_saved) {
         weather_state_t current_weather = weather_transition_get_current();
         if (weather_is_raining(current_weather)) { // Any rain weather
             if (current_time - rain_animation_timer >= RAIN_ANIMATION_SPEED) {
                 rain_animation_timer = current_time;
-                animate_raindrops();
+                weather_rain_animate();
                 // No needs_flush = true here - raindrops flush their own regions
             }
         }
     }
 
-    // Handle snowflake animation (when weather is snow)
-    // Note: animate_snowflakes() handles its own region-based flushing
+    // Handle snowflake animation (when weather is any snow type)
+    // Note: weather_snow_animate() handles its own region-based flushing
     if (snowflake_initialized && snowflake_background_saved) {
         weather_state_t current_weather = weather_transition_get_current();
-        if (current_weather == WEATHER_SNOW) { // Snow weather
+        if (weather_is_snowing(current_weather)) { // Any snow weather
             if (current_time - snowflake_animation_timer >= SNOWFLAKE_ANIMATION_SPEED) {
                 snowflake_animation_timer = current_time;
-                animate_snowflakes();
+                weather_snow_animate();
                 // No needs_flush = true here - snowflakes flush their own regions
             }
         }
@@ -766,7 +767,7 @@ void display_housekeeping_task(void) {
     ghost_t old_ghosts[NUM_GHOSTS];
     bool clouds_updated = false;
     bool ghosts_updated = false;
-    uint8_t num_active_clouds = (season == 3) ? 5 : 3;
+    uint8_t num_active_clouds = weather_get_active_cloud_count();
 
     // Update cloud positions if timer elapsed
     if (cloud_initialized && cloud_background_saved) {
@@ -776,7 +777,7 @@ void display_housekeeping_task(void) {
                 old_clouds[i] = clouds[i];
             }
             cloud_animation_timer = current_time;
-            animate_clouds();  // Updates positions only
+            weather_clouds_animate();  // Updates positions only
             clouds_updated = true;
         }
     }
@@ -893,7 +894,7 @@ void display_housekeeping_task(void) {
                         // Determine cloud type based on current weather
                         weather_state_t current_weather = weather_transition_get_current();
                         cloud_type_t cloud_type;
-                        if (current_weather == WEATHER_SNOW) {
+                        if (weather_is_snowing(current_weather)) {
                             cloud_type = CLOUD_TYPE_LIGHT;
                         } else if (current_weather == WEATHER_RAIN_LIGHT) {
                             cloud_type = CLOUD_TYPE_DARK_LIGHT;

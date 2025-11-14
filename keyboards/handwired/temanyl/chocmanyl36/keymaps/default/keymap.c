@@ -482,8 +482,8 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
             if (length >= 2) {
                 uint8_t weather = data[1];
 
-                // Validate weather state (0=sunny, 1=light rain, 2=medium rain, 3=heavy rain, 4=snow)
-                if (weather <= 4) {
+                // Validate weather state (0=sunny, 1-3=rain, 4-6=snow)
+                if (weather <= 6) {
                     weather_transition_set_target((weather_state_t)weather);
 
                     // Reset animation flags to force re-initialization

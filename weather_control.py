@@ -42,7 +42,9 @@ WEATHER_SUNNY = 0
 WEATHER_RAIN_LIGHT = 1
 WEATHER_RAIN_MEDIUM = 2
 WEATHER_RAIN_HEAVY = 3
-WEATHER_SNOW = 4
+WEATHER_SNOW_LIGHT = 4
+WEATHER_SNOW_MEDIUM = 5
+WEATHER_SNOW_HEAVY = 6
 
 WEATHER_NAMES = {
     'sunny': WEATHER_SUNNY,
@@ -53,7 +55,13 @@ WEATHER_NAMES = {
     'rain-medium': WEATHER_RAIN_MEDIUM,
     'heavy-rain': WEATHER_RAIN_HEAVY,
     'rain-heavy': WEATHER_RAIN_HEAVY,
-    'snow': WEATHER_SNOW
+    'light-snow': WEATHER_SNOW_LIGHT,
+    'snow-light': WEATHER_SNOW_LIGHT,
+    'snow': WEATHER_SNOW_MEDIUM,  # Default snow is medium
+    'medium-snow': WEATHER_SNOW_MEDIUM,
+    'snow-medium': WEATHER_SNOW_MEDIUM,
+    'heavy-snow': WEATHER_SNOW_HEAVY,
+    'snow-heavy': WEATHER_SNOW_HEAVY
 }
 
 
@@ -106,7 +114,9 @@ def cycle_all_weather(device):
         ('light-rain', WEATHER_RAIN_LIGHT),
         ('rain', WEATHER_RAIN_MEDIUM),
         ('heavy-rain', WEATHER_RAIN_HEAVY),
-        ('snow', WEATHER_SNOW)
+        ('light-snow', WEATHER_SNOW_LIGHT),
+        ('snow', WEATHER_SNOW_MEDIUM),
+        ('heavy-snow', WEATHER_SNOW_HEAVY)
     ]
 
     print("🔄 Cycling through all weather conditions (5 seconds each)...")

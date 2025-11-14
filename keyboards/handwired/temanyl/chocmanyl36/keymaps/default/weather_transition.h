@@ -26,11 +26,14 @@ typedef enum {
     WEATHER_RAIN_LIGHT = 1,
     WEATHER_RAIN_MEDIUM = 2,
     WEATHER_RAIN_HEAVY = 3,
-    WEATHER_SNOW = 4
+    WEATHER_SNOW_LIGHT = 4,
+    WEATHER_SNOW_MEDIUM = 5,
+    WEATHER_SNOW_HEAVY = 6
 } weather_state_t;
 
 // Legacy aliases for backward compatibility
 #define WEATHER_RAIN WEATHER_RAIN_MEDIUM
+#define WEATHER_SNOW WEATHER_SNOW_MEDIUM
 
 // Weather transition system
 typedef struct {
@@ -66,10 +69,21 @@ static inline bool weather_is_raining(weather_state_t weather) {
     return weather >= WEATHER_RAIN_LIGHT && weather <= WEATHER_RAIN_HEAVY;
 }
 
+static inline bool weather_is_snowing(weather_state_t weather) {
+    return weather >= WEATHER_SNOW_LIGHT && weather <= WEATHER_SNOW_HEAVY;
+}
+
 static inline uint8_t weather_get_rain_intensity(weather_state_t weather) {
     if (weather == WEATHER_RAIN_LIGHT) return 1;
     if (weather == WEATHER_RAIN_MEDIUM) return 2;
     if (weather == WEATHER_RAIN_HEAVY) return 3;
+    return 0;
+}
+
+static inline uint8_t weather_get_snow_intensity(weather_state_t weather) {
+    if (weather == WEATHER_SNOW_LIGHT) return 1;
+    if (weather == WEATHER_SNOW_MEDIUM) return 2;
+    if (weather == WEATHER_SNOW_HEAVY) return 3;
     return 0;
 }
 

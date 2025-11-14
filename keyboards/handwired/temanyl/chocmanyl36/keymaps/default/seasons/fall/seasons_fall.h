@@ -19,20 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "objects/weather/raindrop.h"
 
-// Rain animation
-#define NUM_RAINDROPS 50
-#define RAIN_ANIMATION_SPEED 100  // Update every 100ms (~10fps)
-
-// External state
-extern bool rain_initialized;
-extern bool rain_background_saved;
-extern raindrop_t raindrops[NUM_RAINDROPS];
-extern uint32_t rain_animation_timer;
-
-// Fall functions
-void animate_raindrops(void);
-void reset_fall_animations(void);
-void draw_rain_weather_elements(void);  // Weather-based rain (no leaves)
-void draw_fall_scene_elements(void);    // Seasonal fall (rain + leaves)
+// Fall season functions
+// Note: Weather effects (clouds, rain) are now in weather_effects.h
+void draw_rain_weather_elements(void);  // Weather-based rain effects
+void draw_fall_scene_elements(void);    // Seasonal fall decorations (fallen leaves)

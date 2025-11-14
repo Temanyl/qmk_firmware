@@ -63,10 +63,18 @@ void weather_transition_init(uint8_t month) {
     weather_transition.transition_timer = timer_read32();
 
     // Set initial snow accumulation based on default weather
-    if (default_weather == WEATHER_SNOW) {
-        snow_accumulation.ground_coverage = 255;
-        snow_accumulation.tree_coverage = 255;
-        snow_accumulation.cabin_coverage = 255;
+    // Light snow: no accumulation, Medium/Heavy snow: full accumulation
+    if (weather_is_snowing(default_weather)) {
+        uint8_t snow_intensity = weather_get_snow_intensity(default_weather);
+        if (snow_intensity == 1) {
+            // Light snow: no accumulation
+            snow_accumulation_reset();
+        } else {
+            // Medium/Heavy snow: full accumulation
+            snow_accumulation.ground_coverage = 255;
+            snow_accumulation.tree_coverage = 255;
+            snow_accumulation.cabin_coverage = 255;
+        }
     } else {
         snow_accumulation_reset();
     }
@@ -87,12 +95,22 @@ void weather_transition_set_target(weather_state_t target) {
     // Change current weather IMMEDIATELY for particle rendering
     weather_transition.current_weather = target;
 
-    // Set snow accumulation IMMEDIATELY
-    if (target == WEATHER_SNOW) {
-        snow_accumulation.ground_coverage = 255;
-        snow_accumulation.tree_coverage = 255;
-        snow_accumulation.cabin_coverage = 255;
+    // Set snow accumulation IMMEDIATELY based on intensity
+    if (weather_is_snowing(target)) {
+        uint8_t snow_intensity = weather_get_snow_intensity(target);
+        if (snow_intensity == 1) {
+            // Light snow: no accumulation (nothing turns white)
+            snow_accumulation.ground_coverage = 0;
+            snow_accumulation.tree_coverage = 0;
+            snow_accumulation.cabin_coverage = 0;
+        } else {
+            // Medium/Heavy snow: full accumulation
+            snow_accumulation.ground_coverage = 255;
+            snow_accumulation.tree_coverage = 255;
+            snow_accumulation.cabin_coverage = 255;
+        }
     } else {
+        // Not snowing: clear accumulation
         snow_accumulation.ground_coverage = 0;
         snow_accumulation.tree_coverage = 0;
         snow_accumulation.cabin_coverage = 0;

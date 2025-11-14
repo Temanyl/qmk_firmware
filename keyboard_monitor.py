@@ -176,10 +176,13 @@ WEATHER_SUNNY = 0
 WEATHER_RAIN_LIGHT = 1
 WEATHER_RAIN_MEDIUM = 2
 WEATHER_RAIN_HEAVY = 3
-WEATHER_SNOW = 4
+WEATHER_SNOW_LIGHT = 4
+WEATHER_SNOW_MEDIUM = 5
+WEATHER_SNOW_HEAVY = 6
 
-# Legacy alias for backward compatibility
+# Legacy aliases for backward compatibility
 WEATHER_RAIN = WEATHER_RAIN_MEDIUM
+WEATHER_SNOW = WEATHER_SNOW_MEDIUM
 
 # Default location (Otterndorf, Germany)
 DEFAULT_WEATHER_LATITUDE = 53.800
@@ -225,9 +228,15 @@ def get_weather_openmeteo(latitude, longitude):
             # 95: Thunderstorm
             # 96, 99: Thunderstorm with hail
 
-            if weather_code in [71, 73, 75, 77, 85, 86]:
-                # Snow
-                return WEATHER_SNOW
+            if weather_code in [71]:
+                # Light snow fall
+                return WEATHER_SNOW_LIGHT
+            elif weather_code in [73]:
+                # Moderate snow fall
+                return WEATHER_SNOW_MEDIUM
+            elif weather_code in [75, 77, 85, 86]:
+                # Heavy snow fall, snow grains, snow showers
+                return WEATHER_SNOW_HEAVY
             elif weather_code in [51, 61, 80]:
                 # Light rain: slight drizzle (51), slight rain (61), slight rain showers (80)
                 return WEATHER_RAIN_LIGHT
@@ -271,20 +280,32 @@ def get_weather_wttr(location):
             weather_desc = current['weatherDesc'][0]['value'].lower()
             weather_code = int(current['weatherCode'])
 
-            # Map wttr.in weather codes to our states with rain intensity
+            # Map wttr.in weather codes to our states with rain and snow intensity
             # Full list: https://github.com/chubin/wttr.in/blob/master/lib/constants.py
-            # Snow codes: 179, 182, 185, 227, 230, 281, 284, 311, 314, 317, 320, 323, 326, 329, 332, 335, 338, 350, 371, 374, 377, 392, 395
+            # Light snow: 179, 227, 323, 326 (patchy light, light snow)
+            # Medium snow: 182, 185, 230, 311, 314, 317, 320, 329, 332, 335, 350 (moderate snow, sleet, freezing)
+            # Heavy snow: 281, 284, 338, 371, 374, 377, 392, 395 (heavy snow, snow showers, thunder)
             # Light rain: 176, 263, 293, 353
             # Medium rain: 266, 296, 299, 356, 359, 362
             # Heavy rain: 302, 305, 308, 365, 368, 386, 389
 
-            snow_codes = [179, 182, 185, 227, 230, 281, 284, 311, 314, 317, 320, 323, 326, 329, 332, 335, 338, 350, 371, 374, 377, 392, 395]
+            light_snow_codes = [179, 227, 323, 326]  # Patchy possible, blowing, patchy light, light snow
+            medium_snow_codes = [182, 185, 230, 311, 314, 317, 320, 329, 332, 335, 350]  # Moderate, sleet, freezing
+            heavy_snow_codes = [281, 284, 338, 371, 374, 377, 392, 395]  # Heavy, showers, thunder
             light_rain_codes = [176, 263, 293, 353]  # Patchy rain, light drizzle, light rain shower
             medium_rain_codes = [266, 296, 299, 356, 359, 362]  # Moderate rain, drizzle
             heavy_rain_codes = [302, 305, 308, 365, 368, 386, 389]  # Heavy rain, torrential showers, thunderstorms
 
-            if weather_code in snow_codes or 'snow' in weather_desc or 'blizzard' in weather_desc:
-                return WEATHER_SNOW
+            # Check snow codes and descriptions
+            if weather_code in heavy_snow_codes or 'heavy snow' in weather_desc or 'blizzard' in weather_desc or 'snow shower' in weather_desc:
+                return WEATHER_SNOW_HEAVY
+            elif weather_code in medium_snow_codes or ('moderate' in weather_desc and 'snow' in weather_desc):
+                return WEATHER_SNOW_MEDIUM
+            elif weather_code in light_snow_codes or ('light' in weather_desc and 'snow' in weather_desc) or ('patchy' in weather_desc and 'snow' in weather_desc):
+                return WEATHER_SNOW_LIGHT
+            elif 'snow' in weather_desc:
+                # Fallback: generic snow without intensity -> medium
+                return WEATHER_SNOW_MEDIUM
             elif weather_code in heavy_rain_codes or 'heavy' in weather_desc or 'torrential' in weather_desc or 'thunder' in weather_desc:
                 return WEATHER_RAIN_HEAVY
             elif weather_code in medium_rain_codes or 'moderate' in weather_desc:
@@ -625,7 +646,8 @@ def send_weather_update(device, weather_state):
     Args:
         device: HID device handle
         weather_state: Weather state (WEATHER_SUNNY=0, WEATHER_RAIN_LIGHT=1,
-                       WEATHER_RAIN_MEDIUM=2, WEATHER_RAIN_HEAVY=3, WEATHER_SNOW=4)
+                       WEATHER_RAIN_MEDIUM=2, WEATHER_RAIN_HEAVY=3, WEATHER_SNOW_LIGHT=4,
+                       WEATHER_SNOW_MEDIUM=5, WEATHER_SNOW_HEAVY=6)
 
     Returns:
         True on success, False on failure
@@ -633,7 +655,7 @@ def send_weather_update(device, weather_state):
     # Create HID packet (32 bytes)
     packet = bytearray(HID_PACKET_SIZE)
     packet[0] = CMD_WEATHER_UPDATE  # Command ID (0x04)
-    packet[1] = weather_state        # Weather state (0-4)
+    packet[1] = weather_state        # Weather state (0-6)
 
     try:
         # Send the packet
@@ -1039,7 +1061,9 @@ Features:
                                     WEATHER_RAIN_LIGHT: "Light Rain",
                                     WEATHER_RAIN_MEDIUM: "Rain",
                                     WEATHER_RAIN_HEAVY: "Heavy Rain",
-                                    WEATHER_SNOW: "Snow"
+                                    WEATHER_SNOW_LIGHT: "Light Snow",
+                                    WEATHER_SNOW_MEDIUM: "Snow",
+                                    WEATHER_SNOW_HEAVY: "Heavy Snow"
                                 }
                                 print(f"🌤️  Syncing weather: {weather_names.get(current_weather, 'Unknown')}")
                                 if send_weather_update(device, current_weather):
@@ -1182,7 +1206,9 @@ Features:
                                 WEATHER_RAIN_LIGHT: "Light Rain",
                                 WEATHER_RAIN_MEDIUM: "Rain",
                                 WEATHER_RAIN_HEAVY: "Heavy Rain",
-                                WEATHER_SNOW: "Snow"
+                                WEATHER_SNOW_LIGHT: "Light Snow",
+                                WEATHER_SNOW_MEDIUM: "Snow",
+                                WEATHER_SNOW_HEAVY: "Heavy Snow"
                             }
                             print(f"🌤️  Weather changed: {weather_names.get(current_weather, 'Unknown')}")
 
