@@ -179,6 +179,8 @@ WEATHER_RAIN_HEAVY = 3
 WEATHER_SNOW_LIGHT = 4
 WEATHER_SNOW_MEDIUM = 5
 WEATHER_SNOW_HEAVY = 6
+WEATHER_CLOUDY = 7       # Partly cloudy (2 white clouds, no precipitation)
+WEATHER_OVERCAST = 8     # Overcast (5 white clouds, no precipitation)
 
 # Legacy aliases for backward compatibility
 WEATHER_RAIN = WEATHER_RAIN_MEDIUM
@@ -247,8 +249,14 @@ def get_weather_openmeteo(latitude, longitude):
                 # Heavy rain: dense drizzle (55), freezing drizzle (56-57), heavy rain (65),
                 # freezing rain (66-67), violent rain showers (82), thunderstorms (95-99)
                 return WEATHER_RAIN_HEAVY
+            elif weather_code in [2]:
+                # Partly cloudy
+                return WEATHER_CLOUDY
+            elif weather_code in [3]:
+                # Overcast
+                return WEATHER_OVERCAST
             else:
-                # Clear/Cloudy/Fog -> Sunny
+                # Clear sky (0), mainly clear (1), or fog (45, 48) -> Sunny
                 return WEATHER_SUNNY
 
     except Exception as e:
@@ -315,7 +323,14 @@ def get_weather_wttr(location):
             elif 'rain' in weather_desc or 'shower' in weather_desc:
                 # Fallback: generic rain without intensity -> medium
                 return WEATHER_RAIN_MEDIUM
+            elif weather_code in [116] or 'partly cloudy' in weather_desc:
+                # Partly cloudy
+                return WEATHER_CLOUDY
+            elif weather_code in [119, 122] or 'cloudy' in weather_desc or 'overcast' in weather_desc:
+                # Cloudy/Overcast
+                return WEATHER_OVERCAST
             else:
+                # Clear/Sunny (113) or other
                 return WEATHER_SUNNY
 
     except Exception as e:
@@ -647,7 +662,8 @@ def send_weather_update(device, weather_state):
         device: HID device handle
         weather_state: Weather state (WEATHER_SUNNY=0, WEATHER_RAIN_LIGHT=1,
                        WEATHER_RAIN_MEDIUM=2, WEATHER_RAIN_HEAVY=3, WEATHER_SNOW_LIGHT=4,
-                       WEATHER_SNOW_MEDIUM=5, WEATHER_SNOW_HEAVY=6)
+                       WEATHER_SNOW_MEDIUM=5, WEATHER_SNOW_HEAVY=6, WEATHER_CLOUDY=7,
+                       WEATHER_OVERCAST=8)
 
     Returns:
         True on success, False on failure
@@ -655,7 +671,7 @@ def send_weather_update(device, weather_state):
     # Create HID packet (32 bytes)
     packet = bytearray(HID_PACKET_SIZE)
     packet[0] = CMD_WEATHER_UPDATE  # Command ID (0x04)
-    packet[1] = weather_state        # Weather state (0-6)
+    packet[1] = weather_state        # Weather state (0-8)
 
     try:
         # Send the packet
@@ -1063,7 +1079,9 @@ Features:
                                     WEATHER_RAIN_HEAVY: "Heavy Rain",
                                     WEATHER_SNOW_LIGHT: "Light Snow",
                                     WEATHER_SNOW_MEDIUM: "Snow",
-                                    WEATHER_SNOW_HEAVY: "Heavy Snow"
+                                    WEATHER_SNOW_HEAVY: "Heavy Snow",
+                                    WEATHER_CLOUDY: "Partly Cloudy",
+                                    WEATHER_OVERCAST: "Overcast"
                                 }
                                 print(f"🌤️  Syncing weather: {weather_names.get(current_weather, 'Unknown')}")
                                 if send_weather_update(device, current_weather):
@@ -1208,7 +1226,9 @@ Features:
                                 WEATHER_RAIN_HEAVY: "Heavy Rain",
                                 WEATHER_SNOW_LIGHT: "Light Snow",
                                 WEATHER_SNOW_MEDIUM: "Snow",
-                                WEATHER_SNOW_HEAVY: "Heavy Snow"
+                                WEATHER_SNOW_HEAVY: "Heavy Snow",
+                                WEATHER_CLOUDY: "Partly Cloudy",
+                                WEATHER_OVERCAST: "Overcast"
                             }
                             print(f"🌤️  Weather changed: {weather_names.get(current_weather, 'Unknown')}")
 

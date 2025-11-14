@@ -28,7 +28,9 @@ typedef enum {
     WEATHER_RAIN_HEAVY = 3,
     WEATHER_SNOW_LIGHT = 4,
     WEATHER_SNOW_MEDIUM = 5,
-    WEATHER_SNOW_HEAVY = 6
+    WEATHER_SNOW_HEAVY = 6,
+    WEATHER_CLOUDY = 7,      // Partly cloudy (2 white clouds, no precipitation)
+    WEATHER_OVERCAST = 8     // Overcast (5 white clouds, no precipitation)
 } weather_state_t;
 
 // Legacy aliases for backward compatibility
@@ -71,6 +73,14 @@ static inline bool weather_is_raining(weather_state_t weather) {
 
 static inline bool weather_is_snowing(weather_state_t weather) {
     return weather >= WEATHER_SNOW_LIGHT && weather <= WEATHER_SNOW_HEAVY;
+}
+
+static inline bool weather_is_cloudy(weather_state_t weather) {
+    return weather == WEATHER_CLOUDY || weather == WEATHER_OVERCAST;
+}
+
+static inline bool weather_has_clouds(weather_state_t weather) {
+    return weather_is_raining(weather) || weather_is_snowing(weather) || weather_is_cloudy(weather);
 }
 
 static inline uint8_t weather_get_rain_intensity(weather_state_t weather) {

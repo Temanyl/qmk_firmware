@@ -45,6 +45,8 @@ WEATHER_RAIN_HEAVY = 3
 WEATHER_SNOW_LIGHT = 4
 WEATHER_SNOW_MEDIUM = 5
 WEATHER_SNOW_HEAVY = 6
+WEATHER_CLOUDY = 7
+WEATHER_OVERCAST = 8
 
 WEATHER_NAMES = {
     'sunny': WEATHER_SUNNY,
@@ -61,7 +63,10 @@ WEATHER_NAMES = {
     'medium-snow': WEATHER_SNOW_MEDIUM,
     'snow-medium': WEATHER_SNOW_MEDIUM,
     'heavy-snow': WEATHER_SNOW_HEAVY,
-    'snow-heavy': WEATHER_SNOW_HEAVY
+    'snow-heavy': WEATHER_SNOW_HEAVY,
+    'cloudy': WEATHER_CLOUDY,
+    'partly-cloudy': WEATHER_CLOUDY,
+    'overcast': WEATHER_OVERCAST
 }
 
 
@@ -111,6 +116,8 @@ def cycle_all_weather(device):
     # Weather conditions to cycle through in order
     weather_cycle = [
         ('sunny', WEATHER_SUNNY),
+        ('cloudy', WEATHER_CLOUDY),
+        ('overcast', WEATHER_OVERCAST),
         ('light-rain', WEATHER_RAIN_LIGHT),
         ('rain', WEATHER_RAIN_MEDIUM),
         ('heavy-rain', WEATHER_RAIN_HEAVY),

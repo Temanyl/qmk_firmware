@@ -359,7 +359,7 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
     //   0x01 = Volume update (Byte 1: volume 0-100)
     //   0x02 = Media text update (Bytes 1-31: null-terminated string)
     //   0x03 = Date/Time update (Bytes 1-7: year_low, year_high, month, day, hour, minute, second)
-    //   0x04 = Weather control (Byte 1: weather state 0=sunny, 1=light rain, 2=medium rain, 3=heavy rain, 4=snow)
+    //   0x04 = Weather control (Byte 1: weather state 0=sunny, 1-3=rain, 4-6=snow, 7=cloudy, 8=overcast)
 
     if (length < 2) return;  // Need at least 2 bytes
 
@@ -482,8 +482,8 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
             if (length >= 2) {
                 uint8_t weather = data[1];
 
-                // Validate weather state (0=sunny, 1-3=rain, 4-6=snow)
-                if (weather <= 6) {
+                // Validate weather state (0=sunny, 1-3=rain, 4-6=snow, 7-8=cloudy)
+                if (weather <= 8) {
                     weather_transition_set_target((weather_state_t)weather);
 
                     // Reset animation flags to force re-initialization

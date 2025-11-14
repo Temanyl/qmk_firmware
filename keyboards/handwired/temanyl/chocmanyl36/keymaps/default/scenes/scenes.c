@@ -408,13 +408,20 @@ void draw_seasonal_animation(void) {
         fb_rect_hsv(0, 0, 134, 152, 170, 200, 30, true);
     } else {
         // Daytime sky depends on weather conditions
-        // Check if there are clouds (rain or snow weather)
         if (weather_is_raining(current_weather) || weather_is_snowing(current_weather)) {
-            // Cloudy/rainy/snowy day: darker grayish sky
+            // Rainy/snowy day: darkest grayish sky
             // HSV: Hue=170 (blue-gray), Saturation=40 (low saturation for gray), Value=50 (darker)
             fb_rect_hsv(0, 0, 134, 152, 170, 40, 50, true);
+        } else if (current_weather == WEATHER_OVERCAST) {
+            // Overcast day: gray sky (lighter than rain/snow)
+            // HSV: Hue=170 (blue-gray), Saturation=60, Value=90 (medium gray)
+            fb_rect_hsv(0, 0, 134, 152, 170, 60, 90, true);
+        } else if (current_weather == WEATHER_CLOUDY) {
+            // Partly cloudy day: light blue-gray sky
+            // HSV: Hue=170 (blue), Saturation=120, Value=140 (light blue-gray)
+            fb_rect_hsv(0, 0, 134, 152, 170, 120, 140, true);
         } else {
-            // Clear day: light blue sky
+            // Clear/sunny day: bright blue sky
             // HSV: Hue=170 (blue), Saturation=200, Value=180 (bright)
             fb_rect_hsv(0, 0, 134, 152, 170, 200, 180, true);
         }
@@ -510,6 +517,9 @@ void draw_seasonal_animation(void) {
                 snowman_initialized = false;
             }
         }
+    } else if (weather_is_cloudy(current_weather)) {
+        // Cloudy/Overcast: clouds only (no precipitation)
+        weather_clouds_init();
     } else {
         // SUNNY weather: continue drawing ground snow while it melts
         uint8_t ground_snow = snow_accumulation_get_ground();
@@ -612,8 +622,8 @@ void draw_seasonal_animation(void) {
         need_background = true;
     }
 
-    // Rain and snow weather need background for clouds (weather-based, not seasonal)
-    if ((weather_is_raining(bg_check_weather) || weather_is_snowing(bg_check_weather)) && cloud_initialized && !cloud_background_saved) {
+    // Rain, snow, and cloudy weather need background for clouds (weather-based, not seasonal)
+    if (weather_has_clouds(bg_check_weather) && cloud_initialized && !cloud_background_saved) {
         need_background = true;
     }
 
@@ -646,7 +656,7 @@ void draw_seasonal_animation(void) {
         if (season != 2 && smoke_initialized) {
             smoke_background_saved = true;
         }
-        if ((weather_is_raining(bg_weather) || weather_is_snowing(bg_weather)) && cloud_initialized) {
+        if (weather_has_clouds(bg_weather) && cloud_initialized) {
             cloud_background_saved = true;
         }
     }
@@ -714,10 +724,10 @@ void draw_seasonal_animation(void) {
         }
     }
 
-    // === DRAW CLOUDS (rain and snow weather) ===
+    // === DRAW CLOUDS (rain, snow, and cloudy weather) ===
     // Clouds are weather-based, not seasonal
     weather_state_t draw_weather = weather_transition_get_current();
-    if ((weather_is_raining(draw_weather) || weather_is_snowing(draw_weather)) && cloud_initialized) {
+    if (weather_has_clouds(draw_weather) && cloud_initialized) {
         // Determine cloud type and count based on weather and intensity
         cloud_type_t type;
         uint8_t num_clouds_to_draw;
@@ -740,6 +750,12 @@ void draw_seasonal_animation(void) {
         } else if (draw_weather == WEATHER_RAIN_HEAVY) {
             type = CLOUD_TYPE_DARK_HEAVY;
             num_clouds_to_draw = 5;
+        } else if (draw_weather == WEATHER_CLOUDY) {
+            type = CLOUD_TYPE_LIGHT;
+            num_clouds_to_draw = 2;  // Partly cloudy: 2 white clouds
+        } else if (draw_weather == WEATHER_OVERCAST) {
+            type = CLOUD_TYPE_LIGHT;
+            num_clouds_to_draw = 5;  // Overcast: 5 white clouds
         } else {
             type = CLOUD_TYPE_LIGHT;
             num_clouds_to_draw = 5;

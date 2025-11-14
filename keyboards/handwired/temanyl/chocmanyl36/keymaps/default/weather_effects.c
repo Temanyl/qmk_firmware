@@ -51,8 +51,12 @@ uint8_t weather_get_active_cloud_count(void) {
         return 4;  // Medium rain/snow: 4 clouds
     } else if (weather == WEATHER_RAIN_HEAVY || weather == WEATHER_SNOW_HEAVY) {
         return 5;  // Heavy rain/snow: 5 clouds
+    } else if (weather == WEATHER_CLOUDY) {
+        return 2;  // Partly cloudy: 2 white clouds
+    } else if (weather == WEATHER_OVERCAST) {
+        return 5;  // Overcast: 5 white clouds (full coverage)
     }
-    return 5;  // Default: 5 clouds
+    return 0;  // Default: no clouds (sunny)
 }
 
 // Initialize clouds
@@ -75,12 +79,14 @@ void weather_clouds_init(void) {
 
     // Calculate spacing based on number of active clouds
     int16_t spacing;
-    if (num_active == 3) {
-        spacing = 45;  // 3 clouds: wider spacing
+    if (num_active == 2) {
+        spacing = 70;  // 2 clouds: very wide spacing (partly cloudy)
+    } else if (num_active == 3) {
+        spacing = 45;  // 3 clouds: wide spacing
     } else if (num_active == 4) {
         spacing = 34;  // 4 clouds: medium spacing
     } else {
-        spacing = 26;  // 5 clouds: tighter spacing (fits perfectly on 135px screen)
+        spacing = 26;  // 5 clouds: tight spacing (fits perfectly on 135px screen)
     }
 
     // Initialize active clouds distributed across screen width
