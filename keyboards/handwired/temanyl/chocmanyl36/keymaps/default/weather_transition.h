@@ -23,9 +23,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // Weather states
 typedef enum {
     WEATHER_SUNNY = 0,
-    WEATHER_RAIN = 1,
-    WEATHER_SNOW = 2
+    WEATHER_RAIN_LIGHT = 1,
+    WEATHER_RAIN_MEDIUM = 2,
+    WEATHER_RAIN_HEAVY = 3,
+    WEATHER_SNOW = 4
 } weather_state_t;
+
+// Legacy aliases for backward compatibility
+#define WEATHER_RAIN WEATHER_RAIN_MEDIUM
 
 // Weather transition system
 typedef struct {
@@ -55,6 +60,18 @@ bool weather_transition_update(void);  // Returns true if transition just comple
 uint8_t weather_transition_get_progress(void);
 weather_state_t weather_transition_get_current(void);
 bool weather_transition_is_active(void);
+
+// Weather check helpers
+static inline bool weather_is_raining(weather_state_t weather) {
+    return weather >= WEATHER_RAIN_LIGHT && weather <= WEATHER_RAIN_HEAVY;
+}
+
+static inline uint8_t weather_get_rain_intensity(weather_state_t weather) {
+    if (weather == WEATHER_RAIN_LIGHT) return 1;
+    if (weather == WEATHER_RAIN_MEDIUM) return 2;
+    if (weather == WEATHER_RAIN_HEAVY) return 3;
+    return 0;
+}
 
 // Snow accumulation functions
 void snow_accumulation_reset(void);

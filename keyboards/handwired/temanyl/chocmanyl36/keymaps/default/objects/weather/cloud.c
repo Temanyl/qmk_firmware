@@ -19,17 +19,29 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../../display/framebuffer.h"
 
 // Cloud color configuration (HSV)
-// Light clouds (winter)
+// Light clouds (winter/snow)
 #define LIGHT_CLOUD_HUE 0       // Hue doesn't matter for white/grey
 #define LIGHT_CLOUD_SAT 0       // 0=white/grey
 #define LIGHT_CLOUD_VAL_MAIN 160  // Main body brightness
 #define LIGHT_CLOUD_VAL_TOP  150  // Top bump slightly darker
 
-// Dark clouds (fall rain clouds)
-#define DARK_CLOUD_HUE 0       // Hue doesn't matter for grey
-#define DARK_CLOUD_SAT 0       // 0=grey
-#define DARK_CLOUD_VAL_MAIN 120  // Darker grey
-#define DARK_CLOUD_VAL_TOP  110  // Top bump slightly darker
+// Light rain clouds (light gray)
+#define LIGHT_RAIN_CLOUD_HUE 0       // Hue doesn't matter for grey
+#define LIGHT_RAIN_CLOUD_SAT 0       // 0=grey
+#define LIGHT_RAIN_CLOUD_VAL_MAIN 150  // Light gray (brighter)
+#define LIGHT_RAIN_CLOUD_VAL_TOP  140  // Top bump slightly darker
+
+// Medium rain clouds (medium gray)
+#define MEDIUM_RAIN_CLOUD_HUE 0       // Hue doesn't matter for grey
+#define MEDIUM_RAIN_CLOUD_SAT 0       // 0=grey
+#define MEDIUM_RAIN_CLOUD_VAL_MAIN 110  // Medium gray
+#define MEDIUM_RAIN_CLOUD_VAL_TOP  100  // Top bump slightly darker
+
+// Heavy rain clouds (dark gray)
+#define HEAVY_RAIN_CLOUD_HUE 0       // Hue doesn't matter for grey
+#define HEAVY_RAIN_CLOUD_SAT 0       // 0=grey
+#define HEAVY_RAIN_CLOUD_VAL_MAIN 70   // Dark gray (darker)
+#define HEAVY_RAIN_CLOUD_VAL_TOP  60   // Top bump slightly darker
 
 // Initialize a cloud
 void cloud_init(cloud_t* cloud, int16_t x, int16_t y, int8_t vx) {
@@ -50,16 +62,32 @@ void cloud_draw(const cloud_t* cloud, cloud_type_t type) {
 
     // Choose colors based on cloud type
     uint8_t hue, sat, val_main, val_top;
-    if (type == CLOUD_TYPE_DARK) {
-        hue = DARK_CLOUD_HUE;
-        sat = DARK_CLOUD_SAT;
-        val_main = DARK_CLOUD_VAL_MAIN;
-        val_top = DARK_CLOUD_VAL_TOP;
-    } else {
-        hue = LIGHT_CLOUD_HUE;
-        sat = LIGHT_CLOUD_SAT;
-        val_main = LIGHT_CLOUD_VAL_MAIN;
-        val_top = LIGHT_CLOUD_VAL_TOP;
+    switch (type) {
+        case CLOUD_TYPE_DARK_LIGHT:
+            hue = LIGHT_RAIN_CLOUD_HUE;
+            sat = LIGHT_RAIN_CLOUD_SAT;
+            val_main = LIGHT_RAIN_CLOUD_VAL_MAIN;
+            val_top = LIGHT_RAIN_CLOUD_VAL_TOP;
+            break;
+        case CLOUD_TYPE_DARK_MEDIUM:
+            hue = MEDIUM_RAIN_CLOUD_HUE;
+            sat = MEDIUM_RAIN_CLOUD_SAT;
+            val_main = MEDIUM_RAIN_CLOUD_VAL_MAIN;
+            val_top = MEDIUM_RAIN_CLOUD_VAL_TOP;
+            break;
+        case CLOUD_TYPE_DARK_HEAVY:
+            hue = HEAVY_RAIN_CLOUD_HUE;
+            sat = HEAVY_RAIN_CLOUD_SAT;
+            val_main = HEAVY_RAIN_CLOUD_VAL_MAIN;
+            val_top = HEAVY_RAIN_CLOUD_VAL_TOP;
+            break;
+        case CLOUD_TYPE_LIGHT:
+        default:
+            hue = LIGHT_CLOUD_HUE;
+            sat = LIGHT_CLOUD_SAT;
+            val_main = LIGHT_CLOUD_VAL_MAIN;
+            val_top = LIGHT_CLOUD_VAL_TOP;
+            break;
     }
 
     // Cloud shape using circles

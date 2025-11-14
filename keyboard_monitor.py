@@ -173,8 +173,13 @@ class HighScoreManager:
 
 # Weather state constants (match keyboard firmware)
 WEATHER_SUNNY = 0
-WEATHER_RAIN = 1
-WEATHER_SNOW = 2
+WEATHER_RAIN_LIGHT = 1
+WEATHER_RAIN_MEDIUM = 2
+WEATHER_RAIN_HEAVY = 3
+WEATHER_SNOW = 4
+
+# Legacy alias for backward compatibility
+WEATHER_RAIN = WEATHER_RAIN_MEDIUM
 
 # Default location (Otterndorf, Germany)
 DEFAULT_WEATHER_LATITUDE = 53.800
@@ -205,17 +210,17 @@ def get_weather_openmeteo(latitude, longitude):
             # https://open-meteo.com/en/docs
             weather_code = data['current_weather']['weathercode']
 
-            # Map WMO codes to our weather states
+            # Map WMO codes to our weather states with rain intensity
             # 0: Clear sky
             # 1-3: Mainly clear, partly cloudy, overcast
             # 45, 48: Fog
-            # 51-55: Drizzle
+            # 51-55: Drizzle (light to moderate)
             # 56-57: Freezing drizzle
-            # 61-65: Rain
+            # 61-65: Rain (light to heavy)
             # 66-67: Freezing rain
             # 71-75: Snow fall
             # 77: Snow grains
-            # 80-82: Rain showers
+            # 80-82: Rain showers (slight to violent)
             # 85-86: Snow showers
             # 95: Thunderstorm
             # 96, 99: Thunderstorm with hail
@@ -223,9 +228,16 @@ def get_weather_openmeteo(latitude, longitude):
             if weather_code in [71, 73, 75, 77, 85, 86]:
                 # Snow
                 return WEATHER_SNOW
-            elif weather_code in [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99]:
-                # Rain (includes drizzle, freezing rain, showers, thunderstorms)
-                return WEATHER_RAIN
+            elif weather_code in [51, 61, 80]:
+                # Light rain: slight drizzle (51), slight rain (61), slight rain showers (80)
+                return WEATHER_RAIN_LIGHT
+            elif weather_code in [53, 63, 81]:
+                # Medium rain: moderate drizzle (53), moderate rain (63), moderate rain showers (81)
+                return WEATHER_RAIN_MEDIUM
+            elif weather_code in [55, 56, 57, 65, 66, 67, 82, 95, 96, 99]:
+                # Heavy rain: dense drizzle (55), freezing drizzle (56-57), heavy rain (65),
+                # freezing rain (66-67), violent rain showers (82), thunderstorms (95-99)
+                return WEATHER_RAIN_HEAVY
             else:
                 # Clear/Cloudy/Fog -> Sunny
                 return WEATHER_SUNNY
@@ -259,18 +271,29 @@ def get_weather_wttr(location):
             weather_desc = current['weatherDesc'][0]['value'].lower()
             weather_code = int(current['weatherCode'])
 
-            # Map wttr.in weather codes to our states
+            # Map wttr.in weather codes to our states with rain intensity
             # Full list: https://github.com/chubin/wttr.in/blob/master/lib/constants.py
             # Snow codes: 179, 182, 185, 227, 230, 281, 284, 311, 314, 317, 320, 323, 326, 329, 332, 335, 338, 350, 371, 374, 377, 392, 395
-            # Rain codes: 176, 263, 266, 281, 284, 293, 296, 299, 302, 305, 308, 353, 356, 359, 362, 365, 368, 386, 389
+            # Light rain: 176, 263, 293, 353
+            # Medium rain: 266, 296, 299, 356, 359, 362
+            # Heavy rain: 302, 305, 308, 365, 368, 386, 389
 
             snow_codes = [179, 182, 185, 227, 230, 281, 284, 311, 314, 317, 320, 323, 326, 329, 332, 335, 338, 350, 371, 374, 377, 392, 395]
-            rain_codes = [176, 263, 266, 293, 296, 299, 302, 305, 308, 353, 356, 359, 362, 365, 368, 386, 389]
+            light_rain_codes = [176, 263, 293, 353]  # Patchy rain, light drizzle, light rain shower
+            medium_rain_codes = [266, 296, 299, 356, 359, 362]  # Moderate rain, drizzle
+            heavy_rain_codes = [302, 305, 308, 365, 368, 386, 389]  # Heavy rain, torrential showers, thunderstorms
 
             if weather_code in snow_codes or 'snow' in weather_desc or 'blizzard' in weather_desc:
                 return WEATHER_SNOW
-            elif weather_code in rain_codes or 'rain' in weather_desc or 'drizzle' in weather_desc or 'shower' in weather_desc:
-                return WEATHER_RAIN
+            elif weather_code in heavy_rain_codes or 'heavy' in weather_desc or 'torrential' in weather_desc or 'thunder' in weather_desc:
+                return WEATHER_RAIN_HEAVY
+            elif weather_code in medium_rain_codes or 'moderate' in weather_desc:
+                return WEATHER_RAIN_MEDIUM
+            elif weather_code in light_rain_codes or 'light' in weather_desc or 'patchy' in weather_desc or 'drizzle' in weather_desc:
+                return WEATHER_RAIN_LIGHT
+            elif 'rain' in weather_desc or 'shower' in weather_desc:
+                # Fallback: generic rain without intensity -> medium
+                return WEATHER_RAIN_MEDIUM
             else:
                 return WEATHER_SUNNY
 
@@ -601,7 +624,8 @@ def send_weather_update(device, weather_state):
 
     Args:
         device: HID device handle
-        weather_state: Weather state (WEATHER_SUNNY=0, WEATHER_RAIN=1, WEATHER_SNOW=2)
+        weather_state: Weather state (WEATHER_SUNNY=0, WEATHER_RAIN_LIGHT=1,
+                       WEATHER_RAIN_MEDIUM=2, WEATHER_RAIN_HEAVY=3, WEATHER_SNOW=4)
 
     Returns:
         True on success, False on failure
@@ -609,7 +633,7 @@ def send_weather_update(device, weather_state):
     # Create HID packet (32 bytes)
     packet = bytearray(HID_PACKET_SIZE)
     packet[0] = CMD_WEATHER_UPDATE  # Command ID (0x04)
-    packet[1] = weather_state        # Weather state (0-2)
+    packet[1] = weather_state        # Weather state (0-4)
 
     try:
         # Send the packet
@@ -1010,7 +1034,13 @@ Features:
                                 longitude=weather_longitude
                             )
                             if current_weather is not None:
-                                weather_names = {WEATHER_SUNNY: "Sunny", WEATHER_RAIN: "Rain", WEATHER_SNOW: "Snow"}
+                                weather_names = {
+                                    WEATHER_SUNNY: "Sunny",
+                                    WEATHER_RAIN_LIGHT: "Light Rain",
+                                    WEATHER_RAIN_MEDIUM: "Rain",
+                                    WEATHER_RAIN_HEAVY: "Heavy Rain",
+                                    WEATHER_SNOW: "Snow"
+                                }
                                 print(f"🌤️  Syncing weather: {weather_names.get(current_weather, 'Unknown')}")
                                 if send_weather_update(device, current_weather):
                                     last_weather = current_weather
@@ -1147,7 +1177,13 @@ Features:
                     if current_weather is not None:
                         # Only send update if weather changed
                         if current_weather != last_weather:
-                            weather_names = {WEATHER_SUNNY: "Sunny", WEATHER_RAIN: "Rain", WEATHER_SNOW: "Snow"}
+                            weather_names = {
+                                WEATHER_SUNNY: "Sunny",
+                                WEATHER_RAIN_LIGHT: "Light Rain",
+                                WEATHER_RAIN_MEDIUM: "Rain",
+                                WEATHER_RAIN_HEAVY: "Heavy Rain",
+                                WEATHER_SNOW: "Snow"
+                            }
                             print(f"🌤️  Weather changed: {weather_names.get(current_weather, 'Unknown')}")
 
                             if send_weather_update(device, current_weather):

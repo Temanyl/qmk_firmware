@@ -722,11 +722,11 @@ void display_housekeeping_task(void) {
         }
     }
 
-    // Handle rain animation (when weather is rain)
+    // Handle rain animation (when weather is any rain type)
     // Note: animate_raindrops() handles its own region-based flushing
     if (rain_initialized && rain_background_saved) {
         weather_state_t current_weather = weather_transition_get_current();
-        if (current_weather == WEATHER_RAIN) { // Rain weather
+        if (weather_is_raining(current_weather)) { // Any rain weather
             if (current_time - rain_animation_timer >= RAIN_ANIMATION_SPEED) {
                 rain_animation_timer = current_time;
                 animate_raindrops();
@@ -890,13 +890,21 @@ void display_housekeeping_task(void) {
                         // Expand dirty region for new position
                         EXPAND_DIRTY(x - 16, y - 11, x + 18, y + 10);
 
-                        if (season == 3) {
-                            // Fall: darker rain clouds
-                            cloud_draw(&clouds[i], CLOUD_TYPE_DARK);
+                        // Determine cloud type based on current weather
+                        weather_state_t current_weather = weather_transition_get_current();
+                        cloud_type_t cloud_type;
+                        if (current_weather == WEATHER_SNOW) {
+                            cloud_type = CLOUD_TYPE_LIGHT;
+                        } else if (current_weather == WEATHER_RAIN_LIGHT) {
+                            cloud_type = CLOUD_TYPE_DARK_LIGHT;
+                        } else if (current_weather == WEATHER_RAIN_MEDIUM) {
+                            cloud_type = CLOUD_TYPE_DARK_MEDIUM;
+                        } else if (current_weather == WEATHER_RAIN_HEAVY) {
+                            cloud_type = CLOUD_TYPE_DARK_HEAVY;
                         } else {
-                            // Winter: lighter clouds
-                            cloud_draw(&clouds[i], CLOUD_TYPE_LIGHT);
+                            cloud_type = CLOUD_TYPE_LIGHT;
                         }
+                        cloud_draw(&clouds[i], cloud_type);
                     }
                 }
             }

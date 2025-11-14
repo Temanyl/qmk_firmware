@@ -39,12 +39,20 @@ CMD_WEATHER_CONTROL = 0x04
 
 # Weather states
 WEATHER_SUNNY = 0
-WEATHER_RAIN = 1
-WEATHER_SNOW = 2
+WEATHER_RAIN_LIGHT = 1
+WEATHER_RAIN_MEDIUM = 2
+WEATHER_RAIN_HEAVY = 3
+WEATHER_SNOW = 4
 
 WEATHER_NAMES = {
     'sunny': WEATHER_SUNNY,
-    'rain': WEATHER_RAIN,
+    'light-rain': WEATHER_RAIN_LIGHT,
+    'rain-light': WEATHER_RAIN_LIGHT,
+    'rain': WEATHER_RAIN_MEDIUM,  # Default rain is medium
+    'medium-rain': WEATHER_RAIN_MEDIUM,
+    'rain-medium': WEATHER_RAIN_MEDIUM,
+    'heavy-rain': WEATHER_RAIN_HEAVY,
+    'rain-heavy': WEATHER_RAIN_HEAVY,
     'snow': WEATHER_SNOW
 }
 
@@ -90,32 +98,51 @@ def send_weather_command(device, weather_state):
         return False
 
 
+def cycle_all_weather(device):
+    """Cycle through all weather conditions."""
+    # Weather conditions to cycle through in order
+    weather_cycle = [
+        ('sunny', WEATHER_SUNNY),
+        ('light-rain', WEATHER_RAIN_LIGHT),
+        ('rain', WEATHER_RAIN_MEDIUM),
+        ('heavy-rain', WEATHER_RAIN_HEAVY),
+        ('snow', WEATHER_SNOW)
+    ]
+
+    print("🔄 Cycling through all weather conditions (5 seconds each)...")
+    print("   Press Ctrl+C to stop")
+    print()
+
+    try:
+        while True:
+            for weather_name, weather_state in weather_cycle:
+                print(f"📤 Setting weather: {weather_name}")
+                if send_weather_command(device, weather_state):
+                    print(f"✓ Weather set to: {weather_name}")
+                else:
+                    print(f"✗ Failed to set weather: {weather_name}")
+
+                # Wait 5 seconds before next weather
+                time.sleep(5)
+                print()
+    except KeyboardInterrupt:
+        print()
+        print("⏹  Weather cycling stopped")
+
+
 def main():
-    if len(sys.argv) < 2:
-        print("Weather Control Script for QMK Keyboard")
-        print()
-        print("Usage:")
-        print("  python3 weather_control.py <weather>")
-        print()
-        print("Weather options:")
-        print("  sunny  - Clear sunny weather")
-        print("  rain   - Rainy weather")
-        print("  snow   - Snowy weather")
-        print()
-        print("Examples:")
-        print("  python3 weather_control.py sunny")
-        print("  python3 weather_control.py rain")
-        print("  python3 weather_control.py snow")
-        sys.exit(1)
+    # Check if running in demo mode (no arguments)
+    demo_mode = len(sys.argv) < 2
 
-    weather_name = sys.argv[1].lower()
+    if not demo_mode:
+        weather_name = sys.argv[1].lower()
 
-    if weather_name not in WEATHER_NAMES:
-        print(f"✗ Invalid weather: {weather_name}")
-        print(f"Valid options: {', '.join(WEATHER_NAMES.keys())}")
-        sys.exit(1)
+        if weather_name not in WEATHER_NAMES:
+            print(f"✗ Invalid weather: {weather_name}")
+            print(f"Valid options: {', '.join(sorted(set(WEATHER_NAMES.keys())))}")
+            sys.exit(1)
 
-    weather_state = WEATHER_NAMES[weather_name]
+        weather_state = WEATHER_NAMES[weather_name]
 
     # Find keyboard
     device_path = find_keyboard()
@@ -129,18 +156,23 @@ def main():
         device = hid.device()
         device.open_path(device_path)
         print("✓ Connected to keyboard")
+        print()
     except Exception as e:
         print(f"✗ Error opening device: {e}")
         sys.exit(1)
 
-    # Send weather command
-    print(f"📤 Sending weather command: {weather_name}")
-    if send_weather_command(device, weather_state):
-        print(f"✓ Weather transition started: {weather_name}")
-        print(f"⏱  Transition will complete in ~30 seconds")
+    if demo_mode:
+        # Cycle through all weather conditions
+        cycle_all_weather(device)
     else:
-        print("✗ Failed to send weather command")
-        sys.exit(1)
+        # Send single weather command
+        print(f"📤 Sending weather command: {weather_name}")
+        if send_weather_command(device, weather_state):
+            print(f"✓ Weather transition started: {weather_name}")
+            print(f"⏱  Transition will complete in ~30 seconds")
+        else:
+            print("✗ Failed to send weather command")
+            sys.exit(1)
 
     # Close device
     device.close()

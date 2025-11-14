@@ -29,8 +29,10 @@ typedef struct {
 
 // Cloud type for different appearances
 typedef enum {
-    CLOUD_TYPE_LIGHT,  // Light winter clouds
-    CLOUD_TYPE_DARK    // Dark rain clouds (fall)
+    CLOUD_TYPE_LIGHT,       // Light winter/snow clouds
+    CLOUD_TYPE_DARK_LIGHT,  // Light rain clouds (light gray)
+    CLOUD_TYPE_DARK_MEDIUM, // Medium rain clouds (medium gray)
+    CLOUD_TYPE_DARK_HEAVY   // Heavy rain clouds (dark gray)
 } cloud_type_t;
 
 // Cloud functions

@@ -45,20 +45,50 @@ bool snowman_initialized = false;
 extern uint8_t current_month;
 extern painter_device_t display;
 
+// Get number of active clouds based on rain intensity
+static uint8_t get_active_cloud_count(void) {
+    extern weather_transition_t weather_transition;
+    weather_state_t weather = weather_transition.current_weather;
+
+    if (weather == WEATHER_RAIN_LIGHT) {
+        return 3;  // Light rain: 3 clouds
+    } else if (weather == WEATHER_RAIN_MEDIUM) {
+        return 4;  // Medium rain: 4 clouds
+    } else if (weather == WEATHER_RAIN_HEAVY || weather == WEATHER_SNOW) {
+        return 5;  // Heavy rain or snow: 5 clouds
+    }
+    return 5;  // Default: 5 clouds
+}
+
 // Initialize clouds
 void init_clouds(void) {
     if (cloud_initialized) return;
 
-    // Initialize 5 clouds to fully cover the sky without excessive overlap
-    // Cloud width is ~34 pixels (x-16 to x+18)
-    // Display width is 135 pixels, so space clouds ~30 pixels apart
-    // Y positions vary between 25-42 for natural appearance
+    // Get current weather to determine number of active clouds
+    uint8_t num_active = get_active_cloud_count();
 
-    cloud_init(&clouds[0], 17, 32, -1);   // Left edge
-    cloud_init(&clouds[1], 47, 38, -1);   // Lower
-    cloud_init(&clouds[2], 77, 26, -1);   // Higher
-    cloud_init(&clouds[3], 107, 35, -1);  // Mid-height
-    cloud_init(&clouds[4], 137, 29, -1);  // Right edge (higher)
+    // Calculate spacing based on number of active clouds
+    int16_t spacing;
+    if (num_active == 3) {
+        spacing = 45;  // 3 clouds: wider spacing
+    } else if (num_active == 4) {
+        spacing = 34;  // 4 clouds: medium spacing
+    } else {
+        spacing = 30;  // 5 clouds: tighter spacing
+    }
+
+    // Initialize active clouds with appropriate spacing
+    // Starting from x=17 (left edge)
+    for (uint8_t i = 0; i < num_active; i++) {
+        int16_t x = 17 + (i * spacing);
+        int16_t y = 25 + ((i * 7) % 18);  // Vary height between 25-43
+        cloud_init(&clouds[i], x, y, -1);
+    }
+
+    // Move inactive clouds off-screen
+    for (uint8_t i = num_active; i < NUM_CLOUDS; i++) {
+        cloud_init(&clouds[i], 200, 30, -1);  // Off-screen to the right
+    }
 
     cloud_initialized = true;
 }
@@ -89,10 +119,28 @@ void animate_clouds(void) {
         return;
     }
 
-    // All 5 clouds are now active to ensure full sky coverage
-    uint8_t num_active_clouds = 5;
+    // Get number of active clouds based on weather intensity
+    uint8_t num_active_clouds = get_active_cloud_count();
 
-    // Update cloud positions
+    // Calculate spacing based on number of active clouds
+    // Cloud width is ~34 pixels (x-16 to x+18)
+    // Display width is 135 pixels
+    int16_t cloud_spacing;
+    if (num_active_clouds == 3) {
+        cloud_spacing = 45;  // 3 clouds: wider spacing
+    } else if (num_active_clouds == 4) {
+        cloud_spacing = 34;  // 4 clouds: medium spacing
+    } else {
+        cloud_spacing = 30;  // 5 clouds: tighter spacing
+    }
+
+    // Move inactive clouds off-screen to the right
+    for (uint8_t i = num_active_clouds; i < NUM_CLOUDS; i++) {
+        clouds[i].x = 200;  // Off-screen to the right
+        clouds[i].y = 30;
+    }
+
+    // Update cloud positions for active clouds
     for (uint8_t i = 0; i < num_active_clouds; i++) {
         // Move cloud left
         clouds[i].x += clouds[i].vx;
@@ -108,8 +156,8 @@ void animate_clouds(void) {
                     rightmost_x = clouds[j].x;
                 }
             }
-            // Place this cloud 30 pixels to the right of the rightmost cloud (for continuous coverage)
-            clouds[i].x = rightmost_x + 30;
+            // Place this cloud to the right of the rightmost cloud with appropriate spacing
+            clouds[i].x = rightmost_x + cloud_spacing;
             // Vary y position slightly (between 25-45)
             clouds[i].y = 25 + ((i * 7) % 20);
         }
