@@ -26,6 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../graphics/helvetica20.qff.c"
 #include "../weather_effects.h"
 #include "../objects/weather/cloud.h"
+#include "../objects/weather/wind.h"
 #include "../seasons/winter/seasons_winter.h"
 #include "../seasons/spring/seasons_spring.h"
 #include "../seasons/summer/seasons_summer.h"
@@ -510,6 +511,9 @@ void init_display(void) {
 
     // Initialize weather transition system with season-based defaults
     weather_transition_init(current_month);
+
+    // Initialize wind system (default: no wind, blowing right)
+    wind_init();
 
 #if FRAMEBUFFER_TEST
     // Run framebuffer quick test (shows test pattern for 2 seconds)

@@ -25,11 +25,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "game_manager.h"
 #include "weather_transition.h"
 #include "scenes/scenes.h"
+#include "objects/weather/wind.h"
 
 // Custom keycodes
 enum custom_keycodes {
     DISP_UP = SAFE_RANGE,  // Display brightness up
     DISP_DN,               // Display brightness down
+    // Wind control is via HID (command 0x05), not keyboard keys
 };
 
 // Layer Names
@@ -360,6 +362,7 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
     //   0x02 = Media text update (Bytes 1-31: null-terminated string)
     //   0x03 = Date/Time update (Bytes 1-7: year_low, year_high, month, day, hour, minute, second)
     //   0x04 = Weather control (Byte 1: weather state 0=sunny, 1-3=rain, 4-6=snow, 7=cloudy, 8=overcast)
+    //   0x05 = Wind control (Byte 1: intensity 0=none, 1=light, 2=medium, 3=high; Byte 2: direction 0=left, 1=right)
 
     if (length < 2) return;  // Need at least 2 bytes
 
@@ -508,6 +511,34 @@ void raw_hid_receive(uint8_t *data, uint8_t length) {
                     draw_seasonal_animation();
 
                     // Flush the entire scene to display to clear old particles
+                    fb_flush(display);
+                }
+            }
+            break;
+
+        case 0x05:  // Wind control
+            if (length >= 3) {
+                uint8_t intensity = data[1];
+                uint8_t direction = data[2];
+
+                // Validate intensity (0-3) and direction (0-1)
+                if (intensity <= 3 && direction <= 1) {
+                    wind_set_state((wind_intensity_t)intensity, (wind_direction_t)direction);
+
+                    // Reset cloud animation to pick up new wind velocity
+                    extern bool cloud_initialized, cloud_background_saved;
+                    cloud_initialized = false;
+                    cloud_background_saved = false;
+
+                    // Force a display redraw to show new wind effects
+                    extern uint8_t current_display_layer;
+                    extern painter_device_t display;
+                    current_display_layer = 255;  // Force full redraw on next update
+
+                    // Redraw the scene immediately with new wind
+                    draw_seasonal_animation();
+
+                    // Flush the entire scene to display
                     fb_flush(display);
                 }
             }

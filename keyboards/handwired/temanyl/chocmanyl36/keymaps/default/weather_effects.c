@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "display/framebuffer.h"
 #include "objects/weather/cloud.h"
 #include "objects/weather/raindrop.h"
+#include "objects/weather/wind.h"
 #include "objects/effects/snowflake.h"
 #include "objects/effects/snow_drift.h"
 #include "objects/seasonal/snowman.h"
@@ -99,15 +100,18 @@ void weather_clouds_init(void) {
     if (start_x < 10) start_x = 10;
     if (start_x + total_width > 117) start_x = 117 - total_width;  // Changed from 125 to 117
 
+    // Get wind velocity for cloud movement
+    int8_t vx = wind_get_cloud_velocity();
+
     for (uint8_t i = 0; i < num_active; i++) {
         int16_t x = start_x + (i * spacing);
         int16_t y = 25 + ((i * 7) % 18);  // Vary height between 25-43
-        cloud_init(&clouds[i], x, y, -1);
+        cloud_init(&clouds[i], x, y, vx);
     }
 
     // Move inactive clouds off-screen
     for (uint8_t i = num_active; i < NUM_CLOUDS; i++) {
-        cloud_init(&clouds[i], 200, 30, -1);  // Off-screen to the right
+        cloud_init(&clouds[i], 200, 30, vx);  // Off-screen to the right
     }
 
     cloud_initialized = true;
@@ -141,20 +145,34 @@ void weather_clouds_animate(void) {
         clouds[i].y = 30;
     }
 
+    // Get current wind velocity for clouds
+    int8_t vx = wind_get_cloud_velocity();
+
     // Update cloud positions for active clouds
     for (uint8_t i = 0; i < num_active_clouds; i++) {
-        // Move cloud left
+        // Update cloud velocity to match current wind
+        clouds[i].vx = vx;
+
+        // Move cloud
         clouds[i].x += clouds[i].vx;
 
-        // Respawn cloud when it's fully off the left edge of the display
-        // Cloud left edge is at x-16, so when x < -16, the cloud is completely gone
-        if (clouds[i].x < -16) {
-            // Respawn at a fixed position off the right edge
-            // This ensures clouds enter smoothly from the right without getting stuck
-            clouds[i].x = 145;  // Just off the right edge (135 + 10 pixels)
-            // Vary y position slightly (between 25-45)
-            clouds[i].y = 25 + ((i * 7) % 20);
+        // Respawn cloud when it goes off-screen
+        if (clouds[i].vx < 0) {
+            // Moving left - respawn from right when fully off left edge
+            // Cloud left edge is at x-16, so when x < -16, the cloud is completely gone
+            if (clouds[i].x < -16) {
+                clouds[i].x = 145;  // Just off the right edge (135 + 10 pixels)
+                clouds[i].y = 25 + ((i * 7) % 20);  // Vary y position (between 25-45)
+            }
+        } else if (clouds[i].vx > 0) {
+            // Moving right - respawn from left when fully off right edge
+            // Cloud right edge is at x+18, so when x > 135+18, the cloud is completely gone
+            if (clouds[i].x > 153) {
+                clouds[i].x = -10;  // Just off the left edge
+                clouds[i].y = 25 + ((i * 7) % 20);  // Vary y position (between 25-45)
+            }
         }
+        // If vx == 0, clouds don't move or respawn
     }
 
     // NOTE: Drawing is handled by caller to ensure consistent z-ordering
@@ -253,6 +271,17 @@ void weather_rain_animate(void) {
 
         // Move raindrop down by 3 pixels
         raindrops[i].y += 3;
+
+        // Add horizontal drift based on wind
+        int8_t drift = wind_get_rain_drift();
+        raindrops[i].x += drift;
+
+        // Wrap around screen edges instead of clamping
+        if (raindrops[i].x < 0) {
+            raindrops[i].x = FB_WIDTH - RAINDROP_WIDTH;  // Wrap from left to right
+        } else if (raindrops[i].x > FB_WIDTH - RAINDROP_WIDTH) {
+            raindrops[i].x = 0;  // Wrap from right to left
+        }
 
         // Reset raindrop to top if it goes below ground (y=150)
         if (raindrops[i].y >= 150) {
@@ -360,14 +389,16 @@ void weather_snow_animate(void) {
         // Move snowflake down by 1 pixel (slower than rain)
         snowflakes[i].y += 1;
 
-        // Add gentle horizontal drift (alternates left/right based on snowflake index)
-        // Some snowflakes drift left, some right, some don't drift
-        if (i % 3 == 0 && snowflakes[i].y % 4 == 0) {
-            snowflakes[i].x += 1;  // Drift right
-        } else if (i % 3 == 1 && snowflakes[i].y % 4 == 0) {
-            snowflakes[i].x -= 1;  // Drift left
+        // Add horizontal drift based on wind
+        int8_t drift = wind_get_rain_drift();
+        snowflakes[i].x += drift;
+
+        // Wrap around screen edges instead of clamping
+        if (snowflakes[i].x < 0) {
+            snowflakes[i].x = 130;  // Wrap from left to right
+        } else if (snowflakes[i].x > 130) {
+            snowflakes[i].x = 0;    // Wrap from right to left
         }
-        // i % 3 == 2: no horizontal drift (straight down)
 
         // Reset snowflake to top if it goes below ground (y=150)
         if (snowflakes[i].y >= 150) {
