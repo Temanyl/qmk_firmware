@@ -59,11 +59,12 @@ USAGE = 0x0061
 # HID packet size (32 bytes for Raw HID)
 HID_PACKET_SIZE = 32
 
-# Command IDs for monitor protocol (0x01-0x04: computer → keyboard)
+# Command IDs for monitor protocol (0x01-0x05: computer → keyboard)
 CMD_VOLUME_UPDATE = 0x01
 CMD_MEDIA_UPDATE = 0x02
 CMD_DATETIME_UPDATE = 0x03
 CMD_WEATHER_UPDATE = 0x04
+CMD_WIND_UPDATE = 0x05
 
 # Command IDs for game protocol (0x10-0x13: bidirectional)
 MSG_SCORE_SUBMIT = 0x10  # Keyboard → Computer: score submission
@@ -186,6 +187,16 @@ WEATHER_OVERCAST = 8     # Overcast (5 white clouds, no precipitation)
 WEATHER_RAIN = WEATHER_RAIN_MEDIUM
 WEATHER_SNOW = WEATHER_SNOW_MEDIUM
 
+# Wind intensity constants (match keyboard firmware)
+WIND_NONE = 0
+WIND_LIGHT = 1
+WIND_MEDIUM = 2
+WIND_HIGH = 3
+
+# Wind direction constants (match keyboard firmware)
+WIND_LEFT = 0   # Wind blowing from east (right to left on screen)
+WIND_RIGHT = 1  # Wind blowing from west (left to right on screen)
+
 # Default location (Otterndorf, Germany)
 DEFAULT_WEATHER_LATITUDE = 53.800
 DEFAULT_WEATHER_LONGITUDE = 8.900
@@ -194,17 +205,20 @@ DEFAULT_WEATHER_LOCATION = "Otterndorf, Germany"
 
 def get_weather_openmeteo(latitude, longitude):
     """
-    Fetch weather from Open-Meteo API (no API key required).
+    Fetch weather and wind data from Open-Meteo API (no API key required).
 
     Args:
         latitude: Location latitude
         longitude: Location longitude
 
     Returns:
-        Weather state (WEATHER_SUNNY, WEATHER_RAIN, WEATHER_SNOW) or None on error
+        Tuple of (weather_state, wind_intensity, wind_direction) or (None, None, None) on error
+        weather_state: WEATHER_SUNNY, WEATHER_RAIN, WEATHER_SNOW, etc.
+        wind_intensity: WIND_NONE, WIND_LIGHT, WIND_MEDIUM, WIND_HIGH
+        wind_direction: WIND_LEFT or WIND_RIGHT
     """
     try:
-        # Open-Meteo API endpoint
+        # Open-Meteo API endpoint (include wind speed and direction)
         url = f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current_weather=true"
 
         with urllib.request.urlopen(url, timeout=10) as response:
@@ -214,6 +228,10 @@ def get_weather_openmeteo(latitude, longitude):
             # WMO Weather interpretation codes (WW)
             # https://open-meteo.com/en/docs
             weather_code = data['current_weather']['weathercode']
+
+            # Get wind data
+            wind_speed_kmh = data['current_weather']['windspeed']  # km/h
+            wind_direction_deg = data['current_weather']['winddirection']  # degrees
 
             # Map WMO codes to our weather states with rain intensity
             # 0: Clear sky
@@ -230,38 +248,100 @@ def get_weather_openmeteo(latitude, longitude):
             # 95: Thunderstorm
             # 96, 99: Thunderstorm with hail
 
+            # Determine weather state
             if weather_code in [71]:
                 # Light snow fall
-                return WEATHER_SNOW_LIGHT
+                weather_state = WEATHER_SNOW_LIGHT
             elif weather_code in [73]:
                 # Moderate snow fall
-                return WEATHER_SNOW_MEDIUM
+                weather_state = WEATHER_SNOW_MEDIUM
             elif weather_code in [75, 77, 85, 86]:
                 # Heavy snow fall, snow grains, snow showers
-                return WEATHER_SNOW_HEAVY
+                weather_state = WEATHER_SNOW_HEAVY
             elif weather_code in [51, 61, 80]:
                 # Light rain: slight drizzle (51), slight rain (61), slight rain showers (80)
-                return WEATHER_RAIN_LIGHT
+                weather_state = WEATHER_RAIN_LIGHT
             elif weather_code in [53, 63, 81]:
                 # Medium rain: moderate drizzle (53), moderate rain (63), moderate rain showers (81)
-                return WEATHER_RAIN_MEDIUM
+                weather_state = WEATHER_RAIN_MEDIUM
             elif weather_code in [55, 56, 57, 65, 66, 67, 82, 95, 96, 99]:
                 # Heavy rain: dense drizzle (55), freezing drizzle (56-57), heavy rain (65),
                 # freezing rain (66-67), violent rain showers (82), thunderstorms (95-99)
-                return WEATHER_RAIN_HEAVY
+                weather_state = WEATHER_RAIN_HEAVY
             elif weather_code in [2]:
                 # Partly cloudy
-                return WEATHER_CLOUDY
+                weather_state = WEATHER_CLOUDY
             elif weather_code in [3]:
                 # Overcast
-                return WEATHER_OVERCAST
+                weather_state = WEATHER_OVERCAST
             else:
                 # Clear sky (0), mainly clear (1), or fog (45, 48) -> Sunny
-                return WEATHER_SUNNY
+                weather_state = WEATHER_SUNNY
+
+            # Map wind speed (km/h) to intensity
+            # Beaufort scale reference:
+            # 0-5 km/h: Calm (0)
+            # 6-20 km/h: Light breeze (1-2)
+            # 21-40 km/h: Moderate breeze (3-4)
+            # 41+ km/h: Strong breeze and above (5+)
+            if wind_speed_kmh < 6:
+                wind_intensity = WIND_NONE
+            elif wind_speed_kmh < 21:
+                wind_intensity = WIND_LIGHT
+            elif wind_speed_kmh < 41:
+                wind_intensity = WIND_MEDIUM
+            else:
+                wind_intensity = WIND_HIGH
+
+            # Map wind direction (meteorological degrees) to screen direction
+            # Meteorological convention: direction wind is COMING FROM
+            # Screen mapping:
+            #   - West wind (225-315°) = blowing from west = moves RIGHT on screen
+            #   - East wind (45-135°) = blowing from east = moves LEFT on screen
+            #   - North wind (315-45°) = from north = pick dominant east/west component
+            #   - South wind (135-225°) = from south = pick dominant east/west component
+            #
+            # For N/S winds, ensure they still show with medium-high intensity
+            if 225 <= wind_direction_deg < 315:
+                # West wind (NW-W-SW) -> blows RIGHT (west to east)
+                wind_display_direction = WIND_RIGHT
+            elif 45 <= wind_direction_deg < 135:
+                # East wind (NE-E-SE) -> blows LEFT (east to west)
+                wind_display_direction = WIND_LEFT
+            else:
+                # North (315-45) or South (135-225) wind
+                # Determine if it has more west or east component
+                # North: 315-360 and 0-45
+                # South: 135-225
+                if (wind_direction_deg >= 315 or wind_direction_deg < 22.5) or (157.5 <= wind_direction_deg < 202.5):
+                    # More northerly/southerly - lean west (most common for dramatic effect)
+                    wind_display_direction = WIND_RIGHT
+                    # Boost intensity for pure N/S winds to make them visible
+                    if wind_intensity == WIND_LIGHT:
+                        wind_intensity = WIND_MEDIUM
+                elif 22.5 <= wind_direction_deg < 67.5 or 112.5 <= wind_direction_deg < 157.5:
+                    # Northeast or Southeast component
+                    wind_display_direction = WIND_LEFT
+                    # Boost intensity for pure N/S winds to make them visible
+                    if wind_intensity == WIND_LIGHT:
+                        wind_intensity = WIND_MEDIUM
+                elif 292.5 <= wind_direction_deg < 337.5 or 202.5 <= wind_direction_deg < 247.5:
+                    # Northwest or Southwest component
+                    wind_display_direction = WIND_RIGHT
+                    # Boost intensity for pure N/S winds to make them visible
+                    if wind_intensity == WIND_LIGHT:
+                        wind_intensity = WIND_MEDIUM
+                else:
+                    # Default to right
+                    wind_display_direction = WIND_RIGHT
+                    if wind_intensity == WIND_LIGHT:
+                        wind_intensity = WIND_MEDIUM
+
+            return (weather_state, wind_intensity, wind_display_direction)
 
     except Exception as e:
         print(f"⚠ Error fetching weather from Open-Meteo: {e}")
-        return None
+        return (None, None, None)
 
 
 def get_weather_wttr(location):
@@ -331,16 +411,19 @@ def get_weather_wttr(location):
                 return WEATHER_OVERCAST
             else:
                 # Clear/Sunny (113) or other
-                return WEATHER_SUNNY
+                weather_state = WEATHER_SUNNY
+
+            # wttr.in doesn't provide reliable wind data, return None for wind
+            return (weather_state, None, None)
 
     except Exception as e:
         print(f"⚠ Error fetching weather from wttr.in: {e}")
-        return None
+        return (None, None, None)
 
 
 def get_current_weather(location=None, latitude=None, longitude=None):
     """
-    Get current weather condition using available APIs.
+    Get current weather condition and wind data using available APIs.
 
     Args:
         location: City name (for wttr.in)
@@ -348,22 +431,23 @@ def get_current_weather(location=None, latitude=None, longitude=None):
         longitude: Longitude (for Open-Meteo)
 
     Returns:
-        Weather state (WEATHER_SUNNY, WEATHER_RAIN, WEATHER_SNOW) or None
+        Tuple of (weather_state, wind_intensity, wind_direction) or (None, None, None)
+        Note: wttr.in API doesn't provide wind, so wind will be None if using location only
     """
-    # Try Open-Meteo first if coordinates provided
+    # Try Open-Meteo first if coordinates provided (has wind data)
     if latitude is not None and longitude is not None:
-        weather = get_weather_openmeteo(latitude, longitude)
-        if weather is not None:
-            return weather
+        result = get_weather_openmeteo(latitude, longitude)
+        if result[0] is not None:
+            return result
 
-    # Try wttr.in if location provided
+    # Try wttr.in if location provided (no wind data)
     if location is not None:
-        weather = get_weather_wttr(location)
-        if weather is not None:
-            return weather
+        result = get_weather_wttr(location)
+        if result[0] is not None:
+            return result
 
     # All APIs failed
-    return None
+    return (None, None, None)
 
 
 # ============================================================================
@@ -688,6 +772,38 @@ def send_weather_update(device, weather_state):
         return False
 
 
+def send_wind_update(device, wind_intensity, wind_direction):
+    """Send wind update to keyboard via Raw HID.
+
+    Args:
+        device: HID device handle
+        wind_intensity: Wind intensity (WIND_NONE=0, WIND_LIGHT=1, WIND_MEDIUM=2, WIND_HIGH=3)
+        wind_direction: Wind direction (WIND_LEFT=0, WIND_RIGHT=1)
+
+    Returns:
+        True on success, False on failure
+    """
+    # Create HID packet (32 bytes)
+    packet = bytearray(HID_PACKET_SIZE)
+    packet[0] = CMD_WIND_UPDATE  # Command ID (0x05)
+    packet[1] = wind_intensity    # Wind intensity (0-3)
+    packet[2] = wind_direction    # Wind direction (0-1)
+
+    try:
+        # Send the packet
+        bytes_written = device.write([0] + list(packet))
+
+        # Check if write was successful
+        if bytes_written <= 0:
+            print(f"✗ Wind write failed: {bytes_written} bytes written")
+            return False
+
+        return True
+    except Exception as e:
+        print(f"✗ Error sending wind packet: {e}")
+        return False
+
+
 def send_enter_name(device, rank):
     """Send ENTER_NAME message to keyboard"""
     data = bytearray(HID_PACKET_SIZE)
@@ -992,6 +1108,8 @@ Features:
     last_volume = None
     last_media = None
     last_weather = None  # Last weather state sent
+    last_wind_intensity = None  # Last wind intensity sent
+    last_wind_direction = None  # Last wind direction sent
     reconnect_delay = 2.0  # Wait 2 seconds between reconnection attempts
     last_connect_attempt = 0
     first_connection = True  # Track if this is the first connection
@@ -1042,6 +1160,8 @@ Features:
                                 last_volume = None
                                 last_media = None
                                 last_weather = None
+                                last_wind_intensity = None
+                                last_wind_direction = None
                                 continue
                         else:
                             # Reset last_volume to force update on next successful read
@@ -1064,13 +1184,15 @@ Features:
                         else:
                             print("✗ DateTime sync failed")
 
-                        # Immediately send current weather on (re)connect if enabled
+                        # Immediately send current weather and wind on (re)connect if enabled
                         if weather_enabled:
-                            current_weather = get_current_weather(
+                            weather_data = get_current_weather(
                                 location=weather_location,
                                 latitude=weather_latitude,
                                 longitude=weather_longitude
                             )
+                            current_weather, current_wind_intensity, current_wind_direction = weather_data
+
                             if current_weather is not None:
                                 weather_names = {
                                     WEATHER_SUNNY: "Sunny",
@@ -1089,6 +1211,25 @@ Features:
                                     last_weather_check = current_time
                                 else:
                                     print("✗ Weather sync failed")
+
+                                # Send wind update if available
+                                if current_wind_intensity is not None and current_wind_direction is not None:
+                                    wind_intensity_names = {
+                                        WIND_NONE: "None",
+                                        WIND_LIGHT: "Light",
+                                        WIND_MEDIUM: "Medium",
+                                        WIND_HIGH: "High"
+                                    }
+                                    wind_direction_names = {
+                                        WIND_LEFT: "East (←)",
+                                        WIND_RIGHT: "West (→)"
+                                    }
+                                    print(f"💨 Syncing wind: {wind_intensity_names.get(current_wind_intensity, 'Unknown')} {wind_direction_names.get(current_wind_direction, 'Unknown')}")
+                                    if send_wind_update(device, current_wind_intensity, current_wind_direction):
+                                        last_wind_intensity = current_wind_intensity
+                                        last_wind_direction = current_wind_direction
+                                    else:
+                                        print("✗ Wind sync failed")
                             else:
                                 print("⚠ Weather fetch failed")
 
@@ -1110,6 +1251,8 @@ Features:
                     last_volume = None
                     last_media = None
                     last_weather = None
+                    last_wind_intensity = None
+                    last_wind_direction = None
                     continue
 
             # Check for incoming messages from keyboard (non-blocking)
@@ -1131,6 +1274,8 @@ Features:
                         last_volume = None
                         last_media = None
                         last_weather = None
+                        last_wind_intensity = None
+                        last_wind_direction = None
                         continue
             except Exception as e:
                 # Read error doesn't necessarily mean disconnection
@@ -1159,6 +1304,8 @@ Features:
                             last_volume = None
                             last_media = None
                             last_weather = None
+                            last_wind_intensity = None
+                            last_wind_direction = None
                             continue
 
                 # Check media info periodically (every MEDIA_POLL_INTERVAL)
@@ -1187,6 +1334,8 @@ Features:
                             last_volume = None
                             last_media = None
                             last_weather = None
+                            last_wind_intensity = None
+                            last_wind_direction = None
                             continue
 
                 # Periodically send date/time updates (every minute, unless using test date)
@@ -1206,18 +1355,21 @@ Features:
                         last_volume = None
                         last_media = None
                         last_weather = None
+                        last_wind_intensity = None
+                        last_wind_direction = None
                         continue
 
-                # Periodically check weather (if enabled)
+                # Periodically check weather and wind (if enabled)
                 if weather_enabled and current_time - last_weather_check >= args.weather_interval:
-                    current_weather = get_current_weather(
+                    weather_data = get_current_weather(
                         location=weather_location,
                         latitude=weather_latitude,
                         longitude=weather_longitude
                     )
+                    current_weather, current_wind_intensity, current_wind_direction = weather_data
 
                     if current_weather is not None:
-                        # Only send update if weather changed
+                        # Send weather update if changed
                         if current_weather != last_weather:
                             weather_names = {
                                 WEATHER_SUNNY: "Sunny",
@@ -1247,10 +1399,48 @@ Features:
                                 last_volume = None
                                 last_media = None
                                 last_weather = None
+                                last_wind_intensity = None
+                                last_wind_direction = None
                                 continue
-                        else:
-                            # Weather unchanged, just update check time
-                            last_weather_check = current_time
+
+                        # Send wind update if available and changed
+                        if current_wind_intensity is not None and current_wind_direction is not None:
+                            if (current_wind_intensity != last_wind_intensity or
+                                current_wind_direction != last_wind_direction):
+                                wind_intensity_names = {
+                                    WIND_NONE: "None",
+                                    WIND_LIGHT: "Light",
+                                    WIND_MEDIUM: "Medium",
+                                    WIND_HIGH: "High"
+                                }
+                                wind_direction_names = {
+                                    WIND_LEFT: "East (←)",
+                                    WIND_RIGHT: "West (→)"
+                                }
+                                print(f"💨 Wind changed: {wind_intensity_names.get(current_wind_intensity, 'Unknown')} {wind_direction_names.get(current_wind_direction, 'Unknown')}")
+
+                                if send_wind_update(device, current_wind_intensity, current_wind_direction):
+                                    last_wind_intensity = current_wind_intensity
+                                    last_wind_direction = current_wind_direction
+                                else:
+                                    print("✗ Wind send failed, keyboard may be disconnected")
+                                    print("⏳ Waiting for keyboard to reconnect...\n")
+                                    try:
+                                        device.close()
+                                    except:
+                                        pass
+                                    device = None
+                                    last_volume = None
+                                    last_media = None
+                                    last_weather = None
+                                    last_wind_intensity = None
+                                    last_wind_direction = None
+                                    last_wind_intensity = None
+                                    last_wind_direction = None
+                                    continue
+
+                        # Update check time
+                        last_weather_check = current_time
                     else:
                         # Weather fetch failed, try again next interval
                         print("⚠ Weather fetch failed, will retry next interval")
@@ -1271,6 +1461,8 @@ Features:
                 last_volume = None
                 last_media = None
                 last_weather = None
+                last_wind_intensity = None
+                last_wind_direction = None
 
     except KeyboardInterrupt:
         print("\n\n👋 Stopping keyboard companion...")
