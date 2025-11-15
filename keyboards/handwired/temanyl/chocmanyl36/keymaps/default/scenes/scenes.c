@@ -38,6 +38,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../objects/weather/smoke.h"
 #include "../objects/weather/cloud.h"
 #include "../objects/weather/raindrop.h"
+#include "../objects/weather/wind.h"
 #include "../objects/celestial/sun.h"
 #include "../objects/celestial/moon.h"
 #include "../objects/celestial/stars.h"
@@ -281,17 +282,9 @@ void animate_smoke(void) {
                 smoke_particles[i].brightness = 180;
                 smoke_particles[i].age = 0;
 
-                // Randomize drift speed: some drift slowly, some faster
-                // Values: 0 = very slow, 1 = normal, 2 = faster
-                // Using current_time and particle index for pseudo-random variation
-                uint8_t drift_rand = (current_time + i * 17) % 10;
-                if (drift_rand < 3) {
-                    smoke_particles[i].drift = 0;  // 30% chance: very slow drift
-                } else if (drift_rand < 7) {
-                    smoke_particles[i].drift = 1;  // 40% chance: normal drift
-                } else {
-                    smoke_particles[i].drift = 2;  // 30% chance: faster drift
-                }
+                // Set drift based on wind
+                // Values: 0 = no drift (straight up), 1 = slow, 2 = medium, 3 = fast
+                smoke_particles[i].drift = wind_get_smoke_drift();
 
                 break;  // Only spawn one particle per interval
             }
@@ -330,14 +323,31 @@ void animate_smoke(void) {
         // Move particle upward
         smoke_particles[i].y -= 1;
 
-        // Add horizontal drift based on particle's drift speed
-        // drift=0: slow (every 48 ticks), drift=1: normal (every 24 ticks), drift=2: fast (every 12 ticks)
-        uint8_t drift_frequency = (smoke_particles[i].drift == 0) ? 48 :
-                                  (smoke_particles[i].drift == 1) ? 24 : 12;
+        // Add horizontal drift based on wind direction and particle's drift speed
+        // drift=0: no drift (straight up)
+        // drift=1: slow (every 32 ticks, 2px), drift=2: medium (every 16 ticks, 2px), drift=3: fast (every 8 ticks, 3px)
+        int8_t wind_direction = wind_get_smoke_direction();
 
-        if (smoke_particles[i].age % drift_frequency == 0) {
-            smoke_particles[i].x += 1;  // Always drift right by 1 pixel
+        if (smoke_particles[i].drift > 0 && wind_direction != 0) {
+            uint8_t drift_frequency;
+            uint8_t drift_amount;
+
+            if (smoke_particles[i].drift == 1) {
+                drift_frequency = 32;
+                drift_amount = 2;
+            } else if (smoke_particles[i].drift == 2) {
+                drift_frequency = 16;
+                drift_amount = 2;
+            } else {  // drift == 3
+                drift_frequency = 8;
+                drift_amount = 3;
+            }
+
+            if (smoke_particles[i].age % drift_frequency == 0) {
+                smoke_particles[i].x += wind_direction * drift_amount;  // Drift with increased amount
+            }
         }
+        // If drift == 0 or wind_direction == 0, no horizontal movement (straight up)
 
         // Shrink size as it rises (gets smaller as it gains height)
         // Shrink more slowly - every 64 age-ticks instead of 32
@@ -355,9 +365,11 @@ void animate_smoke(void) {
         // DELETION: Deactivate particle when it goes off screen or fades out
         // This is INDEPENDENT of spawning - spawning is time-based
         // Disappear around halfway up the screen (y=75, since ground is at y=150)
+        // Or when drifting off screen horizontally (left or right)
         if (smoke_particles[i].brightness == 0 ||
             smoke_particles[i].y < 75 ||
-            smoke_particles[i].x > 135) {
+            smoke_particles[i].x > 135 ||
+            smoke_particles[i].x < 0) {
             // Just deactivate - don't respawn here
             smoke_particles[i].brightness = 0;
             continue;  // Skip drawing
