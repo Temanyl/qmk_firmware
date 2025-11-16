@@ -426,12 +426,12 @@ void draw_seasonal_animation(void) {
             fb_rect_hsv(0, 0, 134, 152, 170, 40, 50, true);
         } else if (current_weather == WEATHER_OVERCAST) {
             // Overcast day: gray sky (lighter than rain/snow)
-            // HSV: Hue=170 (blue-gray), Saturation=60, Value=90 (medium gray)
-            fb_rect_hsv(0, 0, 134, 152, 170, 60, 90, true);
+            // HSV: Hue=170 (blue-gray), Saturation=60, Value=120 (lighter gray)
+            fb_rect_hsv(0, 0, 134, 152, 170, 60, 120, true);
         } else if (current_weather == WEATHER_CLOUDY) {
-            // Partly cloudy day: light blue-gray sky
-            // HSV: Hue=170 (blue), Saturation=120, Value=140 (light blue-gray)
-            fb_rect_hsv(0, 0, 134, 152, 170, 120, 140, true);
+            // Partly cloudy day: light blue sky
+            // HSV: Hue=170 (blue), Saturation=170, Value=155 (light blue)
+            fb_rect_hsv(0, 0, 134, 152, 170, 170, 155, true);
         } else {
             // Clear/sunny day: bright blue sky
             // HSV: Hue=170 (blue), Saturation=200, Value=180 (bright)
