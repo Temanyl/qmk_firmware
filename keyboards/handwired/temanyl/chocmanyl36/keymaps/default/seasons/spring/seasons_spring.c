@@ -119,6 +119,9 @@ void animate_spring(void) {
         return;
     }
 
+    // External state for clouds
+    extern bool cloud_initialized, cloud_background_saved;
+
     // Store old positions before updating
     int16_t old_bird_x[NUM_SPRING_BIRDS];
     int16_t old_bird_y[NUM_SPRING_BIRDS];
@@ -155,7 +158,12 @@ void animate_spring(void) {
         // Restore old bird position from background
         fb_restore_from_background(old_x1, old_y1, old_x2, old_y2);
 
-        // If smoke particles overlap old position, redraw them
+        // If clouds overlap old position, redraw them (behind smoke)
+        if (cloud_initialized && cloud_background_saved) {
+            redraw_clouds_in_region(old_x1, old_y1, old_x2, old_y2);
+        }
+
+        // If smoke particles overlap old position, redraw them (in front of clouds)
         if (smoke_initialized && smoke_background_saved) {
             redraw_smoke_in_region(old_x1, old_y1, old_x2, old_y2);
         }
@@ -169,20 +177,23 @@ void animate_spring(void) {
         if (new_x >= 0 && new_x < FB_WIDTH && new_y >= 0 && new_y < 150) {
             bird_draw(&birds[i]);
 
-            // Redraw smoke if it overlaps new position
-            if (smoke_initialized && smoke_background_saved) {
-                int16_t new_x1 = new_x - (BIRD_WIDTH / 2);
-                int16_t new_y1 = new_y - 4;
-                int16_t new_x2 = new_x + (BIRD_WIDTH / 2);
-                int16_t new_y2 = new_y + 3;
-                redraw_smoke_in_region(new_x1, new_y1, new_x2, new_y2);
-            }
-
-            // Flush new region
+            // Calculate new region bounds
             int16_t new_x1 = new_x - (BIRD_WIDTH / 2);
             int16_t new_y1 = new_y - 4;
             int16_t new_x2 = new_x + (BIRD_WIDTH / 2);
             int16_t new_y2 = new_y + 3;
+
+            // Redraw clouds if they overlap new position (behind smoke)
+            if (cloud_initialized && cloud_background_saved) {
+                redraw_clouds_in_region(new_x1, new_y1, new_x2, new_y2);
+            }
+
+            // Redraw smoke if it overlaps new position (in front of clouds)
+            if (smoke_initialized && smoke_background_saved) {
+                redraw_smoke_in_region(new_x1, new_y1, new_x2, new_y2);
+            }
+
+            // Flush new region
             fb_flush_region(display, new_x1, new_y1, new_x2, new_y2);
         }
     }
@@ -198,7 +209,12 @@ void animate_spring(void) {
         // Restore old butterfly position from background
         fb_restore_from_background(old_x1, old_y1, old_x2, old_y2);
 
-        // If smoke particles overlap old position, redraw them
+        // If clouds overlap old position, redraw them (behind smoke)
+        if (cloud_initialized && cloud_background_saved) {
+            redraw_clouds_in_region(old_x1, old_y1, old_x2, old_y2);
+        }
+
+        // If smoke particles overlap old position, redraw them (in front of clouds)
         if (smoke_initialized && smoke_background_saved) {
             redraw_smoke_in_region(old_x1, old_y1, old_x2, old_y2);
         }
@@ -212,20 +228,23 @@ void animate_spring(void) {
         if (new_x >= 0 && new_x < FB_WIDTH && new_y >= 0 && new_y < 150) {
             butterfly_draw(&butterflies[i]);
 
-            // Redraw smoke if it overlaps new position
-            if (smoke_initialized && smoke_background_saved) {
-                int16_t new_x1 = new_x - (BUTTERFLY_WIDTH / 2);
-                int16_t new_y1 = new_y - (BUTTERFLY_HEIGHT / 2);
-                int16_t new_x2 = new_x + (BUTTERFLY_WIDTH / 2);
-                int16_t new_y2 = new_y + (BUTTERFLY_HEIGHT / 2);
-                redraw_smoke_in_region(new_x1, new_y1, new_x2, new_y2);
-            }
-
-            // Flush new region
+            // Calculate new region bounds
             int16_t new_x1 = new_x - (BUTTERFLY_WIDTH / 2);
             int16_t new_y1 = new_y - (BUTTERFLY_HEIGHT / 2);
             int16_t new_x2 = new_x + (BUTTERFLY_WIDTH / 2);
             int16_t new_y2 = new_y + (BUTTERFLY_HEIGHT / 2);
+
+            // Redraw clouds if they overlap new position (behind smoke)
+            if (cloud_initialized && cloud_background_saved) {
+                redraw_clouds_in_region(new_x1, new_y1, new_x2, new_y2);
+            }
+
+            // Redraw smoke if it overlaps new position (in front of clouds)
+            if (smoke_initialized && smoke_background_saved) {
+                redraw_smoke_in_region(new_x1, new_y1, new_x2, new_y2);
+            }
+
+            // Flush new region
             fb_flush_region(display, new_x1, new_y1, new_x2, new_y2);
         }
     }

@@ -46,5 +46,8 @@ void animate_smoke(void);
 bool is_pixel_in_smoke(int16_t px, int16_t py);
 void redraw_smoke_in_region(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 
+// Cloud redrawing
+void redraw_clouds_in_region(int16_t x1, int16_t y1, int16_t x2, int16_t y2);
+
 // Utility functions
 uint8_t get_season(uint8_t month);

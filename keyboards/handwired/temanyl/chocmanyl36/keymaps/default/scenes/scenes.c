@@ -245,6 +245,61 @@ void redraw_smoke_in_region(int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
     }
 }
 
+// Redraw clouds in a specific region (for layering with other animations)
+void redraw_clouds_in_region(int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
+    if (!cloud_initialized) return;
+
+    // Get current weather to determine cloud type
+    weather_state_t current_weather = weather_transition_get_current();
+    if (!weather_has_clouds(current_weather)) return;
+
+    // Determine cloud type and count based on weather
+    cloud_type_t type;
+    uint8_t num_clouds_to_draw;
+
+    if (current_weather == WEATHER_SNOW_LIGHT) {
+        type = CLOUD_TYPE_LIGHT;
+        num_clouds_to_draw = 3;
+    } else if (current_weather == WEATHER_SNOW_MEDIUM) {
+        type = CLOUD_TYPE_LIGHT;
+        num_clouds_to_draw = 4;
+    } else if (current_weather == WEATHER_SNOW_HEAVY) {
+        type = CLOUD_TYPE_LIGHT;
+        num_clouds_to_draw = 5;
+    } else if (current_weather == WEATHER_RAIN_LIGHT) {
+        type = CLOUD_TYPE_DARK_LIGHT;
+        num_clouds_to_draw = 3;
+    } else if (current_weather == WEATHER_RAIN_MEDIUM) {
+        type = CLOUD_TYPE_DARK_MEDIUM;
+        num_clouds_to_draw = 4;
+    } else if (current_weather == WEATHER_RAIN_HEAVY) {
+        type = CLOUD_TYPE_DARK_HEAVY;
+        num_clouds_to_draw = 5;
+    } else if (current_weather == WEATHER_CLOUDY) {
+        type = CLOUD_TYPE_LIGHT;
+        num_clouds_to_draw = 2;
+    } else if (current_weather == WEATHER_OVERCAST) {
+        type = CLOUD_TYPE_LIGHT;
+        num_clouds_to_draw = 5;
+    } else {
+        type = CLOUD_TYPE_LIGHT;
+        num_clouds_to_draw = 5;
+    }
+
+    // Check each cloud for overlap with region
+    for (uint8_t i = 0; i < num_clouds_to_draw; i++) {
+        int16_t cloud_x1, cloud_y1, cloud_x2, cloud_y2;
+        cloud_get_bounds(&clouds[i], &cloud_x1, &cloud_y1, &cloud_x2, &cloud_y2);
+
+        // Check if cloud overlaps with region
+        if (cloud_x2 >= x1 && cloud_x1 <= x2 &&
+            cloud_y2 >= y1 && cloud_y1 <= y2) {
+            // Draw this cloud
+            cloud_draw(&clouds[i], type);
+        }
+    }
+}
+
 // Animate smoke particles
 void animate_smoke(void) {
     if (!smoke_initialized || !smoke_background_saved) {
